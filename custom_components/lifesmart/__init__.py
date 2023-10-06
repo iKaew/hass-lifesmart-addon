@@ -1,24 +1,16 @@
-"""lifesmart by @ikaew, @skyzhishui"""
-from homeassistant.const import CONF_URL
+"""lifesmart by @ikaew"""
+from typing import Final
+from homeassistant.components.climate.const import FAN_HIGH, FAN_LOW, FAN_MEDIUM
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_URL, Platform
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.util.dt import utcnow
 from homeassistant.helpers.event import async_track_point_in_utc_time
-from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity import DeviceInfo, Entity
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers import discovery
-from homeassistant.core import callback
-from homeassistant.components.climate.const import (
-    HVAC_MODE_AUTO,
-    HVAC_MODE_COOL,
-    HVAC_MODE_FAN_ONLY,
-    HVAC_MODE_HEAT,
-    HVAC_MODE_DRY,
-    SUPPORT_FAN_MODE,
-    SUPPORT_TARGET_TEMPERATURE,
-    HVAC_MODE_OFF,
-    FAN_HIGH,
-    FAN_LOW,
-    FAN_MEDIUM,
-)
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.components import climate
 from homeassistant.const import (
     CONF_FRIENDLY_NAME,
 )
@@ -46,6 +38,41 @@ from homeassistant.components.light import (
     ATTR_RGBW_COLOR,
 )
 import homeassistant.util.color as color_util
+from .const import (
+    AI_TYPES,
+    BINARY_SENSOR_TYPES,
+    CLIMATE_TYPES,
+    CONF_AI_INCLUDE_AGTS,
+    CONF_AI_INCLUDE_ITEMS,
+    CONF_EXCLUDE_AGTS,
+    CONF_EXCLUDE_ITEMS,
+    CONF_LIFESMART_APPTOKEN,
+    CONF_LIFESMART_USERID,
+    CONF_LIFESMART_USERTOKEN,
+    COVER_TYPES,
+    DEVICE_ID_KEY,
+    DEVICE_TYPE_KEY,
+    DEVICE_WITHOUT_IDXNAME,
+    DOMAIN,
+    CONF_LIFESMART_APPKEY,
+    EV_SENSOR_TYPES,
+    GAS_SENSOR_TYPES,
+    GUARD_SENSOR_TYPES,
+    HUB_ID_KEY,
+    LIFESMART_HVAC_STATE_LIST,
+    LIFESMART_STATE_MANAGER,
+    LIGHT_DIMMER_TYPES,
+    LIGHT_SWITCH_TYPES,
+    LOCK_TYPES,
+    OT_SENSOR_TYPES,
+    SPOT_TYPES,
+    SUBDEVICE_INDEX_KEY,
+    SUPPORTED_PLATFORMS,
+    SUPPORTED_SUB_BINARY_SENSORS,
+    SUPPORTED_SUB_SWITCH_TYPES,
+    SUPPORTED_SWTICH_TYPES,
+    UPDATE_LISTENER,
+)
 
 import voluptuous as vol
 import sys
@@ -55,215 +82,324 @@ sys.setrecursionlimit(100000)
 
 _LOGGER = logging.getLogger(__name__)
 
-CONF_LIFESMART_APPKEY = "appkey"
-CONF_LIFESMART_APPTOKEN = "apptoken"
-CONF_LIFESMART_USERTOKEN = "usertoken"
-CONF_LIFESMART_USERID = "userid"
-CONF_EXCLUDE_ITEMS = "exclude"
-CONF_EXCLUDE_AGTS = "exclude_agt"
-CONF_AI_INCLUDE_AGTS = "ai_include_agt"
-CONF_AI_INCLUDE_ITEMS = "ai_include_me"
 
-CON_AI_TYPE_SCENE = "scene"
-CON_AI_TYPE_AIB = "aib"
-CON_AI_TYPE_GROUP = "grouphw"
-CON_AI_TYPES = [
-    CON_AI_TYPE_SCENE,
-    CON_AI_TYPE_AIB,
-    CON_AI_TYPE_GROUP,
-]
-AI_TYPES = ["ai"]
-SWTICH_TYPES = [
-    "OD_WE_OT1",
-    "SL_MC_ND1",
-    "SL_MC_ND2",
-    "SL_MC_ND3",
-    "SL_NATURE",
-    "SL_OL",
-    "SL_OL_3C",
-    "SL_OL_DE",
-    "SL_OL_UK",
-    "SL_OL_UL",
-    "SL_OL_W",
-    "SL_P_SW",
-    "SL_S",
-    "SL_SF_IF1",
-    "SL_SF_IF2",
-    "SL_SF_IF3",
-    "SL_SF_RC",
-    "SL_SPWM",
-    "SL_SW_CP1",
-    "SL_SW_CP2",
-    "SL_SW_CP3",
-    "SL_SW_DM1",
-    "SL_SW_FE1",
-    "SL_SW_FE2",
-    "SL_SW_IF1",
-    "SL_SW_IF2",
-    "SL_SW_IF3",
-    "SL_SW_MJ1",
-    "SL_SW_MJ2",
-    "SL_SW_ND1",
-    "SL_SW_ND2",
-    "SL_SW_ND3",
-    "SL_SW_NS3",
-    "SL_SW_RC",
-    "SL_SW_RC1",
-    "SL_SW_RC2",
-    "SL_SW_RC3",
-    "SL_SW_NS1",
-    "SL_SW_NS2",
-    "SL_SW_NS3",
-    "V_IND_S",
-]
-LIGHT_SWITCH_TYPES = [
-    "SL_OL_W",
-    "SL_SW_IF1",
-    "SL_SW_IF2",
-    "SL_SW_IF3",
-    "SL_CT_RGBW",
-]
-LIGHT_DIMMER_TYPES = [
-    "SL_LI_WW",
-]
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
+    hass.data.setdefault(DOMAIN, {})
 
-QUANTUM_TYPES = [
-    "OD_WE_QUAN",
-]
-
-SPOT_TYPES = ["MSL_IRCTL", "OD_WE_IRCTL", "SL_SPOT"]
-BINARY_SENSOR_TYPES = [
-    "SL_SC_G",
-    "SL_SC_BG",
-    "SL_SC_MHW ",
-    "SL_SC_BM",
-    "SL_SC_CM",
-    "SL_P_A",
-]
-COVER_TYPES = ["SL_DOOYA"]
-GAS_SENSOR_TYPES = ["SL_SC_WA ", "SL_SC_CH", "SL_SC_CP", "ELIQ_EM"]
-EV_SENSOR_TYPES = ["SL_SC_THL", "SL_SC_BE", "SL_SC_CQ"]
-OT_SENSOR_TYPES = ["SL_SC_MHW", "SL_SC_BM", "SL_SC_G", "SL_SC_BG"]
-LOCK_TYPES = ["SL_LK_LS", "SL_LK_GTM", "SL_LK_AG", "SL_LK_SG", "SL_LK_YL"]
-GUARD_SENSOR_TYPES = ["SL_SC_G", "SL_SC_BG"]
-
-LIFESMART_STATE_LIST = [
-    HVAC_MODE_OFF,
-    HVAC_MODE_AUTO,
-    HVAC_MODE_FAN_ONLY,
-    HVAC_MODE_COOL,
-    HVAC_MODE_HEAT,
-    HVAC_MODE_DRY,
-]
-
-CLIMATE_TYPES = ["V_AIR_P", "SL_CP_DN"]
-
-ENTITYID = "entity_id"
-DOMAIN = "lifesmart"
-
-LIFESMART_STATE_MANAGER = "lifesmart_wss"
-
-
-async def async_setup(hass, config):
-    """Set up the lifesmart component."""
-    param = {}
-    param["appkey"] = config[DOMAIN][CONF_LIFESMART_APPKEY]
-    param["apptoken"] = config[DOMAIN][CONF_LIFESMART_APPTOKEN]
-    param["usertoken"] = config[DOMAIN][CONF_LIFESMART_USERTOKEN]
-    param["userid"] = config[DOMAIN][CONF_LIFESMART_USERID]
-    param["baseurl"] = config[DOMAIN][CONF_URL]
-    exclude_items = config[DOMAIN][CONF_EXCLUDE_ITEMS]
-    exclude_agts = config[DOMAIN][CONF_EXCLUDE_AGTS]
-    ai_include_agts = config[DOMAIN][CONF_AI_INCLUDE_AGTS]
-    ai_include_items = config[DOMAIN][CONF_AI_INCLUDE_ITEMS]
+    app_key = config_entry.data.get(CONF_LIFESMART_APPKEY)
+    app_token = config_entry.data.get(CONF_LIFESMART_APPTOKEN)
+    user_token = config_entry.data.get(CONF_LIFESMART_USERTOKEN)
+    user_id = config_entry.data.get(CONF_LIFESMART_USERID)
+    baseurl = config_entry.data.get(CONF_URL)
+    exclude_devices = config_entry.data.get(CONF_EXCLUDE_ITEMS)
+    exclude_hubs = config_entry.data.get(CONF_EXCLUDE_AGTS)
+    ai_include_hubs = config_entry.data.get(CONF_AI_INCLUDE_AGTS)
+    ai_include_items = config_entry.data.get(CONF_AI_INCLUDE_ITEMS)
 
     # default data
-    if exclude_items is None:
-        exclude_items = []
-    if exclude_agts is None:
-        exclude_agts = []
-    if ai_include_agts is None:
-        ai_include_agts = []
+    if exclude_devices is None:
+        exclude_devices = []
+    if exclude_hubs is None:
+        exclude_hubs = []
+    if ai_include_hubs is None:
+        ai_include_hubs = []
     if ai_include_items is None:
         ai_include_items = []
 
-    client = LifeSmartClient(
-        param["baseurl"],
-        param["appkey"],
-        param["apptoken"],
-        param["usertoken"],
-        param["userid"],
+    # Update listener for config option changes
+    update_listener = config_entry.add_update_listener(_async_update_listener)
+
+    lifesmart_client = LifeSmartClient(
+        baseurl,
+        app_key,
+        app_token,
+        user_token,
+        user_id,
     )
-    param["client"] = client
 
-    devices = await client.get_all_device_async()
+    devices = await lifesmart_client.get_all_device_async()
 
-    for dev in devices:
-        if dev["me"] in exclude_items or dev["agt"] in exclude_agts:
-            continue
-        devtype = dev["devtype"]
-        # dev['agt'] = dev['agt'].replace("_","")
-        # dev['agt'] = dev['agt'][:-3]
+    hass.data[DOMAIN][config_entry.entry_id] = {
+        "client": lifesmart_client,
+        "exclude_devices": exclude_devices,
+        "exclude_hubs": exclude_hubs,
+        "ai_include_hubs": ai_include_hubs,
+        "ai_include_items": ai_include_items,
+        "devices": devices,
+        UPDATE_LISTENER: update_listener,
+    }
 
-        if devtype in SWTICH_TYPES:
-            discovery.load_platform(
-                hass, "switch", DOMAIN, {"dev": dev, "param": param}, config
-            )
-        elif devtype in BINARY_SENSOR_TYPES:
-            discovery.load_platform(
-                hass, "binary_sensor", DOMAIN, {"dev": dev, "param": param}, config
-            )
-        elif devtype in COVER_TYPES:
-            discovery.load_platform(
-                hass, "cover", DOMAIN, {"dev": dev, "param": param}, config
-            )
-        elif devtype in SPOT_TYPES:
-            discovery.load_platform(
-                hass, "light", DOMAIN, {"dev": dev, "param": param}, config
-            )
-        elif devtype in CLIMATE_TYPES:
-            discovery.load_platform(
-                hass, "climate", DOMAIN, {"dev": dev, "param": param}, config
-            )
-        elif devtype in GAS_SENSOR_TYPES or devtype in EV_SENSOR_TYPES:
-            discovery.load_platform(
-                hass, "sensor", DOMAIN, {"dev": dev, "param": param}, config
-            )
-        elif devtype in OT_SENSOR_TYPES:
-            discovery.load_platform(
-                hass, "sensor", DOMAIN, {"dev": dev, "param": param}, config
-            )
-        elif devtype in LIGHT_SWITCH_TYPES or devtype in LIGHT_DIMMER_TYPES:
-            discovery.load_platform(
-                hass, "light", DOMAIN, {"dev": dev, "param": param}, config
-            )
-        else:
-            _LOGGER.info("device type %s is not supported", devtype)
+    for platform in SUPPORTED_PLATFORMS:
+        hass.async_add_job(
+            hass.config_entries.async_forward_entry_setup(config_entry, platform)
+        )
 
-    for agt in ai_include_agts:
-        scenes = await client.get_all_scene_async(agt)
-        for scene in scenes:
-            if scene["id"] in ai_include_items:
-                devtype = "ai"
-                me = scene["id"]
-                dev = {"devtype": devtype, "me": me, "agt": agt}
-                discovery.load_platform(
-                    hass,
-                    "switch",
-                    DOMAIN,
-                    {"dev": {**dev, **scene}, "param": param},
-                    config,
-                )
+    async def data_update_handler(msg):
+        data = msg["msg"]
+        device_type = data[DEVICE_TYPE_KEY]
+        hub_id = data[HUB_ID_KEY]
+        device_id = data[DEVICE_ID_KEY]
+        sub_device_key = data[SUBDEVICE_INDEX_KEY]
+
+        if (
+            sub_device_key != "s"
+            and device_id not in exclude_devices
+            and hub_id not in exclude_hubs
+        ):
+            entity_id = generate_entity_id(
+                device_type, hub_id, device_id, sub_device_key
+            )
+
+            if (
+                device_type in SUPPORTED_SWTICH_TYPES
+                and sub_device_key in SUPPORTED_SUB_SWITCH_TYPES
+            ):
+                attrs = hass.states.get(entity_id).attributes
+                if data["type"] % 2 == 1:
+                    hass.states.set(entity_id, "on", attrs)
+                else:
+                    hass.states.set(entity_id, "off", attrs)
+            elif (
+                device_type in BINARY_SENSOR_TYPES
+                and sub_device_key in SUPPORTED_SUB_BINARY_SENSORS
+            ):
+                attrs = hass.states.get(entity_id).attributes
+                if device_type in GUARD_SENSOR_TYPES and sub_device_key in ["G"]:
+                    if data["val"] == 0:
+                        hass.states.set(entity_id, "on", attrs)
+                    else:
+                        hass.states.set(entity_id, "off", attrs)
+                else:
+                    if data["val"] == 0:
+                        hass.states.set(entity_id, "off", attrs)
+                    else:
+                        hass.states.set(entity_id, "on", attrs)
+
+            elif device_type in COVER_TYPES and sub_device_key == "P1":
+                attrs = dict(hass.states.get(entity_id).attributes)
+                nval = data["val"]
+                ntype = data["type"]
+                attrs["current_position"] = nval & 0x7F
+                # _LOGGER.debug("websocket_cover_attrs: %s",str(attrs))
+                nstat = None
+                if ntype % 2 == 0:
+                    if nval > 0:
+                        nstat = "open"
+                    else:
+                        nstat = "closed"
+                else:
+                    if nval & 0x80 == 0x80:
+                        nstat = "opening"
+                    else:
+                        nstat = "closing"
+                hass.states.set(entity_id, nstat, attrs)
+            elif device_type in EV_SENSOR_TYPES:
+                attrs = hass.states.get(entity_id).attributes
+                hass.states.set(entity_id, data["v"], attrs)
+            elif device_type in GAS_SENSOR_TYPES and data["val"] > 0:
+                attrs = hass.states.get(entity_id).attributes
+                hass.states.set(entity_id, data["val"], attrs)
+            elif device_type in SPOT_TYPES or device_type in LIGHT_SWITCH_TYPES:
+                attrs = dict(hass.states.get(entity_id).attributes)
+                _LOGGER.debug("websocket_light_msg: %s ", str(msg))
+                _LOGGER.debug("websocket_light_attrs: %s", str(attrs))
+                value = data["val"]
+                idx = sub_device_key
+
+                if data["type"] % 2 == 0:
+                    hass.states.set(entity_id, "off", attrs)
+                else:
+                    if idx in ["HS"]:
+                        if value == 0:
+                            attrs[ATTR_HS_COLOR] = None
+                        else:
+                            rgbhexstr = "%x" % value
+                            rgbhexstr = rgbhexstr.zfill(8)
+                            rgbhex = bytes.fromhex(rgbhexstr)
+                            rgba = struct.unpack("BBBB", rgbhex)
+                            rgb = rgba[1:]
+                            attrs[ATTR_HS_COLOR] = color_util.color_RGB_to_hs(*rgb)
+                            _LOGGER.info("HS: %s", str(attrs[ATTR_HS_COLOR]))
+                    elif idx in ["RGB_O"]:
+                        if value == 0:
+                            attrs[ATTR_RGB_COLOR] = None
+                        else:
+                            rgbhexstr = "%x" % value
+                            rgbhexstr = rgbhexstr.zfill(8)
+                            rgbhex = bytes.fromhex(rgbhexstr)
+                            rgba = struct.unpack("BBBB", rgbhex)
+                            rgb = rgba[1:]
+                            attrs[ATTR_RGB_COLOR] = rgb
+                            _LOGGER.info("RGB: %s", str(attrs[ATTR_RGB_COLOR]))
+                    elif idx in ["RGBW", "RGB"]:
+                        rgbhexstr = "%x" % value
+                        rgbhexstr = rgbhexstr.zfill(8)
+                        rgbhex = bytes.fromhex(rgbhexstr)
+                        rgbhex = struct.unpack("BBBB", rgbhex)
+                        # convert from wrgb to rgbw tuple
+                        attrs[ATTR_RGBW_COLOR] = rgbhex[1:] + (rgbhex[0],)
+                        _LOGGER.info("RGBW: %s", str(attrs[ATTR_RGBW_COLOR]))
+
+                    hass.states.set(entity_id, "on", attrs)
+
+            elif device_type in LIGHT_DIMMER_TYPES:
+                attrs = dict(hass.states.get(entity_id).attributes)
+                state = hass.states.get(entity_id).state
+                _LOGGER.debug("websocket_light_msg: %s ", str(msg))
+                _LOGGER.debug("websocket_light_attrs: %s", str(attrs))
+                value = data["val"]
+                idx = sub_device_key
+                if idx in ["P1"]:
+                    if data["type"] % 2 == 1:
+                        attrs[ATTR_BRIGHTNESS] = value
+                        hass.states.set(entity_id, "on", attrs)
+                    else:
+                        hass.states.set(entity_id, "off", attrs)
+                elif idx in ["P2"]:
+                    ratio = 1 - (value / 255)
+                    attrs[ATTR_COLOR_TEMP] = (
+                        int((attrs[ATTR_MAX_MIREDS] - attrs[ATTR_MIN_MIREDS]) * ratio)
+                        + attrs[ATTR_MIN_MIREDS]
+                    )
+                    hass.states.set(entity_id, state, attrs)
+
+            elif device_type in CLIMATE_TYPES:
+                _idx = sub_device_key
+                attrs = dict(hass.states.get(entity_id).attributes)
+                nstat = hass.states.get(entity_id).state
+                if _idx == "O":
+                    if data["type"] % 2 == 1:
+                        nstat = attrs["last_mode"]
+                        hass.states.set(entity_id, nstat, attrs)
+                    else:
+                        nstat = climate.const.HVAC_MODE_OFF
+                        hass.states.set(entity_id, nstat, attrs)
+                if _idx == "P1":
+                    if data["type"] % 2 == 1:
+                        nstat = climate.const.HVAC_MODE_HEAT
+                        hass.states.set(entity_id, nstat, attrs)
+                    else:
+                        nstat = climate.const.HVAC_MODE_OFF
+                        hass.states.set(entity_id, nstat, attrs)
+                if _idx == "P2":
+                    if data["type"] % 2 == 1:
+                        attrs["Heating"] = "true"
+                        hass.states.set(entity_id, nstat, attrs)
+                    else:
+                        attrs["Heating"] = "false"
+                        hass.states.set(entity_id, nstat, attrs)
+                elif _idx == "MODE":
+                    if data["type"] == 206:
+                        if nstat != climate.const.HVAC_MODE_OFF:
+                            nstat = LIFESMART_HVAC_STATE_LIST[data["val"]]
+                        attrs["last_mode"] = nstat
+                        hass.states.set(entity_id, nstat, attrs)
+                elif _idx == "F":
+                    if data["type"] == 206:
+                        attrs["fan_mode"] = get_fan_mode(data["val"])
+                        hass.states.set(entity_id, nstat, attrs)
+                elif _idx == "tT" or _idx == "P3":
+                    if data["type"] == 136:
+                        attrs["temperature"] = data["v"]
+                        hass.states.set(entity_id, nstat, attrs)
+                elif _idx == "T" or _idx == "P4":
+                    if data["type"] == 8 or data["type"] == 9:
+                        attrs["current_temperature"] = data["v"]
+                        hass.states.set(entity_id, nstat, attrs)
+            elif device_type in LOCK_TYPES:
+                if sub_device_key == "BAT":
+                    attrs = hass.states.get(entity_id).attributes
+                    hass.states.set(entity_id, data["val"], attrs)
+                elif sub_device_key == "EVTLO":
+                    val = data["val"]
+                    ulk_way = val >> 12
+                    ulk_user = val & 0xFFF
+                    ulk_success = True
+                    if ulk_user == 0:
+                        ulk_success = False
+                    attrs = {
+                        "unlocking_way": ulk_way,
+                        "unlocking_user": ulk_user,
+                        "devtype": device_type,
+                        "unlocking_success": ulk_success,
+                        "last_time": datetime.datetime.fromtimestamp(
+                            data["ts"] / 1000
+                        ).strftime("%Y-%m-%d %H:%M:%S"),
+                    }
+                    if data["type"] % 2 == 1:
+                        hass.states.set(entity_id, "on", attrs)
+                    else:
+                        hass.states.set(entity_id, "off", attrs)
+            elif device_type in OT_SENSOR_TYPES and sub_device_key in [
+                "Z",
+                "V",
+                "P3",
+                "P4",
+            ]:
+                attrs = hass.states.get(entity_id).attributes
+                hass.states.set(entity_id, data["v"], attrs)
+
+            else:
+                _LOGGER.debug("Event is not supported")
+
+        # AI event
+        if (
+            sub_device_key == "s"
+            and device_id in ai_include_items
+            and data[HUB_ID_KEY] in ai_include_hubs
+        ):
+            _LOGGER.info("AI Event: %s", str(msg))
+            device_type = data["devtype"]
+            hub_id = data[HUB_ID_KEY]
+            entity_id = (
+                "switch."
+                + (
+                    device_type + "_" + hub_id + "_" + device_id + "_" + sub_device_key
+                ).lower()
+            )
+            attrs = hass.states.get(entity_id).attributes
+
+            if data["stat"] == 3:
+                hass.states.set(entity_id, "on", attrs)
+            elif data["stat"] == 4:
+                hass.states.set(entity_id, "off", attrs)
+
+    def on_message(ws, message):
+        _LOGGER.debug("websocket_msg: %s", str(message))
+        msg = json.loads(message)
+        if "type" not in msg:
+            return
+        if msg["type"] != "io":
+            return
+        asyncio.run(data_update_handler(msg))
+
+    def on_error(ws, error):
+        _LOGGER.error("Websocket_error: %s", str(error))
+
+    def on_close(ws, close_status_code, close_msg):
+        _LOGGER.debug(
+            "lifesmart websocket closed...: %s %s",
+            str(close_status_code),
+            str(close_msg),
+        )
+
+    def on_open(ws):
+        client = hass.data[DOMAIN][config_entry.entry_id]["client"]
+        send_data = client.generate_wss_auth()
+        ws.send(send_data)
+        _LOGGER.debug("LifeSmart websocket sending_data")
 
     async def send_keys(call):
         """Handle the service call."""
-        agt = call.data["agt"]
-        me = call.data["me"]
+        agt = call.data[HUB_ID_KEY]
+        me = call.data[DEVICE_ID_KEY]
         ai = call.data["ai"]
         category = call.data["category"]
         brand = call.data["brand"]
         keys = call.data["keys"]
-        restkey = await param["client"].send_ir_key_async(
+        restkey = await hass.data[DOMAIN][config_entry.entry_id][
+            "client"
+        ].send_ir_key_async(
             agt,
             ai,
             me,
@@ -275,8 +411,8 @@ async def async_setup(hass, config):
 
     async def send_ackeys(call):
         """Handle the service call."""
-        agt = call.data["agt"]
-        me = call.data["me"]
+        agt = call.data[HUB_ID_KEY]
+        me = call.data[DEVICE_ID_KEY]
         ai = call.data["ai"]
         category = call.data["category"]
         brand = call.data["brand"]
@@ -286,7 +422,9 @@ async def async_setup(hass, config):
         temp = call.data["temp"]
         wind = call.data["wind"]
         swing = call.data["swing"]
-        restackey = await param["client"].send_ir_ackey_async(
+        restackey = await hass.data[DOMAIN][config_entry.entry_id][
+            "client"
+        ].send_ir_ackey_async(
             agt,
             ai,
             me,
@@ -303,451 +441,52 @@ async def async_setup(hass, config):
 
     async def scene_set_async(call):
         """Handle the service call."""
-        agt = call.data["agt"]
+        agt = call.data[HUB_ID_KEY]
         id = call.data["id"]
-        restkey = await param["client"].set_scene_async(
+        restkey = await hass.data[DOMAIN][config_entry.entry_id][
+            "client"
+        ].set_scene_async(
             agt,
             id,
         )
         _LOGGER.debug("scene_set: %s", str(restkey))
-
-    def get_fan_mode(_fanspeed):
-        fanmode = None
-        if _fanspeed < 30:
-            fanmode = FAN_LOW
-        elif _fanspeed < 65 and _fanspeed >= 30:
-            fanmode = FAN_MEDIUM
-        elif _fanspeed >= 65:
-            fanmode = FAN_HIGH
-        return fanmode
-
-    async def data_update_handler(msg):
-        if (
-            msg["msg"]["idx"] != "s"
-            and msg["msg"]["me"] not in exclude_items
-            and msg["msg"]["agt"] not in exclude_agts
-        ):
-            devtype = msg["msg"]["devtype"]
-            # agt = msg['msg']['agt'].replace("_","")
-            agt = msg["msg"]["agt"][:-3]
-            agt = agt.replace("-", "_")  # entityid need to be the same
-            if devtype in SWTICH_TYPES and msg["msg"]["idx"] in [
-                "L1",
-                "L2",
-                "L3",
-                "P1",
-                "P2",
-                "P3",
-            ]:
-                enid = (
-                    "switch."
-                    + (
-                        devtype
-                        + "_"
-                        + agt
-                        + "_"
-                        + msg["msg"]["me"]
-                        + "_"
-                        + msg["msg"]["idx"]
-                    ).lower()
-                )
-                attrs = hass.states.get(enid).attributes
-                if msg["msg"]["type"] % 2 == 1:
-                    hass.states.set(enid, "on", attrs)
-                else:
-                    hass.states.set(enid, "off", attrs)
-            elif devtype in BINARY_SENSOR_TYPES and msg["msg"]["idx"] in [
-                "M",
-                "G",
-                "B",
-                "AXS",
-                "P1",
-            ]:
-                enid = (
-                    "binary_sensor."
-                    + (
-                        devtype
-                        + "_"
-                        + agt
-                        + "_"
-                        + msg["msg"]["me"]
-                        + "_"
-                        + msg["msg"]["idx"]
-                    ).lower()
-                )
-                attrs = hass.states.get(enid).attributes
-                if devtype in GUARD_SENSOR_TYPES and msg["msg"]["idx"] in ["G"]:
-                    if msg["msg"]["val"] == 0:
-                        hass.states.set(enid, "on", attrs)
-                    else:
-                        hass.states.set(enid, "off", attrs)
-                else:
-                    if msg["msg"]["val"] == 0:
-                        hass.states.set(enid, "off", attrs)
-                    else:
-                        hass.states.set(enid, "on", attrs)
-
-            elif devtype in COVER_TYPES and msg["msg"]["idx"] == "P1":
-                enid = "cover." + (devtype + "_" + agt + "_" + msg["msg"]["me"]).lower()
-                attrs = dict(hass.states.get(enid).attributes)
-                nval = msg["msg"]["val"]
-                ntype = msg["msg"]["type"]
-                attrs["current_position"] = nval & 0x7F
-                # _LOGGER.debug("websocket_cover_attrs: %s",str(attrs))
-                nstat = None
-                if ntype % 2 == 0:
-                    if nval > 0:
-                        nstat = "open"
-                    else:
-                        nstat = "closed"
-                else:
-                    if nval & 0x80 == 0x80:
-                        nstat = "opening"
-                    else:
-                        nstat = "closing"
-                hass.states.set(enid, nstat, attrs)
-            elif devtype in EV_SENSOR_TYPES:
-                enid = (
-                    "sensor."
-                    + (
-                        devtype
-                        + "_"
-                        + agt
-                        + "_"
-                        + msg["msg"]["me"]
-                        + "_"
-                        + msg["msg"]["idx"]
-                    ).lower()
-                )
-                attrs = hass.states.get(enid).attributes
-                hass.states.set(enid, msg["msg"]["v"], attrs)
-            elif devtype in GAS_SENSOR_TYPES and msg["msg"]["val"] > 0:
-                enid = (
-                    "sensor."
-                    + (
-                        devtype
-                        + "_"
-                        + agt
-                        + "_"
-                        + msg["msg"]["me"]
-                        + "_"
-                        + msg["msg"]["idx"]
-                    ).lower()
-                )
-                attrs = hass.states.get(enid).attributes
-                hass.states.set(enid, msg["msg"]["val"], attrs)
-            elif devtype in SPOT_TYPES or devtype in LIGHT_SWITCH_TYPES:
-                enid = (
-                    "light."
-                    + (
-                        devtype
-                        + "_"
-                        + agt
-                        + "_"
-                        + msg["msg"]["me"]
-                        + "_"
-                        + msg["msg"]["idx"]
-                    ).lower()
-                )
-                attrs = dict(hass.states.get(enid).attributes)
-                _LOGGER.debug("websocket_light_msg: %s ", str(msg))
-                _LOGGER.debug("websocket_light_attrs: %s", str(attrs))
-                value = msg["msg"]["val"]
-                idx = msg["msg"]["idx"]
-
-                if msg["msg"]["type"] % 2 == 0:
-                    hass.states.set(enid, "off", attrs)
-                else:
-                    if idx in ["HS"]:
-                        if value == 0:
-                            attrs[ATTR_HS_COLOR] = None
-                        else:
-                            rgbhexstr = "%x" % value
-                            rgbhexstr = rgbhexstr.zfill(8)
-                            rgbhex = bytes.fromhex(rgbhexstr)
-                            rgba = struct.unpack("BBBB", rgbhex)
-                            rgb = rgba[1:]
-                            attrs[ATTR_HS_COLOR] = color_util.color_RGB_to_hs(*rgb)
-                            _LOGGER.info("hs: %s", str(attrs[ATTR_HS_COLOR]))
-                    elif idx in ["RGB_O"]:
-                        if value == 0:
-                            attrs[ATTR_RGB_COLOR] = None
-                        else:
-                            rgbhexstr = "%x" % value
-                            rgbhexstr = rgbhexstr.zfill(8)
-                            rgbhex = bytes.fromhex(rgbhexstr)
-                            rgba = struct.unpack("BBBB", rgbhex)
-                            rgb = rgba[1:]
-                            attrs[ATTR_RGB_COLOR] = rgb
-                            _LOGGER.info("rgb: %s", str(attrs[ATTR_RGB_COLOR]))
-                    elif idx in ["RGBW", "RGB"]:
-                        rgbhexstr = "%x" % value
-                        rgbhexstr = rgbhexstr.zfill(8)
-                        rgbhex = bytes.fromhex(rgbhexstr)
-                        rgbhex = struct.unpack("BBBB", rgbhex)
-                        # convert from wrgb to rgbw tuple
-                        attrs[ATTR_RGBW_COLOR] = rgbhex[1:] + (rgbhex[0],)
-                        _LOGGER.info("rgbw: %s", str(attrs[ATTR_RGBW_COLOR]))
-
-                    hass.states.set(enid, "on", attrs)
-
-            elif devtype in LIGHT_DIMMER_TYPES:
-                enid = (
-                    "light."
-                    + (
-                        devtype
-                        + "_"
-                        + agt
-                        + "_"
-                        + msg["msg"]["me"]
-                        + "_"
-                        + "P1P2"
-                        # + msg["msg"]["idx"]
-                    ).lower()
-                )
-                attrs = dict(hass.states.get(enid).attributes)
-                state = hass.states.get(enid).state
-                _LOGGER.debug("websocket_light_msg: %s ", str(msg))
-                _LOGGER.debug("websocket_light_attrs: %s", str(attrs))
-                value = msg["msg"]["val"]
-                idx = msg["msg"]["idx"]
-                if idx in ["P1"]:
-                    if msg["msg"]["type"] % 2 == 1:
-                        attrs[ATTR_BRIGHTNESS] = value
-                        hass.states.set(enid, "on", attrs)
-                    else:
-                        hass.states.set(enid, "off", attrs)
-                elif idx in ["P2"]:
-                    ratio = 1 - (value / 255)
-                    attrs[ATTR_COLOR_TEMP] = (
-                        int((attrs[ATTR_MAX_MIREDS] - attrs[ATTR_MIN_MIREDS]) * ratio)
-                        + attrs[ATTR_MIN_MIREDS]
-                    )
-                    hass.states.set(enid, state, attrs)
-
-            # elif devtype in QUANTUM_TYPES and msg['msg']['idx'] == "P1":
-            #    enid = "light."+(devtype + "_" + agt + "_" + msg['msg']['me'] + "_P1").lower()
-            #    attrs = hass.states.get(enid).attributes
-            #    hass.states.set(enid, msg['msg']['val'], attrs)
-            elif devtype in CLIMATE_TYPES:
-                enid = "climate." + (
-                    devtype + "_" + agt + "_" + msg["msg"]["me"]
-                ).lower().replace(":", "_").replace("@", "_")
-                _idx = msg["msg"]["idx"]
-                attrs = dict(hass.states.get(enid).attributes)
-                nstat = hass.states.get(enid).state
-                if _idx == "O":
-                    if msg["msg"]["type"] % 2 == 1:
-                        nstat = attrs["last_mode"]
-                        hass.states.set(enid, nstat, attrs)
-                    else:
-                        nstat = HVAC_MODE_OFF
-                        hass.states.set(enid, nstat, attrs)
-                if _idx == "P1":
-                    if msg["msg"]["type"] % 2 == 1:
-                        nstat = HVAC_MODE_HEAT
-                        hass.states.set(enid, nstat, attrs)
-                    else:
-                        nstat = HVAC_MODE_OFF
-                        hass.states.set(enid, nstat, attrs)
-                if _idx == "P2":
-                    if msg["msg"]["type"] % 2 == 1:
-                        attrs["Heating"] = "true"
-                        hass.states.set(enid, nstat, attrs)
-                    else:
-                        attrs["Heating"] = "false"
-                        hass.states.set(enid, nstat, attrs)
-                elif _idx == "MODE":
-                    if msg["msg"]["type"] == 206:
-                        if nstat != HVAC_MODE_OFF:
-                            nstat = LIFESMART_STATE_LIST[msg["msg"]["val"]]
-                        attrs["last_mode"] = nstat
-                        hass.states.set(enid, nstat, attrs)
-                elif _idx == "F":
-                    if msg["msg"]["type"] == 206:
-                        attrs["fan_mode"] = get_fan_mode(msg["msg"]["val"])
-                        hass.states.set(enid, nstat, attrs)
-                elif _idx == "tT" or _idx == "P3":
-                    if msg["msg"]["type"] == 136:
-                        attrs["temperature"] = msg["msg"]["v"]
-                        hass.states.set(enid, nstat, attrs)
-                elif _idx == "T" or _idx == "P4":
-                    if msg["msg"]["type"] == 8 or msg["msg"]["type"] == 9:
-                        attrs["current_temperature"] = msg["msg"]["v"]
-                        hass.states.set(enid, nstat, attrs)
-            elif devtype in LOCK_TYPES:
-                if msg["msg"]["idx"] == "BAT":
-                    enid = (
-                        "sensor."
-                        + (
-                            devtype
-                            + "_"
-                            + agt
-                            + "_"
-                            + msg["msg"]["me"]
-                            + "_"
-                            + msg["msg"]["idx"]
-                        ).lower()
-                    )
-                    attrs = hass.states.get(enid).attributes
-                    hass.states.set(enid, msg["msg"]["val"], attrs)
-                elif msg["msg"]["idx"] == "EVTLO":
-                    enid = (
-                        "binary_sensor."
-                        + (
-                            devtype
-                            + "_"
-                            + agt
-                            + "_"
-                            + msg["msg"]["me"]
-                            + "_"
-                            + msg["msg"]["idx"]
-                        ).lower()
-                    )
-                    val = msg["msg"]["val"]
-                    ulk_way = val >> 12
-                    ulk_user = val & 0xFFF
-                    ulk_success = True
-                    if ulk_user == 0:
-                        ulk_success = False
-                    attrs = {
-                        "unlocking_way": ulk_way,
-                        "unlocking_user": ulk_user,
-                        "devtype": devtype,
-                        "unlocking_success": ulk_success,
-                        "last_time": datetime.datetime.fromtimestamp(
-                            msg["msg"]["ts"] / 1000
-                        ).strftime("%Y-%m-%d %H:%M:%S"),
-                    }
-                    if msg["msg"]["type"] % 2 == 1:
-                        hass.states.set(enid, "on", attrs)
-                    else:
-                        hass.states.set(enid, "off", attrs)
-            if devtype in OT_SENSOR_TYPES and msg["msg"]["idx"] in [
-                "Z",
-                "V",
-                "P3",
-                "P4",
-            ]:
-                enid = (
-                    "sensor."
-                    + (
-                        devtype
-                        + "_"
-                        + agt
-                        + "_"
-                        + msg["msg"]["me"]
-                        + "_"
-                        + msg["msg"]["idx"]
-                    ).lower()
-                )
-                attrs = hass.states.get(enid).attributes
-                hass.states.set(enid, msg["msg"]["v"], attrs)
-
-        # AI event
-        if (
-            msg["msg"]["idx"] == "s"
-            and msg["msg"]["me"] in ai_include_items
-            and msg["msg"]["agt"] in ai_include_agts
-        ):
-            _LOGGER.info("AI Event: %s", str(msg))
-            devtype = msg["msg"]["devtype"]
-            agt = msg["msg"]["agt"][:-3]
-            enid = (
-                "switch."
-                + (
-                    devtype
-                    + "_"
-                    + agt
-                    + "_"
-                    + msg["msg"]["me"]
-                    + "_"
-                    + msg["msg"]["idx"]
-                ).lower()
-            )
-            attrs = hass.states.get(enid).attributes
-
-            if msg["msg"]["stat"] == 3:
-                hass.states.set(enid, "on", attrs)
-            elif msg["msg"]["stat"] == 4:
-                hass.states.set(enid, "off", attrs)
-
-    def on_message(ws, message):
-        # _LOGGER.info("websocket_msg: %s",str(message))
-        msg = json.loads(message)
-        if "type" not in msg:
-            return
-        if msg["type"] != "io":
-            return
-        asyncio.run(data_update_handler(msg))
-
-    def on_error(ws, error):
-        _LOGGER.error("websocket_error: %s", str(error))
-
-    def on_close(ws, close_status_code, close_msg):
-        _LOGGER.debug(
-            "lifesmart websocket closed...: %s %s",
-            str(close_status_code),
-            str(close_msg),
-        )
-
-    def on_open(ws):
-        client = param["client"]
-        send_data = client.generate_wss_auth()
-        ws.send(send_data)
-        _LOGGER.debug("lifesmart websocket sending_data...")
 
     hass.services.async_register(DOMAIN, "send_keys", send_keys)
     hass.services.async_register(DOMAIN, "send_ackeys", send_ackeys)
     hass.services.async_register(DOMAIN, "scene_set", scene_set_async)
 
     ws = websocket.WebSocketApp(
-        client.get_wss_url(),
+        lifesmart_client.get_wss_url(),
         on_message=on_message,
         on_error=on_error,
         on_close=on_close,
     )
     ws.on_open = on_open
-    hass.data[LIFESMART_STATE_MANAGER] = LifeSmartStatesManager(ws=ws)
-    hass.data[LIFESMART_STATE_MANAGER].start_keep_alive()
+    hass.data[DOMAIN][LIFESMART_STATE_MANAGER] = LifeSmartStatesManager(ws=ws)
+    hass.data[DOMAIN][LIFESMART_STATE_MANAGER].start_keep_alive()
     return True
+
+
+async def _async_update_listener(hass, config_entry):
+    """Handle options update."""
+    await hass.config_entries.async_reload(config_entry.entry_id)
 
 
 class LifeSmartDevice(Entity):
     """LifeSmart base device."""
 
-    def __init__(self, dev, idx, val, param) -> None:
+    def __init__(self, dev, lifesmart_client) -> None:
         """Initialize the switch."""
-        if dev["devtype"] in SWTICH_TYPES and dev["devtype"] not in [
-            "SL_NATURE",
-            "SL_SW_ND1",
-            "SL_SW_ND2",
-            "SL_SW_ND3",
-            "SL_SW_MJ1",
-            "SL_SW_MJ2",
-        ]:
-            self._name = dev["name"] + "_" + dev["data"][idx]["name"]
-        elif (
-            dev["devtype"] in AI_TYPES
-            or dev["devtype"] in LIGHT_DIMMER_TYPES
-            or dev["devtype"] in LIGHT_SWITCH_TYPES
-        ):
-            self._name = dev["name"]
-        else:
-            self._name = dev["name"] + "_" + idx
-        self._appkey = param["appkey"]
-        self._apptoken = param["apptoken"]
-        self._usertoken = param["usertoken"]
-        self._userid = param["userid"]
-        self._agt = dev["agt"]
-        self._me = dev["me"]
-        self._idx = idx
+
+        self._name = dev["name"]
+        self._device_name = dev["name"]
+        self._agt = dev[HUB_ID_KEY]
+        self._me = dev[DEVICE_ID_KEY]
         self._devtype = dev["devtype"]
-        self._client = param["client"]
+        self._client = lifesmart_client
         attrs = {
-            "agt": self._agt,
-            "me": self._me,
-            "idx": self._idx,
+            HUB_ID_KEY: self._agt,
+            DEVICE_ID_KEY: self._me,
             "devtype": self._devtype,
         }
         self._attributes = attrs
@@ -802,7 +541,7 @@ class LifeSmartDevice(Entity):
 class LifeSmartStatesManager(threading.Thread):
     """Instance to manage websocket to get push data from LifeSmart service"""
 
-    def __init__(self, ws):
+    def __init__(self, ws) -> None:
         """Init LifeSmart Update Manager."""
         threading.Thread.__init__(self)
         self._run = False
@@ -811,9 +550,9 @@ class LifeSmartStatesManager(threading.Thread):
 
     def run(self):
         while self._run:
-            _LOGGER.debug("lifesmart: starting wss...")
+            _LOGGER.debug("lifesmart: starting wss")
             self._ws.run_forever()
-            _LOGGER.debug("lifesmart: restart wss...")
+            _LOGGER.debug("lifesmart: restart wss")
             time.sleep(10)
 
     def start_keep_alive(self):
@@ -827,3 +566,99 @@ class LifeSmartStatesManager(threading.Thread):
         with self._lock:
             self._run = False
             self.join()
+
+
+def get_fan_mode(_fanspeed):
+    fanmode = None
+    if _fanspeed < 30:
+        fanmode = FAN_LOW
+    elif _fanspeed < 65 and _fanspeed >= 30:
+        fanmode = FAN_MEDIUM
+    elif _fanspeed >= 65:
+        fanmode = FAN_HIGH
+    return fanmode
+
+
+def get_platform_by_device(device_type, sub_device=None):
+    if device_type in SUPPORTED_SWTICH_TYPES:
+        return Platform.SWITCH
+    elif device_type in BINARY_SENSOR_TYPES:
+        return Platform.BINARY_SENSOR
+    elif device_type in COVER_TYPES:
+        return Platform.COVER
+    elif device_type in EV_SENSOR_TYPES + GAS_SENSOR_TYPES + OT_SENSOR_TYPES:
+        return Platform.SENSOR
+    elif device_type in SPOT_TYPES + LIGHT_SWITCH_TYPES + LIGHT_DIMMER_TYPES:
+        return Platform.LIGHT
+    elif device_type in CLIMATE_TYPES:
+        return Platform.CLIMATE
+    elif device_type in LOCK_TYPES and sub_device == "BAT":
+        return Platform.SENSOR
+    elif device_type in LOCK_TYPES and sub_device == "EVTLO":
+        return Platform.BINARY_SENSOR
+
+
+def generate_entity_id(device_type, hub_id, device_id, idx=None):
+    hub_id = hub_id.replace("__", "_").replace("-", "_")
+    if idx:
+        sub_device = idx
+    else:
+        sub_device = None
+
+    if device_type in [
+        *SUPPORTED_SWTICH_TYPES,
+        *BINARY_SENSOR_TYPES,
+        *EV_SENSOR_TYPES,
+        *GAS_SENSOR_TYPES,
+        *SPOT_TYPES,
+        *LIGHT_SWITCH_TYPES,
+        *OT_SENSOR_TYPES,
+    ]:
+        if sub_device:
+            return (
+                get_platform_by_device(device_type)
+                + (
+                    "."
+                    + device_type
+                    + "_"
+                    + hub_id
+                    + "_"
+                    + device_id
+                    + "_"
+                    + sub_device
+                ).lower()
+            )
+        else:
+            return (
+                get_platform_by_device(device_type)
+                + ("." + device_type + "_" + hub_id + "_" + device_id).lower()
+            )
+
+    elif device_type in COVER_TYPES:
+        return (
+            Platform.COVER
+            + ("." + device_type + "_" + hub_id + "_" + device_id).lower()
+        )
+    elif device_type in LIGHT_DIMMER_TYPES:
+        return (
+            Platform.LIGHT
+            + ("." + device_type + "_" + hub_id + "_" + device_id + "_P1P2").lower()
+        )
+    elif device_type in CLIMATE_TYPES:
+        return Platform.CLIMATE + (
+            "." + device_type + "_" + hub_id + "_" + device_id
+        ).lower().replace(":", "_").replace("@", "_")
+    elif device_type in LOCK_TYPES and sub_device == "BAT":
+        return (
+            Platform.SENSOR
+            + (
+                "." + device_type + "_" + hub_id + "_" + device_id + "_" + sub_device
+            ).lower()
+        )
+    elif device_type in LOCK_TYPES and sub_device == "EVTLO":
+        return (
+            Platform.BINARY_SENSOR
+            + (
+                "." + device_type + "_" + hub_id + "_" + device_id + "_" + sub_device
+            ).lower()
+        )

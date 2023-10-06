@@ -23,7 +23,7 @@ from homeassistant.components.light import (
 )
 import homeassistant.util.color as color_util
 
-from . import LifeSmartDevice
+from . import LifeSmartDevice, generate_entity_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -79,11 +79,7 @@ class LifeSmartLight(LifeSmartDevice, LightEntity):
         self._brightness = None
         self._color_temp = None
 
-        self.entity_id = ENTITY_ID_FORMAT.format(
-            (
-                dev["devtype"] + "_" + dev["agt"][:-3] + "_" + dev["me"] + "_" + idx
-            ).lower()
-        )
+        self.entity_id = generate_entity_id(dev, idx)
         _LOGGER.info("light: %s added..", str(self.entity_id))
         _LOGGER.info("light: idx: %s ", str(idx))
         _LOGGER.info("light: val: %s ", str(val))

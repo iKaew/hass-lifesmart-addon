@@ -5,10 +5,26 @@ import json
 import time
 import hashlib
 import logging
-from . import LifeSmartDevice
+
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from . import LifeSmartDevice, generate_entity_id
+
+from .const import (
+    DEVICE_ID_KEY,
+    DEVICE_TYPE_KEY,
+    DOMAIN,
+    HUB_ID_KEY,
+    MANUFACTURER,
+    SUPPORTED_SUB_SWITCH_TYPES,
+    SUPPORTED_SWTICH_TYPES,
+)
 
 
 from homeassistant.components.switch import (
+    SwitchDeviceClass,
     SwitchEntity,
     ENTITY_ID_FORMAT,
 )
@@ -26,44 +42,105 @@ CON_AI_TYPES = [
 AI_TYPES = ["ai"]
 
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Find and return lifesmart switches."""
-    if discovery_info is None:
-        return
-    dev = discovery_info.get("dev")
-    param = discovery_info.get("param")
-    devices = []
-    if dev["devtype"] in AI_TYPES:
-        devices.append(LifeSmartSwitch(dev, "s", "s", param))
-    else:
-        for idx in dev["data"]:
-            if idx in ["L1", "L2", "L3", "P1", "P2", "P3"]:
-                devices.append(LifeSmartSwitch(dev, idx, dev["data"][idx], param))
-    async_add_entities(devices)
-    return True
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    """Setup Switch entities."""
+    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
+    exclude_devices = hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"]
+    exclude_hubs = hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"]
+    client = hass.data[DOMAIN][config_entry.entry_id]["client"]
+    for device in devices:
+        if (
+            device[DEVICE_ID_KEY] in exclude_devices
+            or device[HUB_ID_KEY] in exclude_hubs
+        ):
+            continue
 
-
-class LifeSmartSwitch(LifeSmartDevice, SwitchEntity):
-    def __init__(self, dev, idx, val, param):
-        """Initialize the switch."""
-        super().__init__(dev, idx, val, param)
-        self.entity_id = ENTITY_ID_FORMAT.format(
-            (
-                dev["devtype"] + "_" + dev["agt"][:-3] + "_" + dev["me"] + "_" + idx
-            ).lower()
-        )
-        if dev["devtype"] in AI_TYPES:
-            self._state = False
-        else:
-            if val["type"] % 2 == 1:
-                self._state = True
+        device_type = device[DEVICE_TYPE_KEY]
+        if device_type in SUPPORTED_SWTICH_TYPES:
+            ha_device = LifeSmartDevice(
+                device,
+                client,
+            )
+            devices = []
+            if device_type in AI_TYPES:
+                devices.append(LifeSmartSceneSwitch(ha_device, device, client))
             else:
-                self._state = False
+                for sub_device_key in device["data"]:
+                    if sub_device_key in SUPPORTED_SUB_SWITCH_TYPES:
+                        devices.append(
+                            LifeSmartSwitch(
+                                ha_device,
+                                device,
+                                sub_device_key,
+                                device["data"][sub_device_key],
+                                client,
+                            )
+                        )
+            async_add_entities(devices)
+
+
+class LifeSmartSwitch(SwitchEntity):
+    def __init__(
+        self, device, raw_device_data, sub_device_key, sub_device_data, client
+    ) -> None:
+        """Initialize the switch."""
+
+        device_name = raw_device_data["name"]
+        device_type = raw_device_data[DEVICE_TYPE_KEY]
+        hub_id = raw_device_data[HUB_ID_KEY]
+        device_id = raw_device_data[DEVICE_ID_KEY]
+
+        if "name" in sub_device_data:
+            device_name = sub_device_data["name"]
+        else:
+            device_name = ""
+
+        self._attr_has_entity_name = True
+        self.device_name = device_name
+        self.switch_name = raw_device_data["name"]
+        self.device_id = device_id
+        self.hub_id = hub_id
+        self.sub_device_key = sub_device_key
+        self.device_type = device_type
+        self.raw_device_data = raw_device_data
+        self._device = device
+        self._attr_device_class = SwitchDeviceClass.SWITCH
+        self.entity_id = generate_entity_id(
+            device_type, hub_id, device_id, sub_device_key
+        )
+        self._client = client
+
+        if sub_device_data["type"] % 2 == 1:
+            self._state = True
+        else:
+            self._state = False
+
+        super().__init__()
+
+    @property
+    def name(self):
+        """Name of the entity."""
+        return self.device_name
 
     @property
     def is_on(self):
         """Return true if device is on."""
         return self._state
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device info."""
+        return DeviceInfo(
+            identifiers={
+                # Serial numbers are unique identifiers within a specific domain
+                (DOMAIN, self.hub_id, self.device_id)
+            },
+            name=self.switch_name,
+            manufacturer=MANUFACTURER,
+            model=self.device_type,
+            sw_version=self.raw_device_data["ver"],
+            via_device=(DOMAIN, self.hub_id),
+        )
 
     async def async_added_to_hass(self):
         """Call when entity is added to hass."""
@@ -74,24 +151,91 @@ class LifeSmartSwitch(LifeSmartDevice, SwitchEntity):
 
     async def async_turn_on(self, **kwargs):
         """Turn the device on."""
-        if self._devtype in AI_TYPES:
-            if await super().async_lifesmart_sceneset(self, None, None) == 0:
-                self._state = True
-                self.async_schedule_update_ha_state()
+        if (
+            await self._client.turn_on_light_swith_async(
+                self.sub_device_key, self.hub_id, self.device_id
+            )
+            == 0
+        ):
+            self._state = True
+            self.async_schedule_update_ha_state()
         else:
-            if await super().async_lifesmart_epset("0x81", 1, self._idx) == 0:
-                self._state = True
-                self.async_schedule_update_ha_state()
+            _LOGGER.warning("Switch {self._me} - {self._idx} status changed failed")
 
     async def async_turn_off(self, **kwargs):
         """Turn the device off."""
-        if self._devtype in AI_TYPES:
+        if (
+            await self._client.turn_off_light_swith_async(
+                self.sub_device_key, self.hub_id, self.device_id
+            )
+            == 0
+        ):
             self._state = False
             self.async_schedule_update_ha_state()
         else:
-            if await super().async_lifesmart_epset("0x80", 0, self._idx) == 0:
-                self._state = False
-                self.async_schedule_update_ha_state()
+            _LOGGER.warning("Switch {self._me} - {self._idx} status changed failed")
+
+    @property
+    def unique_id(self):
+        """A unique identifier for this entity."""
+        return self.entity_id
+
+
+class LifeSmartSceneSwitch(LifeSmartDevice, SwitchEntity):
+    def __init__(self, device, raw_device_data, client) -> None:
+        """Initialize the switch."""
+        device_name = raw_device_data["name"]
+        device_type = raw_device_data[DEVICE_TYPE_KEY]
+        hub_id = raw_device_data[HUB_ID_KEY]
+        device_id = raw_device_data[DEVICE_ID_KEY]
+
+        self._device = device
+
+        self._name = raw_device_data["name"]
+
+        self.entity_id = generate_entity_id(device_type, hub_id, device_id)
+        self.hub_id = raw_device_data[HUB_ID_KEY]
+
+        self._state = False
+        super().__init__()
+
+    @property
+    def is_on(self):
+        """Return true if device is on."""
+        return self._state
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device info."""
+        return DeviceInfo(
+            identifiers={
+                # Serial numbers are unique identifiers within a specific domain
+                (DOMAIN, self.hub_id, self.device_id)
+            },
+            name=self.switch_name,
+            manufacturer=MANUFACTURER,
+            model=self.device_type,
+            # sw_version=self.light.swversion,
+            via_device=(DOMAIN, self.hub_id),
+        )
+
+    async def async_added_to_hass(self):
+        """Call when entity is added to hass."""
+
+    def _get_state(self):
+        """get lifesmart switch state."""
+        return self._state
+
+    async def async_turn_on(self, **kwargs):
+        """Set scene."""
+        if await super().async_lifesmart_sceneset(self, None, None) == 0:
+            self._state = True
+            self.async_schedule_update_ha_state()
+
+    async def async_turn_off(self, **kwargs):
+        """TODO: Set scene off ?."""
+        self._state = False
+        self.async_schedule_update_ha_state()
 
     @property
     def unique_id(self):

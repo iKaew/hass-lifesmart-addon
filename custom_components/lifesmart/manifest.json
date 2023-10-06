@@ -2,6 +2,7 @@
   "domain": "lifesmart",
   "name": "LifeSmart",
   "codeowners": ["@iKaew"],
+  "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/iKaew/hass-lifesmart-addon",
   "integration_type": "hub",

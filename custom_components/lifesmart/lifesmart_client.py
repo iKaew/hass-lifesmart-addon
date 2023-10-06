@@ -209,6 +209,12 @@ class LifeSmartClient:
         _LOGGER.debug("sendackey_res: %s", str(response))
         return response
 
+    async def turn_on_light_swith_async(self, idx, agt, me):
+        return await self.send_epset_async("0x81", 1, idx, agt, me)
+
+    async def turn_off_light_swith_async(self, idx, agt, me):
+        return await self.send_epset_async("0x80", 0, idx, agt, me)
+
     async def send_epset_async(self, type, val, idx, agt, me):
         """Send a command to sepcific device."""
         url = self.get_api_url() + "/api.EpSet"
