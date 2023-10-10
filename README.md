@@ -10,103 +10,130 @@ Prerequisites:
 
 1. New Application from LifeSmart Open Platform to obtain `app key` and `app token`, http://www.ilifesmart.com/open/login (caution! this url is not https and all content is in chinese, browse with translation should help)
 
-1. Login to application created in previous bullet with LifeSmart user to grant 3rd party application access to get `user token`, please ensure you use the api address with correct region. 
+1. Login to application created in previous bullet with LifeSmart user to grant 3rd party application access to get `user token`, please ensure you use the api address with correct region. [See regional server list here](./docs/api-regions.md)
 
+**Please note that, by default application from LifeSmart Open Platform won't return you Lock devices type. You have to contact them to get it granted to your application.**
 
 How to install:
 ---
 1. Copy the custom_components/lifesmart directory to config/custom_components/ of Home Assistant
 
-2. Add configuration in the configuration.yaml file:
+1. Setup integration via add Integration
 
-```
-lifesmart:
-  appkey: "your appkey" 
-  apptoken: "your apptoken"
-  usertoken: "your usertoken" 
-  userid: "your userid"
-  url: "your api address" #e.g. api.apz.ilifesmart.com for asia pacific, api.us.ilifesmart.com for US
-  exclude:
-    - "0011" #The me value of the device needs to be shielded. This is temporarily required, and you can fill in any content
-  exclude_agt:
-    - "XXXX" #exlucde all devices in these smart stations
-  ai_include_agt:
-    - "XXXXXXXXX" # agt to be included for AI or Scene as a switch, fill any value to omit
-  ai_include_me:
-    - "xxxx" # me to be included for AI or Scene as a switch, fill any value to omit
- ```
+   Configuration required for this add-on
+   ```
+   lifesmart:
+     appkey: | your appkey|  
+     apptoken: | your apptoken| 
+     usertoken: | your usertoken|  
+     userid: | your userid| 
+     url: | your api address|  #e.g. api.apz.ilifesmart.com for asia pacific, api.us.ilifesmart.com for US  
+    ```
  
 
-Currently supported devices:
+Supported devices:
 ---
-1. Switch;
+Since there are a lot of refactored and code changes, some old device removed from supported list for now. 
+1. Switch 
 
-2. Lighting: currently only supports Super Bowl night light;
+1. Intelligent door lock information feedback
 
-3. Universal remote control;
+1. Smart Plug
 
-4. Curtain motor (only support Duya motor)
+1. Dynamic sensor, door sensor, environmental sensor, formaldehyde/gas sensor
 
-5. Dynamic sensor, door sensor, environmental sensor, formaldehyde/gas sensor
+1. ~~Lighting: currently only supports Super Bowl night light~~
 
-6. Air conditioning control panel
+1. ~~Universal remote control~~
 
-7. Intelligent door lock information feedback
+1. ~~Curtain motor (only support Duya motor)~~
 
-Update the description
+1. ~~Air conditioning control panel~~
+
+List of supported devices
+
+Switch: 
+| Model  | Remark |
+| ------ | ------ |
+| OD_WE_OT1 | |
+| SL_MC_ND1 | |
+| SL_MC_ND2 | |
+| SL_MC_ND3 | |
+| SL_NATURE | |
+| SL_OL | |
+| SL_OL_3C | |
+| SL_OL_DE | |
+| SL_OL_UK | |
+| SL_OL_UL | |
+| SL_OL_W | |
+| SL_P_SW | |
+| SL_S | |
+| SL_SF_IF1 | |
+| SL_SF_IF2 | |
+| SL_SF_IF3 | |
+| SL_SF_RC | |
+| SL_SPWM | |
+| SL_SW_CP1 | |
+| SL_SW_CP2 | |
+| SL_SW_CP3 | |
+| SL_SW_DM1 | |
+| SL_SW_FE1 | |
+| SL_SW_FE2 | |
+| SL_SW_IF1 | |
+| SL_SW_IF2 | |
+| SL_SW_IF3 | |
+| SL_SW_MJ1 | Tested with real devices |
+| SL_SW_MJ2 | Tested with real devices |
+| SL_SW_MJ3 | |
+| SL_SW_ND1 | |
+| SL_SW_ND2 | |
+| SL_SW_ND3 | |
+| SL_SW_NS3 | |
+| SL_SW_RC | |
+| SL_SW_RC1 | |
+| SL_SW_RC2 | |
+| SL_SW_RC3 | |
+| SL_SW_NS1 | |
+| SL_SW_NS2 | |
+| SL_SW_NS3 | |
+| V_IND_S | |
+
+Door Locks: 
+| Model  | Remark |
+| ------ | ------ |
+| SL_LK_LS | Tested with real devices |
+| SL_LK_GTM | |
+| SL_LK_AG | |
+| SL_LK_SG | |
+| SL_LK_YL | |
+
+Generic Controller: 
+| Model  | Remark |
+| ------ | ------ |
+| SL_P | Tested with real devices |
+
+
+Smart Plug: 
+| Model  | Remark |
+| ------ | ------ |
+| SL_OE_DE | Metering supported , Tested with real devices |
+| SL_OE_3C | Metering supported |
+| SL_OL_W | Metering supported |
+| OD_WE_OT1 | |
+| ~~SL_OL_UL~~ | |
+| ~~SL_OL_UK~~ | |
+| ~~SL_OL_THE~~ | |
+| ~~SL_OL_3C~~ | |
+| ~~SL_O~~L | |
+
+Example
 ---
-
-### [Updated on October 2022, 9] by likso
-1. Added scene_set service
-2. Added ai and scene as a switch
-3. Added included AI agt and me setting as a switch setting in configuration.yaml
-
-
-### [Updated on July 2022, 12] by likso
-1. Added async support
-2. Fix entity_id format 
-3. Added unique_id property
-4. Added switch SL_NATURE, SL_SW_NS[1|2|3] support
-5. Added light SL_SPOT colour and brightness support
-6. Added light strip SL_CT_RGBW colour and brightness support
-7. Added light SL_LI_WW colour temperature and brightness support
-8. Fixed Door sensor SL_SC_BG open/closed status
-9. Changed server url to https://api.us.ilifesmart.com/
-10. Added excluded agt setting in configuration.yaml
-
-Added the following into configuration.yaml：
-
-### [Cumulative update on July 2022, 7]
-
-Home Assitant new version adaptation:
-- XXXDevice for XXXEntity
-- FanSpeed enumeration modification
-- device_state_attributes to extra_state_attributes
-- In the Climate class, Uniform is modified to use built-in properties
-
-### [Updated on December 2020, 12]
-
-Support streamer switch light control
-
-Update the manifest content to accommodate the new version of Home Assistant
-
-### [Updated on December 2020, 8]
-
-New device support:
-
-Super panel: SL_NATURE
-
-PS: It's actually a switch...
-
-### [Updated on December 2020, 2]
-
-Optimized entity ID generation logic: Solve the problem that there may be duplicates of the me number when there are no members or multiple smart centers.
-
-### [Updated on December 2019, 12]
-
-New supported devices:
-
-Central air conditioning panel: V_AIR_P
-
-Smart door lock feedback information: SL_LK_LS, SL_LK_GTM, SL_LK_AG, SL_LK_SG, SL_LK_YL
-
+![Alt text](./docs/example-image.png)
+![Alt text](./docs/example-image-4.png)
+![Alt text](./docs/example-image-2.png)
+![Alt text](./docs/example-image-3.png)
+This project is forked/combined from serveral projects below 
+---
+- https://github.com/skyzhishui/custom_components by skyzhishui
+- https://github.com/Blankdlh/hass-lifesmart by @Blankdlh
+- https://github.com/likso/hass-lifesmart by @likso
