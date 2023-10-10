@@ -29,7 +29,7 @@ How to install:
      userid: | your userid| 
      url: | your api address|  #e.g. api.apz.ilifesmart.com for asia pacific, api.us.ilifesmart.com for US  
     ```
- 
+ Installation via HACS will be supported soon. 
 
 Supported devices:
 ---
