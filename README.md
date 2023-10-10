@@ -12,7 +12,14 @@ Prerequisites:
 1. New Application from LifeSmart Open Platform to obtain `app key` and `app token`, http://www.ilifesmart.com/open/login (caution! this url is not https and all content is in chinese, browse with translation should help)
 
 1. Login to application created in previous bullet with LifeSmart user to grant 3rd party application access to get `user token`, please ensure you use the api address with correct region. 
+
 **Please note that, by default application from LifeSmart Open Platform won't return you Lock devices type. You have to contact them to get it granted to your application.**
+
+How it works:
+---
+
+- This add-on required internet access, first when add-on loaded it will call LifeSmart API to get all devices to setup on Home Assistant, After that it will get updated from LifeSmart via websocket. There is no direct communication between HA and local LifeSmart hub at the moment. 
+
 
 How to install:
 ---
