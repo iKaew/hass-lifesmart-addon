@@ -78,6 +78,9 @@ SUPPORTED_SUB_BINARY_SENSORS = [
     "B",
     "AXS",
     "P1",
+    "P5",
+    "P6",
+    "P7",
 ]
 
 LIGHT_SWITCH_TYPES = [
@@ -94,7 +97,8 @@ LIGHT_DIMMER_TYPES = [
 QUANTUM_TYPES = [
     "OD_WE_QUAN",
 ]
-
+MOTION_SENSOR_TYPES = ["SL_SC_MHW", "SL_SC_BM", "SL_SC_CM"]
+SMOKE_SENSOR_TYPES = ["SL_P_A"]
 SPOT_TYPES = ["MSL_IRCTL", "OD_WE_IRCTL", "SL_SPOT"]
 BINARY_SENSOR_TYPES = [
     "SL_SC_G",
@@ -103,6 +107,7 @@ BINARY_SENSOR_TYPES = [
     "SL_SC_BM",
     "SL_SC_CM",
     "SL_P_A",
+    "SL_P",
 ]
 COVER_TYPES = ["SL_DOOYA"]
 GAS_SENSOR_TYPES = ["SL_SC_WA ", "SL_SC_CH", "SL_SC_CP", "ELIQ_EM"]
@@ -118,6 +123,8 @@ DEVICE_WITHOUT_IDXNAME = [
     "SL_SW_MJ1",
     "SL_SW_MJ2",
 ]
+GENERIC_CONTROLLER_TYPES = ["SL_P"]
+SMART_PLUG_TYPES = ["SL_OE_DE"]
 
 LIFESMART_HVAC_STATE_LIST = [
     climate.const.HVAC_MODE_OFF,
@@ -130,8 +137,8 @@ LIFESMART_HVAC_STATE_LIST = [
 
 SUPPORTED_PLATFORMS = [
     Platform.SWITCH,
-    # Platform.BINARY_SENSOR,
-    # Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.SENSOR,
     # Platform.COVER,
     # Platform.LIGHT,
     # Platform.CLIMATE,
@@ -148,6 +155,8 @@ DEVICE_ID_KEY = "me"
 SUBDEVICE_INDEX_KEY = "idx"
 DEVICE_TYPE_KEY = "devtype"
 HUB_ID_KEY = "agt"
+DEVICE_NAME_KEY = "name"
+DEVICE_DATA_KEY = "data"
 
 LIFESMART_STATE_MANAGER = "lifesmart_wss"
 UPDATE_LISTENER = "update_listener"

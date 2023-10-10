@@ -1,75 +1,216 @@
 """Support for LifeSmart binary sensors."""
+import datetime
 import logging
+from homeassistant.const import STATE_OFF, STATE_ON
+
+from homeassistant.helpers.entity import DeviceInfo
+from .const import (
+    BINARY_SENSOR_TYPES,
+    DEVICE_DATA_KEY,
+    DEVICE_ID_KEY,
+    DEVICE_NAME_KEY,
+    DEVICE_TYPE_KEY,
+    DOMAIN,
+    GENERIC_CONTROLLER_TYPES,
+    GUARD_SENSOR_TYPES,
+    HUB_ID_KEY,
+    LOCK_TYPES,
+    MANUFACTURER,
+    MOTION_SENSOR_TYPES,
+)
 from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
     BinarySensorEntity,
     ENTITY_ID_FORMAT,
 )
 
-from . import LifeSmartDevice
+from . import LifeSmartDevice, generate_entity_id
 
 _LOGGER = logging.getLogger(__name__)
 
 
-GUARD_SENSOR = ["SL_SC_G", "SL_SC_BG"]
-MOTION_SENSOR = ["SL_SC_MHW", "SL_SC_BM", "SL_SC_CM"]
-SMOKE_SENSOR = ["SL_P_A"]
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    """Setup Switch entities."""
+    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
+    exclude_devices = hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"]
+    exclude_hubs = hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"]
+    client = hass.data[DOMAIN][config_entry.entry_id]["client"]
+    sensor_devices = []
+    for device in devices:
+        if (
+            device[DEVICE_ID_KEY] in exclude_devices
+            or device[HUB_ID_KEY] in exclude_hubs
+        ):
+            continue
+
+        device_type = device[DEVICE_TYPE_KEY]
+
+        if device_type not in BINARY_SENSOR_TYPES + LOCK_TYPES:
+            continue
+
+        ha_device = LifeSmartDevice(
+            device,
+            client,
+        )
+        for sub_device_key in device[DEVICE_DATA_KEY]:
+            sub_device_data = device[DEVICE_DATA_KEY][sub_device_key]
+            if device_type in GENERIC_CONTROLLER_TYPES:
+                if sub_device_key in [
+                    "P5",
+                    "P6",
+                    "P7",
+                ]:
+                    sensor_devices.append(
+                        LifeSmartBinarySensor(
+                            ha_device,
+                            device,
+                            sub_device_key,
+                            sub_device_data,
+                            client,
+                        )
+                    )
+            elif device_type in LOCK_TYPES and sub_device_key == "EVTLO":
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in BINARY_SENSOR_TYPES and sub_device_key in [
+                "M",
+                "G",
+                "B",
+                "AXS",
+                "P1",
+            ]:
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+    async_add_entities(sensor_devices)
 
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Perform the setup for lifesmart devices."""
-    if discovery_info is None:
-        return
-    dev = discovery_info.get("dev")
-    param = discovery_info.get("param")
-    devices = []
-    for idx in dev["data"]:
-        if idx in ["M", "G", "B", "AXS", "P1"]:
-            devices.append(LifeSmartBinarySensor(dev, idx, dev["data"][idx], param))
-    async_add_entities(devices)
-
-
-class LifeSmartBinarySensor(LifeSmartDevice, BinarySensorEntity):
+class LifeSmartBinarySensor(BinarySensorEntity):
     """Representation of LifeSmartBinarySensor."""
 
-    def __init__(self, dev, idx, val, param):
-        super().__init__(dev, idx, val, param)
-        self.entity_id = ENTITY_ID_FORMAT.format(
-            (
-                dev["devtype"] + "_" + dev["agt"][:-3] + "_" + dev["me"] + "_" + idx
-            ).lower()
-        )
-        devtype = dev["devtype"]
-        if devtype in GUARD_SENSOR:
-            if idx in ["G"]:
-                self._device_class = "door"
-                if val["val"] == 0:
-                    self._state = True
-                else:
-                    self._state = False
-            if idx in ["AXS"]:
-                self._device_class = "vibration"
-                if val["val"] == 0:
-                    self._state = False
-                else:
-                    self._state = True
-            if idx in ["B"]:
-                self._device_class = None
-                if val["val"] == 0:
-                    self._state = False
-                else:
-                    self._state = True
-        elif devtype in MOTION_SENSOR:
-            self._device_class = "motion"
-            if val["val"] == 0:
-                self._state = False
-            else:
-                self._state = True
+    def __init__(
+        self, device, raw_device_data, sub_device_key, sub_device_data, client
+    ) -> None:
+        super().__init__()
+        device_name = raw_device_data[DEVICE_NAME_KEY]
+        device_type = raw_device_data[DEVICE_TYPE_KEY]
+        hub_id = raw_device_data[HUB_ID_KEY]
+        device_id = raw_device_data[DEVICE_ID_KEY]
+
+        if (
+            DEVICE_NAME_KEY in sub_device_data
+            and sub_device_data[DEVICE_NAME_KEY] != "none"
+        ):
+            device_name = sub_device_data[DEVICE_NAME_KEY]
         else:
-            self._device_class = "smoke"
-            if val["val"] == 0:
+            device_name = ""
+
+        self._attr_has_entity_name = True
+        self.sensor_device_name = raw_device_data[DEVICE_NAME_KEY]
+        self.device_name = device_name
+        self.device_id = device_id
+        self.hub_id = hub_id
+        self.sub_device_key = sub_device_key
+        self.device_type = device_type
+        self.raw_device_data = raw_device_data
+        self._device = device
+        self.entity_id = generate_entity_id(
+            device_type, hub_id, device_id, sub_device_key
+        )
+        self._client = client
+        self._attrs = sub_device_data
+
+        if device_type in GUARD_SENSOR_TYPES:
+            if sub_device_key in ["G"]:
+                self._device_class = BinarySensorDeviceClass.DOOR
+                if sub_device_data["val"] == 0:
+                    self._state = True
+                else:
+                    self._state = False
+            if sub_device_key in ["AXS"]:
+                self._device_class = BinarySensorDeviceClass.VIBRATION
+                if sub_device_data["val"] == 0:
+                    self._state = False
+                else:
+                    self._state = True
+            if sub_device_key in ["B"]:
+                self._device_class = None
+                if sub_device_data["val"] == 0:
+                    self._state = False
+                else:
+                    self._state = True
+        elif device_type in MOTION_SENSOR_TYPES:
+            self._device_class = BinarySensorDeviceClass.MOTION
+            if sub_device_data["val"] == 0:
                 self._state = False
             else:
                 self._state = True
+        elif device_type in LOCK_TYPES:
+            self._device_class = BinarySensorDeviceClass.LOCK
+            # On means open (unlocked), Off means closed (locked)
+            val = sub_device_data["val"]
+            unlock_method = val >> 12
+            unlock_user = val & 0xFFF
+            is_unlock_success = False
+            if (
+                sub_device_data["type"] % 2 == 1
+                and unlock_user != 0
+                and unlock_method != 15
+            ):
+                is_unlock_success = True
+            if sub_device_data["type"] % 2 == 1:
+                self._state = True
+            else:
+                self._state = False
+            self._attrs = {
+                "unlocking_method": unlock_method,
+                "unlocking_user": unlock_user,
+                "device_type": device_type,
+                "unlocking_success": is_unlock_success,
+            }
+        elif device_type in GENERIC_CONTROLLER_TYPES:
+            self._device_class = BinarySensorDeviceClass.LOCK
+            # On means open (unlocked), Off means closed (locked)
+            if sub_device_data["val"] == 0:
+                self._state = True
+            else:
+                self._state = False
+        else:
+            self._device_class = BinarySensorDeviceClass.SMOKE
+            if sub_device_data["val"] == 0:
+                self._state = False
+            else:
+                self._state = True
+
+    @property
+    def name(self):
+        """Name of the entity."""
+        return self.device_name
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device info."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.hub_id, self.device_id)},
+            name=self.sensor_device_name,
+            manufacturer=MANUFACTURER,
+            model=self.device_type,
+            sw_version=self.raw_device_data["ver"],
+            via_device=(DOMAIN, self.hub_id),
+        )
 
     @property
     def is_on(self):

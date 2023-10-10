@@ -1,8 +1,8 @@
 """lifesmart by @ikaew"""
 from typing import Final
-from homeassistant.components.climate.const import FAN_HIGH, FAN_LOW, FAN_MEDIUM
+from homeassistant.components.climate import FAN_HIGH, FAN_LOW, FAN_MEDIUM
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_URL, Platform
+from homeassistant.const import CONF_URL, STATE_OFF, STATE_ON, Platform
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util.dt import utcnow
 from homeassistant.helpers.event import async_track_point_in_utc_time
@@ -51,12 +51,14 @@ from .const import (
     CONF_LIFESMART_USERTOKEN,
     COVER_TYPES,
     DEVICE_ID_KEY,
+    DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     DEVICE_WITHOUT_IDXNAME,
     DOMAIN,
     CONF_LIFESMART_APPKEY,
     EV_SENSOR_TYPES,
     GAS_SENSOR_TYPES,
+    GENERIC_CONTROLLER_TYPES,
     GUARD_SENSOR_TYPES,
     HUB_ID_KEY,
     LIFESMART_HVAC_STATE_LIST,
@@ -65,6 +67,7 @@ from .const import (
     LIGHT_SWITCH_TYPES,
     LOCK_TYPES,
     OT_SENSOR_TYPES,
+    SMART_PLUG_TYPES,
     SPOT_TYPES,
     SUBDEVICE_INDEX_KEY,
     SUPPORTED_PLATFORMS,
@@ -156,9 +159,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
             ):
                 attrs = hass.states.get(entity_id).attributes
                 if data["type"] % 2 == 1:
-                    hass.states.set(entity_id, "on", attrs)
+                    hass.states.set(entity_id, STATE_ON, attrs)
                 else:
-                    hass.states.set(entity_id, "off", attrs)
+                    hass.states.set(entity_id, STATE_OFF, attrs)
             elif (
                 device_type in BINARY_SENSOR_TYPES
                 and sub_device_key in SUPPORTED_SUB_BINARY_SENSORS
@@ -166,14 +169,23 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                 attrs = hass.states.get(entity_id).attributes
                 if device_type in GUARD_SENSOR_TYPES and sub_device_key in ["G"]:
                     if data["val"] == 0:
-                        hass.states.set(entity_id, "on", attrs)
+                        hass.states.set(entity_id, STATE_ON, attrs)
                     else:
-                        hass.states.set(entity_id, "off", attrs)
+                        hass.states.set(entity_id, STATE_OFF, attrs)
+                elif device_type in GENERIC_CONTROLLER_TYPES:
+                    # On means open (unlocked), Off means closed (locked)
+                    if data["val"] == 0:
+                        hass.states.set(entity_id, STATE_ON, attrs)
+                        _LOGGER.debug("Lock status changed to UNLOCKED")
+
+                    else:
+                        hass.states.set(entity_id, STATE_OFF, attrs)
+                        _LOGGER.debug("Lock status changed to LOCKED")
                 else:
                     if data["val"] == 0:
-                        hass.states.set(entity_id, "off", attrs)
+                        hass.states.set(entity_id, STATE_OFF, attrs)
                     else:
-                        hass.states.set(entity_id, "on", attrs)
+                        hass.states.set(entity_id, STATE_ON, attrs)
 
             elif device_type in COVER_TYPES and sub_device_key == "P1":
                 attrs = dict(hass.states.get(entity_id).attributes)
@@ -207,7 +219,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                 idx = sub_device_key
 
                 if data["type"] % 2 == 0:
-                    hass.states.set(entity_id, "off", attrs)
+                    hass.states.set(entity_id, STATE_OFF, attrs)
                 else:
                     if idx in ["HS"]:
                         if value == 0:
@@ -240,7 +252,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                         attrs[ATTR_RGBW_COLOR] = rgbhex[1:] + (rgbhex[0],)
                         _LOGGER.info("RGBW: %s", str(attrs[ATTR_RGBW_COLOR]))
 
-                    hass.states.set(entity_id, "on", attrs)
+                    hass.states.set(entity_id, STATE_ON, attrs)
 
             elif device_type in LIGHT_DIMMER_TYPES:
                 attrs = dict(hass.states.get(entity_id).attributes)
@@ -252,9 +264,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                 if idx in ["P1"]:
                     if data["type"] % 2 == 1:
                         attrs[ATTR_BRIGHTNESS] = value
-                        hass.states.set(entity_id, "on", attrs)
+                        hass.states.set(entity_id, STATE_ON, attrs)
                     else:
-                        hass.states.set(entity_id, "off", attrs)
+                        hass.states.set(entity_id, STATE_OFF, attrs)
                 elif idx in ["P2"]:
                     ratio = 1 - (value / 255)
                     attrs[ATTR_COLOR_TEMP] = (
@@ -311,25 +323,55 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                     attrs = hass.states.get(entity_id).attributes
                     hass.states.set(entity_id, data["val"], attrs)
                 elif sub_device_key == "EVTLO":
+                    """
+                    type%2==1 means open;
+                    type%2==0 means closed;
+                    The val value is defined as follows:
+                    Bit0~11 represents the user number;
+                    Bit12~15 indicates the unlocking method: (
+                    0: undefined;
+                    1: Password;
+                    2: Fingerprint;
+                    3: NFC;
+                    4: Mechanical key;
+                    5: Remote unlocking;
+                    6: One-button opening (12V unlocking signal turns on
+                    Lock);
+                    7: APP is opened;
+                    8: Bluetooth unlocking;
+                    9: Manual unlock;
+                    15: Error)
+                    Bit16~27 represents the user number;
+                    Bit28~31 indicates the unlocking method: (same as above)
+                    Meaning) (Note: There may be two ways at the same time
+                    When the door lock is opened, bits 0~15 are
+                    Unlock information, other bits are 0; bit 0 when double opening
+                    ~15 and bit16~31 are the corresponding unlocks respectively.
+                    information)
+                    """
                     val = data["val"]
-                    ulk_way = val >> 12
-                    ulk_user = val & 0xFFF
-                    ulk_success = True
-                    if ulk_user == 0:
-                        ulk_success = False
+                    unlock_method = val >> 12
+                    unlock_user = val & 0xFFF
+                    is_unlock_success = False
+                    if (
+                        data["type"] % 2 == 1
+                        and unlock_user != 0
+                        and unlock_method != 15
+                    ):
+                        is_unlock_success = True
                     attrs = {
-                        "unlocking_way": ulk_way,
-                        "unlocking_user": ulk_user,
-                        "devtype": device_type,
-                        "unlocking_success": ulk_success,
-                        "last_time": datetime.datetime.fromtimestamp(
+                        "unlocking_method": unlock_method,
+                        "unlocking_user": unlock_user,
+                        "device_type": device_type,
+                        "unlocking_success": is_unlock_success,
+                        "last_updated": datetime.datetime.fromtimestamp(
                             data["ts"] / 1000
                         ).strftime("%Y-%m-%d %H:%M:%S"),
                     }
                     if data["type"] % 2 == 1:
-                        hass.states.set(entity_id, "on", attrs)
+                        hass.states.set(entity_id, STATE_ON, attrs)
                     else:
-                        hass.states.set(entity_id, "off", attrs)
+                        hass.states.set(entity_id, STATE_OFF, attrs)
             elif device_type in OT_SENSOR_TYPES and sub_device_key in [
                 "Z",
                 "V",
@@ -338,7 +380,16 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
             ]:
                 attrs = hass.states.get(entity_id).attributes
                 hass.states.set(entity_id, data["v"], attrs)
-
+            elif device_type in SMART_PLUG_TYPES:
+                if sub_device_key == "P1":
+                    attrs = hass.states.get(entity_id).attributes
+                    if data["type"] % 2 == 1:
+                        hass.states.set(entity_id, STATE_ON, attrs)
+                    else:
+                        hass.states.set(entity_id, STATE_OFF, attrs)
+                elif sub_device_key in ["P2", "P3"]:
+                    attrs = hass.states.get(entity_id).attributes
+                    hass.states.set(entity_id, data["v"], attrs)
             else:
                 _LOGGER.debug("Event is not supported")
 
@@ -360,9 +411,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
             attrs = hass.states.get(entity_id).attributes
 
             if data["stat"] == 3:
-                hass.states.set(entity_id, "on", attrs)
+                hass.states.set(entity_id, STATE_ON, attrs)
             elif data["stat"] == 4:
-                hass.states.set(entity_id, "off", attrs)
+                hass.states.set(entity_id, STATE_OFF, attrs)
 
     def on_message(ws, message):
         _LOGGER.debug("websocket_msg: %s", str(message))
@@ -478,8 +529,8 @@ class LifeSmartDevice(Entity):
     def __init__(self, dev, lifesmart_client) -> None:
         """Initialize the switch."""
 
-        self._name = dev["name"]
-        self._device_name = dev["name"]
+        self._name = dev[DEVICE_NAME_KEY]
+        self._device_name = dev[DEVICE_NAME_KEY]
         self._agt = dev[HUB_ID_KEY]
         self._me = dev[DEVICE_ID_KEY]
         self._devtype = dev["devtype"]
@@ -596,6 +647,11 @@ def get_platform_by_device(device_type, sub_device=None):
         return Platform.SENSOR
     elif device_type in LOCK_TYPES and sub_device == "EVTLO":
         return Platform.BINARY_SENSOR
+    elif device_type in SMART_PLUG_TYPES and sub_device == "P1":
+        return Platform.SWITCH
+    elif device_type in SMART_PLUG_TYPES and sub_device in ["P2", "P3"]:
+        return Platform.SENSOR
+    return ""
 
 
 def generate_entity_id(device_type, hub_id, device_id, idx=None):
@@ -613,10 +669,12 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
         *SPOT_TYPES,
         *LIGHT_SWITCH_TYPES,
         *OT_SENSOR_TYPES,
+        *SMART_PLUG_TYPES,
+        *LOCK_TYPES,
     ]:
         if sub_device:
             return (
-                get_platform_by_device(device_type)
+                get_platform_by_device(device_type, sub_device)
                 + (
                     "."
                     + device_type
@@ -630,6 +688,7 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
             )
         else:
             return (
+                # no sub device (idx)
                 get_platform_by_device(device_type)
                 + ("." + device_type + "_" + hub_id + "_" + device_id).lower()
             )
@@ -648,17 +707,3 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
         return Platform.CLIMATE + (
             "." + device_type + "_" + hub_id + "_" + device_id
         ).lower().replace(":", "_").replace("@", "_")
-    elif device_type in LOCK_TYPES and sub_device == "BAT":
-        return (
-            Platform.SENSOR
-            + (
-                "." + device_type + "_" + hub_id + "_" + device_id + "_" + sub_device
-            ).lower()
-        )
-    elif device_type in LOCK_TYPES and sub_device == "EVTLO":
-        return (
-            Platform.BINARY_SENSOR
-            + (
-                "." + device_type + "_" + hub_id + "_" + device_id + "_" + sub_device
-            ).lower()
-        )

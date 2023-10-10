@@ -13,11 +13,14 @@ from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from . import LifeSmartDevice, generate_entity_id
 
 from .const import (
+    DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
+    DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     DOMAIN,
     HUB_ID_KEY,
     MANUFACTURER,
+    SMART_PLUG_TYPES,
     SUPPORTED_SUB_SWITCH_TYPES,
     SUPPORTED_SWTICH_TYPES,
 )
@@ -56,27 +59,38 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             continue
 
         device_type = device[DEVICE_TYPE_KEY]
-        if device_type in SUPPORTED_SWTICH_TYPES:
+        if device_type in SUPPORTED_SWTICH_TYPES + SMART_PLUG_TYPES:
             ha_device = LifeSmartDevice(
                 device,
                 client,
             )
-            devices = []
+            switch_devices = []
             if device_type in AI_TYPES:
-                devices.append(LifeSmartSceneSwitch(ha_device, device, client))
+                switch_devices.append(LifeSmartSceneSwitch(ha_device, device, client))
+            elif device_type in SMART_PLUG_TYPES:
+                sub_device_key = "P1"
+                switch_devices.append(
+                    LifeSmartSwitch(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        device[DEVICE_DATA_KEY][sub_device_key],
+                        client,
+                    )
+                )
             else:
-                for sub_device_key in device["data"]:
+                for sub_device_key in device[DEVICE_DATA_KEY]:
                     if sub_device_key in SUPPORTED_SUB_SWITCH_TYPES:
-                        devices.append(
+                        switch_devices.append(
                             LifeSmartSwitch(
                                 ha_device,
                                 device,
                                 sub_device_key,
-                                device["data"][sub_device_key],
+                                device[DEVICE_DATA_KEY][sub_device_key],
                                 client,
                             )
                         )
-            async_add_entities(devices)
+            async_add_entities(switch_devices)
 
 
 class LifeSmartSwitch(SwitchEntity):
@@ -85,19 +99,19 @@ class LifeSmartSwitch(SwitchEntity):
     ) -> None:
         """Initialize the switch."""
 
-        device_name = raw_device_data["name"]
+        device_name = raw_device_data[DEVICE_NAME_KEY]
         device_type = raw_device_data[DEVICE_TYPE_KEY]
         hub_id = raw_device_data[HUB_ID_KEY]
         device_id = raw_device_data[DEVICE_ID_KEY]
 
-        if "name" in sub_device_data:
-            device_name = sub_device_data["name"]
+        if DEVICE_NAME_KEY in sub_device_data:
+            device_name = sub_device_data[DEVICE_NAME_KEY]
         else:
             device_name = ""
 
         self._attr_has_entity_name = True
         self.device_name = device_name
-        self.switch_name = raw_device_data["name"]
+        self.switch_name = raw_device_data[DEVICE_NAME_KEY]
         self.device_id = device_id
         self.hub_id = hub_id
         self.sub_device_key = sub_device_key
@@ -131,10 +145,7 @@ class LifeSmartSwitch(SwitchEntity):
     def device_info(self) -> DeviceInfo:
         """Return the device info."""
         return DeviceInfo(
-            identifiers={
-                # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.hub_id, self.device_id)
-            },
+            identifiers={(DOMAIN, self.hub_id, self.device_id)},
             name=self.switch_name,
             manufacturer=MANUFACTURER,
             model=self.device_type,
@@ -184,14 +195,14 @@ class LifeSmartSwitch(SwitchEntity):
 class LifeSmartSceneSwitch(LifeSmartDevice, SwitchEntity):
     def __init__(self, device, raw_device_data, client) -> None:
         """Initialize the switch."""
-        device_name = raw_device_data["name"]
+        device_name = raw_device_data[DEVICE_NAME_KEY]
         device_type = raw_device_data[DEVICE_TYPE_KEY]
         hub_id = raw_device_data[HUB_ID_KEY]
         device_id = raw_device_data[DEVICE_ID_KEY]
 
         self._device = device
 
-        self._name = raw_device_data["name"]
+        self._name = raw_device_data[DEVICE_NAME_KEY]
 
         self.entity_id = generate_entity_id(device_type, hub_id, device_id)
         self.hub_id = raw_device_data[HUB_ID_KEY]
