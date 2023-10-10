@@ -4,7 +4,6 @@ from .lifesmart_client import LifeSmartClient
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from homeassistant import config_entries, exceptions
-from homeassistant.components import zeroconf
 from homeassistant.const import (
     CONF_NAME,
     CONF_URL,
