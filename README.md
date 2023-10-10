@@ -133,6 +133,8 @@ Example
 ![Alt text](./docs/example-image-4.png)
 ![Alt text](./docs/example-image-2.png)
 ![Alt text](./docs/example-image-3.png)
+
+
 This project is forked/combined from serveral projects below 
 ---
 - https://github.com/skyzhishui/custom_components by @skyzhishui
