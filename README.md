@@ -128,6 +128,7 @@ Smart Plug:
 
 Example
 ---
+![Alt text](./docs/example-configuration.png)
 ![Alt text](./docs/example-image.png)
 ![Alt text](./docs/example-image-4.png)
 ![Alt text](./docs/example-image-2.png)
