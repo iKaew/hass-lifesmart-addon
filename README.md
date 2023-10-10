@@ -135,6 +135,6 @@ Example
 ![Alt text](./docs/example-image-3.png)
 This project is forked/combined from serveral projects below 
 ---
-- https://github.com/skyzhishui/custom_components by skyzhishui
+- https://github.com/skyzhishui/custom_components by @skyzhishui
 - https://github.com/Blankdlh/hass-lifesmart by @Blankdlh
 - https://github.com/likso/hass-lifesmart by @likso
