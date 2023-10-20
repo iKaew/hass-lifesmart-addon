@@ -23,11 +23,14 @@ How it works:
 
 How to install:
 ---
+
+### Manual 
+
 1. Copy the custom_components/lifesmart directory to config/custom_components/ of Home Assistant
 
 1. Setup integration via add Integration
 
-   Configuration required for this add-on
+   Configuration required for this add-on via UI (see example screen below)
    ```
    lifesmart:
      appkey: | your appkey|  
@@ -36,7 +39,24 @@ How to install:
      userid: | your userid| 
      url: | your api address|  #e.g. api.apz.ilifesmart.com for asia pacific, api.us.ilifesmart.com for US  
     ```
- Installation via HACS will be supported soon. 
+
+
+### HACS with Custom repository (Recommended)
+1. Go to HACS > Integration > choose Custom Repository
+
+   ![HACS Custom Repository](https://github.com/iKaew/hass-lifesmart-addon/assets/6348112/2499f1f5-f973-40db-8bf5-76b08e3faa1d)
+1. In custom repository dialog enter 
+
+   Repository: `https://github.com/iKaew/hass-lifesmart-addon`
+
+   Category: `Integration`
+
+1. Click Add
+1. Setup integration via add Integration
+
+Via HACS should allow you to get new version when it ready. 
+
+After the addon stable, I'll push the repo be in deault list of HACS and (long way) later to be included in Official Integration of HA.
 
 Example
 ---
