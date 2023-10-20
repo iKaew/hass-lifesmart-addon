@@ -7,6 +7,7 @@ import hashlib
 import logging
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
@@ -19,8 +20,10 @@ from .const import (
     DEVICE_TYPE_KEY,
     DOMAIN,
     HUB_ID_KEY,
+    LIFESMART_SIGNAL_UPDATE_ENTITY,
     MANUFACTURER,
     SMART_PLUG_TYPES,
+    SPOT_TYPES,
     SUPPORTED_SUB_SWITCH_TYPES,
     SUPPORTED_SWTICH_TYPES,
 )
@@ -51,6 +54,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     exclude_devices = hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"]
     exclude_hubs = hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"]
     client = hass.data[DOMAIN][config_entry.entry_id]["client"]
+    switch_devices = []
     for device in devices:
         if (
             device[DEVICE_ID_KEY] in exclude_devices
@@ -59,12 +63,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             continue
 
         device_type = device[DEVICE_TYPE_KEY]
-        if device_type in SUPPORTED_SWTICH_TYPES + SMART_PLUG_TYPES:
+        if device_type in SUPPORTED_SWTICH_TYPES + SMART_PLUG_TYPES + SPOT_TYPES:
             ha_device = LifeSmartDevice(
                 device,
                 client,
             )
-            switch_devices = []
+
             if device_type in AI_TYPES:
                 switch_devices.append(LifeSmartSceneSwitch(ha_device, device, client))
             elif device_type in SMART_PLUG_TYPES:
@@ -78,6 +82,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         client,
                     )
                 )
+            elif device_type in SPOT_TYPES:
+                sub_device_key = "RGB"
             else:
                 for sub_device_key in device[DEVICE_DATA_KEY]:
                     if sub_device_key in SUPPORTED_SUB_SWITCH_TYPES:
@@ -90,7 +96,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                                 client,
                             )
                         )
-            async_add_entities(switch_devices)
+    async_add_entities(switch_devices)
 
 
 class LifeSmartSwitch(SwitchEntity):
@@ -153,8 +159,23 @@ class LifeSmartSwitch(SwitchEntity):
             via_device=(DOMAIN, self.hub_id),
         )
 
-    async def async_added_to_hass(self):
-        """Call when entity is added to hass."""
+    async def async_added_to_hass(self) -> None:
+        """Register callbacks."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self.entity_id}",
+                self._update_state,
+            )
+        )
+
+    async def _update_state(self, data) -> None:
+        if data is not None:
+            if data["type"] % 2 == 1:
+                self._state = True
+            else:
+                self._state = False
+            self.schedule_update_ha_state()
 
     def _get_state(self):
         """get lifesmart switch state."""

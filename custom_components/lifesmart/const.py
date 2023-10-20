@@ -160,3 +160,5 @@ DEVICE_DATA_KEY = "data"
 
 LIFESMART_STATE_MANAGER = "lifesmart_wss"
 UPDATE_LISTENER = "update_listener"
+
+LIFESMART_SIGNAL_UPDATE_ENTITY = "lifesmart_updated"

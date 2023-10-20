@@ -4,6 +4,7 @@ import logging
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import UnitOfTemperature
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 from .const import (
     DEVICE_DATA_KEY,
@@ -13,6 +14,7 @@ from .const import (
     DOMAIN,
     GAS_SENSOR_TYPES,
     HUB_ID_KEY,
+    LIFESMART_SIGNAL_UPDATE_ENTITY,
     LOCK_TYPES,
     MANUFACTURER,
     OT_SENSOR_TYPES,
@@ -213,3 +215,18 @@ class LifeSmartSensor(SensorEntity):
     def unique_id(self):
         """A unique identifier for this entity."""
         return self.entity_id
+
+    async def async_added_to_hass(self) -> None:
+        """Register callbacks."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self.entity_id}",
+                self._update_value,
+            )
+        )
+
+    async def _update_value(self, data) -> None:
+        if data is not None:
+            self._state = data["v"]
+            self.schedule_update_ha_state()

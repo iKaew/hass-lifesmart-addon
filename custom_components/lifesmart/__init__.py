@@ -3,6 +3,7 @@ from typing import Final
 from homeassistant.components.climate import FAN_HIGH, FAN_LOW, FAN_MEDIUM
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_URL, STATE_OFF, STATE_ON, Platform
+from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util.dt import utcnow
 from homeassistant.helpers.event import async_track_point_in_utc_time
@@ -62,6 +63,7 @@ from .const import (
     GUARD_SENSOR_TYPES,
     HUB_ID_KEY,
     LIFESMART_HVAC_STATE_LIST,
+    LIFESMART_SIGNAL_UPDATE_ENTITY,
     LIFESMART_STATE_MANAGER,
     LIGHT_DIMMER_TYPES,
     LIGHT_SWITCH_TYPES,
@@ -157,35 +159,16 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                 device_type in SUPPORTED_SWTICH_TYPES
                 and sub_device_key in SUPPORTED_SUB_SWITCH_TYPES
             ):
-                attrs = hass.states.get(entity_id).attributes
-                if data["type"] % 2 == 1:
-                    hass.states.set(entity_id, STATE_ON, attrs)
-                else:
-                    hass.states.set(entity_id, STATE_OFF, attrs)
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
             elif (
                 device_type in BINARY_SENSOR_TYPES
                 and sub_device_key in SUPPORTED_SUB_BINARY_SENSORS
             ):
-                attrs = hass.states.get(entity_id).attributes
-                if device_type in GUARD_SENSOR_TYPES and sub_device_key in ["G"]:
-                    if data["val"] == 0:
-                        hass.states.set(entity_id, STATE_ON, attrs)
-                    else:
-                        hass.states.set(entity_id, STATE_OFF, attrs)
-                elif device_type in GENERIC_CONTROLLER_TYPES:
-                    # On means open (unlocked), Off means closed (locked)
-                    if data["val"] == 0:
-                        hass.states.set(entity_id, STATE_ON, attrs)
-                        _LOGGER.debug("Lock status changed to UNLOCKED")
-
-                    else:
-                        hass.states.set(entity_id, STATE_OFF, attrs)
-                        _LOGGER.debug("Lock status changed to LOCKED")
-                else:
-                    if data["val"] == 0:
-                        hass.states.set(entity_id, STATE_OFF, attrs)
-                    else:
-                        hass.states.set(entity_id, STATE_ON, attrs)
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
 
             elif device_type in COVER_TYPES and sub_device_key == "P1":
                 attrs = dict(hass.states.get(entity_id).attributes)
@@ -218,41 +201,40 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                 value = data["val"]
                 idx = sub_device_key
 
-                if data["type"] % 2 == 0:
-                    hass.states.set(entity_id, STATE_OFF, attrs)
-                else:
-                    if idx in ["HS"]:
-                        if value == 0:
-                            attrs[ATTR_HS_COLOR] = None
-                        else:
-                            rgbhexstr = "%x" % value
-                            rgbhexstr = rgbhexstr.zfill(8)
-                            rgbhex = bytes.fromhex(rgbhexstr)
-                            rgba = struct.unpack("BBBB", rgbhex)
-                            rgb = rgba[1:]
-                            attrs[ATTR_HS_COLOR] = color_util.color_RGB_to_hs(*rgb)
-                            _LOGGER.info("HS: %s", str(attrs[ATTR_HS_COLOR]))
-                    elif idx in ["RGB_O"]:
-                        if value == 0:
-                            attrs[ATTR_RGB_COLOR] = None
-                        else:
-                            rgbhexstr = "%x" % value
-                            rgbhexstr = rgbhexstr.zfill(8)
-                            rgbhex = bytes.fromhex(rgbhexstr)
-                            rgba = struct.unpack("BBBB", rgbhex)
-                            rgb = rgba[1:]
-                            attrs[ATTR_RGB_COLOR] = rgb
-                            _LOGGER.info("RGB: %s", str(attrs[ATTR_RGB_COLOR]))
-                    elif idx in ["RGBW", "RGB"]:
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
+                if idx in ["HS"]:
+                    if value == 0:
+                        attrs[ATTR_HS_COLOR] = None
+                    else:
                         rgbhexstr = "%x" % value
                         rgbhexstr = rgbhexstr.zfill(8)
                         rgbhex = bytes.fromhex(rgbhexstr)
-                        rgbhex = struct.unpack("BBBB", rgbhex)
-                        # convert from wrgb to rgbw tuple
-                        attrs[ATTR_RGBW_COLOR] = rgbhex[1:] + (rgbhex[0],)
-                        _LOGGER.info("RGBW: %s", str(attrs[ATTR_RGBW_COLOR]))
+                        rgba = struct.unpack("BBBB", rgbhex)
+                        rgb = rgba[1:]
+                        attrs[ATTR_HS_COLOR] = color_util.color_RGB_to_hs(*rgb)
+                        _LOGGER.info("HS: %s", str(attrs[ATTR_HS_COLOR]))
+                elif idx in ["RGB_O"]:
+                    if value == 0:
+                        attrs[ATTR_RGB_COLOR] = None
+                    else:
+                        rgbhexstr = "%x" % value
+                        rgbhexstr = rgbhexstr.zfill(8)
+                        rgbhex = bytes.fromhex(rgbhexstr)
+                        rgba = struct.unpack("BBBB", rgbhex)
+                        rgb = rgba[1:]
+                        attrs[ATTR_RGB_COLOR] = rgb
+                        _LOGGER.info("RGB: %s", str(attrs[ATTR_RGB_COLOR]))
+                elif idx in ["RGBW", "RGB"]:
+                    rgbhexstr = "%x" % value
+                    rgbhexstr = rgbhexstr.zfill(8)
+                    rgbhex = bytes.fromhex(rgbhexstr)
+                    rgbhex = struct.unpack("BBBB", rgbhex)
+                    # convert from wrgb to rgbw tuple
+                    attrs[ATTR_RGBW_COLOR] = rgbhex[1:] + (rgbhex[0],)
+                    _LOGGER.info("RGBW: %s", str(attrs[ATTR_RGBW_COLOR]))
 
-                    hass.states.set(entity_id, STATE_ON, attrs)
 
             elif device_type in LIGHT_DIMMER_TYPES:
                 attrs = dict(hass.states.get(entity_id).attributes)
@@ -320,8 +302,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                         hass.states.set(entity_id, nstat, attrs)
             elif device_type in LOCK_TYPES:
                 if sub_device_key == "BAT":
-                    attrs = hass.states.get(entity_id).attributes
-                    hass.states.set(entity_id, data["val"], attrs)
+                    dispatcher_send(
+                        hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                    )
                 elif sub_device_key == "EVTLO":
                     """
                     type%2==1 means open;
@@ -368,10 +351,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                             data["ts"] / 1000
                         ).strftime("%Y-%m-%d %H:%M:%S"),
                     }
-                    if data["type"] % 2 == 1:
-                        hass.states.set(entity_id, STATE_ON, attrs)
-                    else:
-                        hass.states.set(entity_id, STATE_OFF, attrs)
+
+                    dispatcher_send(
+                        hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                    )
             elif device_type in OT_SENSOR_TYPES and sub_device_key in [
                 "Z",
                 "V",
