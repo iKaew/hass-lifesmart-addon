@@ -8,9 +8,9 @@
         "data": {
           "appkey": "App Key",
           "apptoken": "App Token",
-          "usertoken": "User Token ",
+          "userpassword": "User Password ",
           "userid": "User Id",
-          "url": "LifeSmart regional domain",
+          "region": "LifeSmart regional server",
           "exclude": "List of device to be excluded",
           "exclude_agt": "List of hub to be excluded",
           "ai_include_agt": "List of hub to be included in Scene",
@@ -27,11 +27,19 @@
   },
   "options": {
     "step": {
-      "init": {
+      "user": {
         "title": "LifeSmart Integration Setup",
-        "description": "Select configurations to edit",
-        "menu_options": {
-          "main_params": "Main configurations"
+        "description": "Enter LifeSmart Platform credential and User details.",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "User Password ",
+          "userid": "User Id",
+          "region": "LifeSmart regional server",
+          "exclude": "List of device to be excluded",
+          "exclude_agt": "List of hub to be excluded",
+          "ai_include_agt": "List of hub to be included in Scene",
+          "ai_include_me": "List of device to be included in Scene"
         }
       },
       "main_params": {
@@ -40,9 +48,9 @@
         "data": {
           "appkey": "App Key",
           "apptoken": "App Token",
-          "usertoken": "User Token ",
+          "userpassword": "User Password ",
           "userid": "User Id",
-          "url": "LifeSmart regional domain",
+          "region": "LifeSmart regional server",
           "exclude": "List of device to be excluded",
           "exclude_agt": "List of hub to be excluded",
           "ai_include_agt": "List of hub to be included in Scene",

@@ -1,20 +1,22 @@
 """Support for lifesmart sensors."""
 import logging
 
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import (
-    PERCENTAGE,
-    UnitOfTemperature,
-    UnitOfPower,
-    UnitOfEnergy,
-    UnitOfPrecipitationDepth,
-    CONCENTRATION_PARTS_PER_MILLION,
     CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER,
+    CONCENTRATION_PARTS_PER_MILLION,
     LIGHT_LUX,
+    PERCENTAGE,
+    UnitOfEnergy,
+    UnitOfPower,
+    UnitOfTemperature,
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
+
+# DOMAIN = "sensor"
+# ENTITY_ID_FORMAT = DOMAIN + ".{}"
+from . import LifeSmartDevice, generate_entity_id
 from .const import (
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
@@ -29,12 +31,6 @@ from .const import (
     OT_SENSOR_TYPES,
     SMART_PLUG_TYPES,
 )
-
-
-# DOMAIN = "sensor"
-# ENTITY_ID_FORMAT = DOMAIN + ".{}"
-
-from . import LifeSmartDevice, generate_entity_id
 
 _LOGGER = logging.getLogger(__name__)
 

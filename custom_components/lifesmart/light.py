@@ -1,25 +1,27 @@
 """Support for LifeSmart Gateway Light."""
 import binascii
+import hashlib
+import json
 import logging
 import struct
-import urllib.request
-import json
 import time
-import hashlib
+import urllib.request
+
 import aiohttp
+
 from homeassistant.components.light import (
-    ColorMode,
     ATTR_BRIGHTNESS,
+    ATTR_COLOR_TEMP,
     ATTR_HS_COLOR,
-    ATTR_RGBW_COLOR,
-    ATTR_RGB_COLOR,
     ATTR_MAX_MIREDS,
     ATTR_MIN_MIREDS,
-    ATTR_COLOR_TEMP,
+    ATTR_RGB_COLOR,
+    ATTR_RGBW_COLOR,
+    ENTITY_ID_FORMAT,
+    ColorMode,
     # SUPPORT_BRIGHTNESS,
     # SUPPORT_COLOR,
     LightEntity,
-    ENTITY_ID_FORMAT,
 )
 import homeassistant.util.color as color_util
 

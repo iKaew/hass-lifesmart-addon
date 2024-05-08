@@ -1,10 +1,16 @@
 """Support for LifeSmart binary sensors."""
-import datetime
 import logging
+
+from homeassistant.components.binary_sensor import (
+    ENTITY_ID_FORMAT,
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+)
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-
 from homeassistant.helpers.entity import DeviceInfo
+
+from . import LifeSmartDevice, generate_entity_id
 from .const import (
     BINARY_SENSOR_TYPES,
     DEVICE_DATA_KEY,
@@ -20,13 +26,6 @@ from .const import (
     MANUFACTURER,
     MOTION_SENSOR_TYPES,
 )
-from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
-    BinarySensorEntity,
-    ENTITY_ID_FORMAT,
-)
-
-from . import LifeSmartDevice, generate_entity_id
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -1,34 +1,24 @@
-"""lifesmart by @ikaew"""
-from typing import Final
-from homeassistant.components.climate import FAN_HIGH, FAN_LOW, FAN_MEDIUM
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_URL, STATE_OFF, STATE_ON, Platform
-from homeassistant.helpers.dispatcher import dispatcher_send
-from homeassistant.helpers.typing import ConfigType
-from homeassistant.util.dt import utcnow
-from homeassistant.helpers.event import async_track_point_in_utc_time
-from homeassistant.helpers.entity import DeviceInfo, Entity
-import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers import discovery
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.components import climate
-from homeassistant.const import (
-    CONF_FRIENDLY_NAME,
-)
-import subprocess
-from unittest import case
-import urllib.request
-import json
-import time
+"""lifesmart by @ikaew."""
+import asyncio
 import datetime
 import hashlib
+import json
 import logging
-import threading
-from .lifesmart_client import LifeSmartClient
-import websocket
-import asyncio
 import struct
+import subprocess
+import sys
+import threading
+import time
+from typing import Final
+from unittest import case
+import urllib.request
+
 import aiohttp
+import voluptuous as vol
+import websocket
+
+from homeassistant.components import climate
+from homeassistant.components.climate import FAN_HIGH, FAN_LOW, FAN_MEDIUM
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP,
@@ -38,7 +28,25 @@ from homeassistant.components.light import (
     ATTR_RGB_COLOR,
     ATTR_RGBW_COLOR,
 )
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import (
+    CONF_FRIENDLY_NAME,
+    CONF_REGION,
+    CONF_URL,
+    STATE_OFF,
+    STATE_ON,
+    Platform,
+)
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import discovery
+import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.dispatcher import dispatcher_send
+from homeassistant.helpers.entity import DeviceInfo, Entity
+from homeassistant.helpers.event import async_track_point_in_utc_time
+from homeassistant.helpers.typing import ConfigType
 import homeassistant.util.color as color_util
+from homeassistant.util.dt import utcnow
+
 from .const import (
     AI_TYPES,
     BINARY_SENSOR_TYPES,
@@ -47,8 +55,10 @@ from .const import (
     CONF_AI_INCLUDE_ITEMS,
     CONF_EXCLUDE_AGTS,
     CONF_EXCLUDE_ITEMS,
+    CONF_LIFESMART_APPKEY,
     CONF_LIFESMART_APPTOKEN,
     CONF_LIFESMART_USERID,
+    CONF_LIFESMART_USERPASSWORD,
     CONF_LIFESMART_USERTOKEN,
     COVER_TYPES,
     DEVICE_ID_KEY,
@@ -56,7 +66,6 @@ from .const import (
     DEVICE_TYPE_KEY,
     DEVICE_WITHOUT_IDXNAME,
     DOMAIN,
-    CONF_LIFESMART_APPKEY,
     EV_SENSOR_TYPES,
     GAS_SENSOR_TYPES,
     GENERIC_CONTROLLER_TYPES,
@@ -78,9 +87,7 @@ from .const import (
     SUPPORTED_SWTICH_TYPES,
     UPDATE_LISTENER,
 )
-
-import voluptuous as vol
-import sys
+from .lifesmart_client import LifeSmartClient
 
 sys.setrecursionlimit(100000)
 
@@ -93,9 +100,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
 
     app_key = config_entry.data.get(CONF_LIFESMART_APPKEY)
     app_token = config_entry.data.get(CONF_LIFESMART_APPTOKEN)
-    user_token = config_entry.data.get(CONF_LIFESMART_USERTOKEN)
     user_id = config_entry.data.get(CONF_LIFESMART_USERID)
-    baseurl = config_entry.data.get(CONF_URL)
+    user_password = config_entry.data.get(CONF_LIFESMART_USERPASSWORD)
+    region = config_entry.data.get(CONF_REGION)
     exclude_devices = config_entry.data.get(CONF_EXCLUDE_ITEMS)
     exclude_hubs = config_entry.data.get(CONF_EXCLUDE_AGTS)
     ai_include_hubs = config_entry.data.get(CONF_AI_INCLUDE_AGTS)
@@ -115,12 +122,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     update_listener = config_entry.add_update_listener(_async_update_listener)
 
     lifesmart_client = LifeSmartClient(
-        baseurl,
+        region,
         app_key,
         app_token,
-        user_token,
         user_id,
+        user_password,
     )
+
+    await lifesmart_client.login_async()
 
     devices = await lifesmart_client.get_all_device_async()
 
@@ -195,9 +204,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                 attrs = hass.states.get(entity_id).attributes
                 hass.states.set(entity_id, data["val"], attrs)
             elif device_type in SPOT_TYPES or device_type in LIGHT_SWITCH_TYPES:
-                #attrs = dict(hass.states.get(entity_id).attributes)
+                # attrs = dict(hass.states.get(entity_id).attributes)
                 _LOGGER.debug("websocket_light_msg: %s ", str(msg))
-                #_LOGGER.debug("websocket_light_attrs: %s", str(attrs))
+                # _LOGGER.debug("websocket_light_attrs: %s", str(attrs))
                 value = data["val"]
                 idx = sub_device_key
 

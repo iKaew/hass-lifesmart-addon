@@ -1,8 +1,9 @@
 import asyncio
-import logging
-import time
 import hashlib
 import json
+import logging
+import time
+
 import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
@@ -13,17 +14,18 @@ class LifeSmartClient:
 
     def __init__(
         self,
-        baseurl,
+        region,
         appkey,
         apptoken,
-        usertoken,
         userid,
+        userpassword,
     ) -> None:
-        self._baseurl = baseurl
+        """Initialize LifeSmart client."""
+        self._region = region
         self._appkey = appkey
         self._apptoken = apptoken
-        self._usertoken = usertoken
         self._userid = userid
+        self._userpassword = userpassword
 
     async def get_all_device_async(self):
         """Get all devices belong to current user."""
@@ -70,8 +72,38 @@ class LifeSmartClient:
             return response["message"]
         return False
 
+    async def login_async(self):
+        """Login to LifeSmart service to get user token."""
+        # Get temporary token
+        url = self.get_api_url() + "/auth.login"
+        login_data = {
+            "uid": self._userid,
+            "pwd": self._userpassword,
+            "appkey": self._appkey,
+        }
+        header = self.generate_header()
+        send_data = json.dumps(login_data)
+        response = json.loads(await self.post_async(url, send_data, header))
+        if response["code"] != "success":
+            return False
+
+        # Use temporary token to get usertoken
+        url = self.get_api_url() + "/auth.do_auth"
+        auth_data = {
+            "userid": self._userid,
+            "token": response["token"],
+            "appkey": self._appkey,
+            "rgn": "apz",
+        }
+        send_data = json.dumps(auth_data)
+        response = json.loads(await self.post_async(url, send_data, header))
+        if response["code"] == "success":
+            self._usertoken = response["usertoken"]
+
+        return response
+
     async def set_scene_async(self, agt, id):
-        """Set the scene by scene id to LifeSmart"""
+        """Set the scene by scene id to LifeSmart."""
         url = self.get_api_url() + "/api.SceneSet"
         tick = int(time.time())
         # keys = str(keys)
@@ -210,9 +242,11 @@ class LifeSmartClient:
         return response
 
     async def turn_on_light_swith_async(self, idx, agt, me):
+        """Turn on light async."""
         return await self.send_epset_async("0x81", 1, idx, agt, me)
 
     async def turn_off_light_swith_async(self, idx, agt, me):
+        """Turn off light async."""
         return await self.send_epset_async("0x80", 0, idx, agt, me)
 
     async def send_epset_async(self, type, val, idx, agt, me):
@@ -274,7 +308,7 @@ class LifeSmartClient:
         return response["message"]["data"]
 
     async def get_ir_remote_list_async(self, agt):
-        """Get remote list for a specific station"""
+        """Get remote list for a specific station."""
         url = self.get_api_url() + "/irapi.GetRemoteList"
 
         tick = int(time.time())
@@ -325,26 +359,33 @@ class LifeSmartClient:
         return response["message"]["codes"]
 
     async def post_async(self, url, data, headers):
-        """Async method to make a POST api call"""
+        """Async method to make a POST api call."""
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=data, headers=headers) as response:
                 response_text = await response.text()
                 return response_text
 
     def get_signature(self, data):
-        """Generate signature required by LifeSmart API"""
+        """Generate signature required by LifeSmart API."""
         return hashlib.md5(data.encode(encoding="UTF-8")).hexdigest()
 
     def get_api_url(self):
-        """Generate api URL"""
-        return "https://" + self._baseurl + "/app"
+        """Generate api URL."""
+        if self._region == "":
+            return "https://api.ilifesmart.com/app"
+        else:
+            return "https://api." + self._region + ".ilifesmart.com/app"
 
     def get_wss_url(self):
-        """Generate websocket (wss) URL"""
-        return "wss://" + self._baseurl + ":8443/wsapp/"
+        """Generate websocket (wss) URL."""
+
+        if self._region == "":
+            return "wss://api.ilifesmart.com:8443/wsapp/"
+        else:
+            return "wss://api." + self._region + ".ilifesmart.com:8443/wsapp/"
 
     def generate_system_request_body(self, tick, data):
-        """Generate system node in request body which contain credential and signature"""
+        """Generate system node in request body which contain credential and signature."""
         return {
             "ver": "1.0",
             "lang": "en",
@@ -355,7 +396,7 @@ class LifeSmartClient:
         }
 
     def generate_time_and_credential_data(self, tick):
-        """Generate default parameter required in body"""
+        """Generate default parameter required in body."""
 
         return (
             "time:"
@@ -371,11 +412,11 @@ class LifeSmartClient:
         )
 
     def generate_header(self):
-        """Generate default http header required by LifeSmart"""
+        """Generate default http header required by LifeSmart."""
         return {"Content-Type": "application/json"}
 
     def generate_wss_auth(self):
-        """Generate authentication message with signature for wss connection"""
+        """Generate authentication message with signature for wss connection."""
         tick = int(time.time())
         sdata = "method:WbAuth," + self.generate_time_and_credential_data(tick)
 
