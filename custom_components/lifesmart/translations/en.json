@@ -8,7 +8,7 @@
         "data": {
           "appkey": "App Key",
           "apptoken": "App Token",
-          "userpassword": "User Password ",
+          "userpassword": "User Password",
           "userid": "User Id",
           "region": "LifeSmart regional server",
           "exclude": "List of device to be excluded",
@@ -33,7 +33,7 @@
         "data": {
           "appkey": "App Key",
           "apptoken": "App Token",
-          "userpassword": "User Password ",
+          "userpassword": "User Password",
           "userid": "User Id",
           "region": "LifeSmart regional server",
           "exclude": "List of device to be excluded",
@@ -48,7 +48,7 @@
         "data": {
           "appkey": "App Key",
           "apptoken": "App Token",
-          "userpassword": "User Password ",
+          "userpassword": "User Password",
           "userid": "User Id",
           "region": "LifeSmart regional server",
           "exclude": "List of device to be excluded",
