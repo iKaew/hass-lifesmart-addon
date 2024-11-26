@@ -120,8 +120,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
         UPDATE_LISTENER: update_listener,
     }
 
-    for platform in SUPPORTED_PLATFORMS:
-        await hass.config_entries.async_forward_entry_setups(config_entry, platform)       
+    await hass.config_entries.async_forward_entry_setups(
+        config_entry, SUPPORTED_PLATFORMS
+    )   
 
     async def data_update_handler(msg):
         data = msg["msg"]
