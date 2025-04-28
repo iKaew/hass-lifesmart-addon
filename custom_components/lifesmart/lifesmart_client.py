@@ -47,7 +47,7 @@ class LifeSmartClient:
         _LOGGER.debug("EpGetAll_res: %s", response)
         if response["code"] == 0:
             return response["message"]
-        return False
+        return response
 
     async def get_all_scene_async(self, agt):
         """Get all scenes belong to current user."""
@@ -87,16 +87,19 @@ class LifeSmartClient:
         send_data = json.dumps(login_data)
         response = json.loads(await self.post_async(url, send_data, header))
         if response["code"] != "success":
-            return False
+            return response
 
         # Use temporary token to get usertoken
         url = self.get_api_url() + "/auth.do_auth"
         auth_data = {
-            "userid": self._userid,
+            "userid": response["userid"],
             "token": response["token"],
             "appkey": self._appkey,
             "rgn": self._region,
         }
+        if self._userid != response["userid"]:
+            self._userid = response["userid"]
+
         send_data = json.dumps(auth_data)
         response = json.loads(await self.post_async(url, send_data, header))
         if response["code"] == "success":

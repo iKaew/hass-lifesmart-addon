@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Launch Home Assistant",
+            "program": "/home/vscode/.local/bin/hass",
+            "args": [
+                "--config",
+                "${workspaceFolder}/config",
+                "--debug"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

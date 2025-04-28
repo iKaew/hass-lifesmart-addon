@@ -3,7 +3,6 @@
 import logging
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.const import CONF_NAME, CONF_REGION
 from homeassistant.core import callback
@@ -44,7 +43,6 @@ async def validate_input(hass, data):
 
     app_key = data[CONF_LIFESMART_APPKEY]
     app_token = data[CONF_LIFESMART_APPTOKEN]
-    # user_token = data[CONF_LIFESMART_USERTOKEN]
     user_id = data[CONF_LIFESMART_USERID]
     user_password = data[CONF_LIFESMART_USERPASSWORD]
     region = data[CONF_REGION]
@@ -61,9 +59,13 @@ async def validate_input(hass, data):
         user_password,
     )
 
-    await lifesmart_client.login_async()
+    response = await lifesmart_client.login_async()
+    if response["code"] != "success":
+        raise Exception(f"Error connecting to LifeSmart API: {response}")
 
-    await lifesmart_client.get_all_device_async()
+    response = await lifesmart_client.get_all_device_async()
+    if "code" in response:
+        raise Exception(f"Error connecting to LifeSmart API: {response}")
 
     return {"title": f"User Id {user_id}", "unique_id": app_key}
 
@@ -98,8 +100,9 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 validated = await validate_input(self.hass, user_input)
-            except Exception:
-                _LOGGER.warning("Input validation error")
+            except Exception as err:
+                _LOGGER.error("Input validation error %s", err)
+                errors["base"] = str(err)
 
             if "base" not in errors:
                 await self.async_set_unique_id(validated["unique_id"])

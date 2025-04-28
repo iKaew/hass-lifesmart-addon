@@ -24,7 +24,10 @@
     },
     "postCreateCommand": "scripts/setup",
     "runArgs": [
-        "--network=host"
+        "--network=host",
+        "-e",
+        "GIT_EDITOR=code --wait",
+        "--privileged"
     ],
     "forwardPorts": [
         8123

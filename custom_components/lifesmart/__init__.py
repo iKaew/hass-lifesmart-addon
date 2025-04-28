@@ -10,7 +10,6 @@ from typing import cast
 
 import voluptuous as vol
 import websocket
-
 from homeassistant.components import climate
 from homeassistant.components.climate import FAN_HIGH, FAN_LOW, FAN_MEDIUM
 from homeassistant.components.light import (
@@ -113,9 +112,13 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         user_password,
     )
 
-    await lifesmart_client.login_async()
+    response = await lifesmart_client.login_async()
+    if response["code"] != "success":
+        raise Exception(f"Error connecting to LifeSmart API: {response}")
 
     devices = await lifesmart_client.get_all_device_async()
+    if "code" in devices:
+        raise Exception(f"Error connecting to LifeSmart API: {response}")
 
     _LOGGER.info(devices)
 
