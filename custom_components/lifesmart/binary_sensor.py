@@ -2,7 +2,6 @@
 import logging
 from typing import Any
 
-from homeassistant.components import datetime
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,

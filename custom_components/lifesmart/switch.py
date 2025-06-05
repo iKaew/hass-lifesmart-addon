@@ -18,7 +18,6 @@ from .const import (
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     MANUFACTURER,
     SMART_PLUG_TYPES,
-    SPOT_TYPES,
     SUPPORTED_SUB_SWITCH_TYPES,
     SUPPORTED_SWTICH_TYPES,
 )
@@ -201,20 +200,22 @@ class LifeSmartSwitch(SwitchEntity):
 class LifeSmartSceneSwitch(LifeSmartDevice, SwitchEntity):
     def __init__(self, device, raw_device_data, client) -> None:
         """Initialize the switch."""
-        device_name = raw_device_data[DEVICE_NAME_KEY]
+
         device_type = raw_device_data[DEVICE_TYPE_KEY]
         hub_id = raw_device_data[HUB_ID_KEY]
         device_id = raw_device_data[DEVICE_ID_KEY]
 
+        super().__init__(raw_device_data, client)
+
         self._device = device
-
-        self._name = raw_device_data[DEVICE_NAME_KEY]
-
         self.entity_id = generate_entity_id(device_type, hub_id, device_id)
-        self.hub_id = raw_device_data[HUB_ID_KEY]
+
+        self.hub_id = hub_id
+        self.device_id = device_id
+        self.device_type = device_type
+        self.switch_name = raw_device_data[DEVICE_NAME_KEY]
 
         self._state = False
-        super().__init__()
 
     @property
     def is_on(self):
