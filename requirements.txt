@@ -1,5 +1,5 @@
 isal
-homeassistant==2025.3.0
+homeassistant==2025.10.2
 ruff==0.9.8
 zlib-ng
 pytest==8.1.1
