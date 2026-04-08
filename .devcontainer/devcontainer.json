@@ -1,6 +1,6 @@
 {
     "name": "LifeSmart HA Integration",
-    "image": "mcr.microsoft.com/devcontainers/python:dev-3.13",
+    "image": "mcr.microsoft.com/devcontainers/python:dev-3.14",
     "features": {
         "ghcr.io/devcontainers/features/github-cli:1": {
             "installDirectlyFromGitHubRelease": true,
