@@ -86,11 +86,11 @@ Since there are a lot of refactored and code changes, some old device removed fr
 
 1. Dynamic sensor, door sensor, environmental sensor, formaldehyde/gas sensor
 
+1. Curtain motor (DOOYA and other brands via LifeSmart controller)
+
 1. ~~Lighting: currently only supports Super Bowl night light~~
 
 1. ~~Universal remote control~~
-
-1. ~~Curtain motor (only support Duya motor)~~
 
 1. ~~Air conditioning control panel~~
 
@@ -170,9 +170,24 @@ Smart Plug:
 | ~~SL_OL_3C~~ | |
 | ~~SL_O~~L | |
 
+Curtain Motor / Cover: 
+| Model  | Remark |
+| ------ | ------ |
+| SL_DOOYA | Supports position control (0-100%) |
+| SL_DOOYA_V2 | Quick Link Curtain Motor with position control |
+| SL_DOOYA_V3 | Tubular Motor with position control |
+| SL_DOOYA_V4 | Tubular Motor (lithium battery) with position control |
+| SL_SW_WIN | Curtain control switch (open/close/stop) |
+| SL_CN_IF | BLEND curtain controller (open/close/stop) |
+| SL_CN_FE | Gezhi/Sennathree-key curtain (open/close/stop) |
+| SL_P_V2 | MINS curtain motor controller (open/close/stop) |
+
+For detailed curtain device setup and usage, see [CURTAIN_SUPPORT.md](./CURTAIN_SUPPORT.md)
+
 
 This project is forked/combined from serveral projects below 
 ---
 - https://github.com/skyzhishui/custom_components by @skyzhishui
 - https://github.com/Blankdlh/hass-lifesmart by @Blankdlh
 - https://github.com/likso/hass-lifesmart by @likso
+

@@ -113,7 +113,16 @@ BINARY_SENSOR_TYPES = [
     "SL_P_A",
     "SL_P",
 ]
-COVER_TYPES = ["SL_DOOYA"]
+COVER_TYPES = [
+    "SL_DOOYA",  # Curtain (DuYa)
+    "SL_DOOYA_V2",  # Quick Link Curtain Motor
+    "SL_DOOYA_V3",  # Tubular Motor
+    "SL_DOOYA_V4",  # Tubular Motor (lithium battery)
+    "SL_SW_WIN",  # Curtain controller
+    "SL_CN_IF",  # BLEND curtain controller
+    "SL_CN_FE",  # Gezhi/Sennathree-keycurtain
+    "SL_P_V2",  # MINS curtain motor controller
+]
 GAS_SENSOR_TYPES = ["SL_SC_WA ", "SL_SC_CH", "SL_SC_CP", "ELIQ_EM"]
 EV_SENSOR_TYPES = ["SL_SC_THL", "SL_SC_BE", "SL_SC_CQ"]
 OT_SENSOR_TYPES = ["SL_SC_MHW", "SL_SC_BM", "SL_SC_G", "SL_SC_BG"]
@@ -144,7 +153,7 @@ SUPPORTED_PLATFORMS = [
     Platform.SWITCH,
     Platform.BINARY_SENSOR,
     Platform.SENSOR,
-    # Platform.COVER,
+    Platform.COVER,
     Platform.LIGHT,
     # Platform.CLIMATE,
 ]
