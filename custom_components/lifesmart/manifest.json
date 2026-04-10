@@ -1,13 +1,17 @@
 {
   "domain": "lifesmart",
   "name": "LifeSmart",
-  "codeowners": ["@iKaew"],
+  "codeowners": [
+    "@iKaew"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/iKaew/hass-lifesmart-addon",
   "integration_type": "hub",
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/iKaew/hass-lifesmart-addon/issues",
-  "requirements": ["websocket-client"],
-  "version": "0.1.0"
+  "requirements": [
+    "websocket-client"
+  ],
+  "version": "0.2.0"
 }
