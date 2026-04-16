@@ -67,12 +67,15 @@ How to find user id from the mobile app
 
 Example
 ---
+![Alt text](./docs/example-image-5.png)
 ![image](https://github.com/user-attachments/assets/7d11a957-987c-4084-806e-9ffd16491c7e)
 
 ![Alt text](./docs/example-image.png)
 ![Alt text](./docs/example-image-4.png)
 ![Alt text](./docs/example-image-2.png)
 ![Alt text](./docs/example-image-3.png)
+![Alt text](./docs/example-image-6.png)
+![Alt text](./docs/example-image-7.png)
 
 
 Supported devices:
