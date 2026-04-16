@@ -1,4 +1,5 @@
 """Support for the LifeSmart climate devices."""
+
 import logging
 import time
 
@@ -13,6 +14,7 @@ from homeassistant.components.climate.const import (
 from homeassistant.const import PRECISION_WHOLE, UnitOfTemperature
 
 from . import LifeSmartDevice
+from .spotac_climate import async_setup_entry as async_setup_spotac_entry
 
 _LOGGER = logging.getLogger(__name__)
 DEVICE_TYPE = "climate"
@@ -39,6 +41,12 @@ AIR_TYPES = ["V_AIR_P"]
 THER_TYPES = ["SL_CP_DN"]
 
 LIFESMART_STATE_LIST
+
+
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    """Set up LifeSmart Climate entities from config entry."""
+    # Delegate to SPOT AC climate setup
+    return await async_setup_spotac_entry(hass, config_entry, async_add_entities)
 
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):

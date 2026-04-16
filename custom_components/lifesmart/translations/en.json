@@ -27,6 +27,14 @@
   },
   "options": {
     "step": {
+      "init": {
+        "title": "LifeSmart Options",
+        "menu_options": {
+          "user": "Edit connection settings",
+          "ac_device": "Configure SPOT A/C remote",
+          "ac_remove": "Remove SPOT A/C remote"
+        }
+      },
       "user": {
         "title": "LifeSmart Integration Setup",
         "description": "Enter LifeSmart Platform credential and User details.",
@@ -40,6 +48,34 @@
           "exclude_agt": "List of hub to be excluded",
           "ai_include_agt": "List of hub to be included in Scene",
           "ai_include_me": "List of device to be included in Scene"
+        }
+      },
+      "ac_device": {
+        "title": "Select SPOT Device",
+        "description": "Choose the LifeSmart SPOT device you want to configure as an A/C remote.",
+        "data": {
+          "device": "SPOT device"
+        }
+      },
+      "ac_brand": {
+        "title": "Select A/C Brand",
+        "description": "Choose the air conditioner brand for the selected SPOT device.",
+        "data": {
+          "brand": "A/C brand"
+        }
+      },
+      "ac_remote": {
+        "title": "Select Remote Profile",
+        "description": "Choose the remote profile index returned by the LifeSmart A/C API.",
+        "data": {
+          "idx": "Remote profile"
+        }
+      },
+      "ac_remove": {
+        "title": "Remove SPOT A/C Remote",
+        "description": "Choose the configured SPOT A/C remote you want to remove.",
+        "data": {
+          "device": "Configured SPOT A/C remote"
         }
       },
       "main_params": {
@@ -57,6 +93,14 @@
           "ai_include_me": "List of device to be included in Scene"
         }
       }
+    },
+    "abort": {
+      "no_spot_devices": "No SPOT devices were found for this account.",
+      "no_ac_config": "No configured SPOT A/C remotes were found."
+    },
+    "error": {
+      "no_ac_brands": "No A/C brands were returned by the LifeSmart API.",
+      "no_remote_idxs": "No remote profiles were returned for the selected A/C brand."
     }
   },
   "services": {
