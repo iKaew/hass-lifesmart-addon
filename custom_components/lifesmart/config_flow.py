@@ -395,9 +395,26 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
         if not spot_devices:
             return self.async_abort(reason="no_spot_devices")
 
+        errors = {}
+
         if user_input is not None:
             self._selected_device_key = user_input["device"]
-            return await self.async_step_ac_brand()
+            remote_default = await self._get_device_remote_default(
+                self._selected_device_key
+            )
+            if remote_default.get("category") != IR_CATEGORY_AC:
+                errors["base"] = "no_ac_remote_assigned"
+            else:
+                ac_config = dict(self._get_entry_value(CONF_AC_CONFIG, {}))
+                ac_config[self._selected_device_key] = {
+                    "category": IR_CATEGORY_AC,
+                    "brand": remote_default.get("brand", ""),
+                    "idx": remote_default.get("idx", ""),
+                    "ai": remote_default.get("ai", ""),
+                }
+                options = dict(self._config_entry.options)
+                options[CONF_AC_CONFIG] = ac_config
+                return self.async_create_entry(title="", data=options)
 
         device_options = []
         existing_ac_config = self._get_entry_value(CONF_AC_CONFIG, {})
@@ -419,7 +436,11 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
             }
         )
 
-        return self.async_show_form(step_id="ac_device", data_schema=schema)
+        return self.async_show_form(
+            step_id="ac_device",
+            data_schema=schema,
+            errors=errors,
+        )
 
     async def async_step_ac_brand(self, user_input=None):
         """Choose the AC brand for the selected SPOT device."""

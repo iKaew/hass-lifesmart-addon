@@ -31,7 +31,7 @@
         "title": "LifeSmart Options",
         "menu_options": {
           "user": "Edit connection settings",
-          "ac_device": "Configure SPOT A/C remote",
+          "ac_device": "Use SPOT A/C remote",
           "ac_remove": "Remove SPOT A/C remote"
         }
       },
@@ -52,7 +52,7 @@
       },
       "ac_device": {
         "title": "Select SPOT Device",
-        "description": "Choose the LifeSmart SPOT device you want to configure as an A/C remote.",
+        "description": "Choose the LifeSmart SPOT device that already has an A/C remote assigned in the LifeSmart app.",
         "data": {
           "device": "SPOT device"
         }
@@ -99,6 +99,7 @@
       "no_ac_config": "No configured SPOT A/C remotes were found."
     },
     "error": {
+      "no_ac_remote_assigned": "The selected SPOT device does not currently have an A/C remote assigned in the LifeSmart app.",
       "no_ac_brands": "No A/C brands were returned by the LifeSmart API.",
       "no_remote_idxs": "No remote profiles were returned for the selected A/C brand."
     }
