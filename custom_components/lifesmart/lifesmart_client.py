@@ -175,12 +175,29 @@ class LifeSmartClient:
 
         return json.loads(await self.post_async(url, send_data, header))
 
+    def _normalize_ir_keys(self, keys):
+        """Normalize IR keys into the SendCodes JSON string format."""
+        if isinstance(keys, (list, tuple)):
+            return json.dumps(keys)
+
+        if isinstance(keys, str):
+            try:
+                parsed = json.loads(keys)
+                if isinstance(parsed, list):
+                    return keys
+            except ValueError:
+                pass
+
+            return json.dumps([{"param": {"data": keys, "type": 1}}])
+
+        return json.dumps([{"param": {"data": str(keys), "type": 1}}])
+
     async def send_ir_code_async(self, agt, me, keys):
         """Send an IR code to a specific device."""
 
+        keys = self._normalize_ir_keys(keys)
         url = self.get_api_url() + "/irapi.SendCodes"
         tick = int(time.time())
-        # keys = str(keys)
         sdata = (
             "method:SendCodes,agt:"
             + agt
@@ -216,6 +233,7 @@ class LifeSmartClient:
         category,
         brand,
         key,
+        idx,
         power,
         mode,
         temp,
@@ -225,17 +243,46 @@ class LifeSmartClient:
         """Send an IR AIR Conditioner Key to a specific device."""
         url = self.get_api_url() + "/irapi.SendACKeys"
         tick = int(time.time())
-        # keys = str(keys)
-        sdata = (
-            "method:SendACKeys,agt:"
-            + agt
-            + ",ai:"
-            + ai
-            + ",brand:"
-            + brand
-            + ",category:"
-            + category
-            + ",key:"
+        params = {
+            "agt": agt,
+            "me": me,
+            "category": category,
+            "brand": brand,
+            "key": key,
+            "power": power,
+            "mode": mode,
+            "temp": temp,
+            "wind": wind,
+            "swing": swing,
+        }
+
+        if ai:
+            params["ai"] = ai
+            sdata = (
+                "method:SendACKeys,agt:"
+                + agt
+                + ",ai:"
+                + ai
+                + ",brand:"
+                + brand
+                + ",category:"
+                + category
+            )
+        else:
+            params["idx"] = idx
+            sdata = (
+                "method:SendACKeys,agt:"
+                + agt
+                + ",brand:"
+                + brand
+                + ",category:"
+                + category
+                + ",idx:"
+                + idx
+            )
+
+        sdata += (
+            ",key:"
             + key
             + ",me:"
             + me
@@ -256,19 +303,7 @@ class LifeSmartClient:
         send_values = {
             "id": 1,
             "method": "SendACKeys",
-            "params": {
-                "agt": agt,
-                "me": me,
-                "category": category,
-                "brand": brand,
-                "ai": ai,
-                "key": key,
-                "power": power,
-                "mode": mode,
-                "temp": temp,
-                "wind": wind,
-                "swing": swing,
-            },
+            "params": params,
             "system": self.__generate_system_request_body(tick, sdata),
         }
         header = self.__generate_header()
@@ -364,6 +399,8 @@ class LifeSmartClient:
         header = self.__generate_header()
         send_data = json.dumps(send_values)
 
+        _LOGGER.debug("GetRemoteList_req: %s", str(send_data))
+
         response = json.loads(await self.post_async(url, send_data, header))
         _LOGGER.debug("GetRemoteList_res: %s", str(response))
         return response["message"]
@@ -395,6 +432,196 @@ class LifeSmartClient:
         _LOGGER.debug("get_ir_remote_res: %s", str(response))
         return response["message"]["codes"]
 
+    async def resolve_ir_remote_ai_async(self, agt, me, category, brand, idx):
+        """Resolve the remote list entry key (ai) for a device/brand/profile."""
+        remote_list = await self.get_ir_remote_list_async(agt)
+        if not isinstance(remote_list, dict):
+            return None
+
+        for ai, remote_info in remote_list.items():
+            if not isinstance(remote_info, dict):
+                continue
+
+            remote_category = str(remote_info.get("category", ""))
+            remote_brand = str(remote_info.get("brand", ""))
+            remote_idx = str(remote_info.get("idx", ""))
+            remote_me = str(
+                remote_info.get("me")
+                or remote_info.get("device_id")
+                or remote_info.get("dev")
+                or ""
+            )
+
+            device_matches = ai == me or me in ai or remote_me == me
+            profile_matches = (
+                remote_category == category
+                and remote_brand == brand
+                and remote_idx == idx
+            )
+
+            if device_matches and profile_matches:
+                return ai
+
+        return None
+
+    async def get_category_async(self):
+        """Get IR remote categories."""
+        url = self.get_api_url() + "/irapi.GetCategory"
+        tick = int(time.time())
+        sdata = "method:GetCategory," + self.__generate_time_and_credential_data(
+            tick, userid="10001", usertoken="10001"
+        )
+        send_values = {
+            "id": 1,
+            "method": "GetCategory",
+            "system": self.__generate_system_request_body(
+                tick, sdata, userid="10001", usertoken="10001"
+            ),
+        }
+        header = self.__generate_header()
+        send_data = json.dumps(send_values)
+        response = json.loads(await self.post_async(url, send_data, header))
+        _LOGGER.debug("GetCategory_res: %s", str(response))
+        return response.get("message", [])
+
+    async def get_brands_async(self, category):
+        """Get IR remote brands for a category."""
+        url = self.get_api_url() + "/irapi.GetBrands"
+        tick = int(time.time())
+        sdata = (
+            "method:GetBrands,category:"
+            + category
+            + ","
+            + self.__generate_time_and_credential_data(
+                tick, userid="10001", usertoken="10001"
+            )
+        )
+        send_values = {
+            "id": 1,
+            "method": "GetBrands",
+            "params": {"category": category},
+            "system": self.__generate_system_request_body(
+                tick, sdata, userid="10001", usertoken="10001"
+            ),
+        }
+        header = self.__generate_header()
+        send_data = json.dumps(send_values)
+        response = json.loads(await self.post_async(url, send_data, header))
+        _LOGGER.debug("GetBrands_res: %s", str(response))
+        return response.get("message", {}).get("data", {})
+
+    async def get_remote_idxs_async(self, category, brand):
+        """Get remote indexes for a category and brand."""
+        url = self.get_api_url() + "/irapi.GetRemoteIdxs"
+        tick = int(time.time())
+        sdata = (
+            "method:GetRemoteIdxs,brand:"
+            + brand
+            + ",category:"
+            + category
+            + ","
+            + self.__generate_time_and_credential_data(
+                tick, userid="10001", usertoken="10001"
+            )
+        )
+        send_values = {
+            "id": 1,
+            "method": "GetRemoteIdxs",
+            "params": {"category": category, "brand": brand},
+            "system": self.__generate_system_request_body(
+                tick, sdata, userid="10001", usertoken="10001"
+            ),
+        }
+        header = self.__generate_header()
+        send_data = json.dumps(send_values)
+        response = json.loads(await self.post_async(url, send_data, header))
+        _LOGGER.debug("GetRemoteIdxs_res: %s", str(response))
+        return response.get("message", {}).get("data", [])
+
+    async def get_codes_async(self, category, brand, idx, keys=None):
+        """Get IR codes for a remote."""
+        url = self.get_api_url() + "/irapi.GetCodes"
+        tick = int(time.time())
+        params_str = f"method:GetCodes,brand:{brand},category:{category},idx:{idx}"
+        if keys:
+            keys_json = json.dumps(keys) if isinstance(keys, list) else keys
+            params_str += f",keys:{keys_json}"
+        params_str += "," + self.__generate_time_and_credential_data(
+            tick, userid="10001", usertoken="10001"
+        )
+
+        params = {"category": category, "brand": brand, "idx": idx}
+        if keys:
+            params["keys"] = json.dumps(keys) if isinstance(keys, list) else keys
+
+        send_values = {
+            "id": 1,
+            "method": "GetCodes",
+            "params": params,
+            "system": self.__generate_system_request_body(
+                tick, params_str, userid="10001", usertoken="10001"
+            ),
+        }
+        header = self.__generate_header()
+        send_data = json.dumps(send_values)
+        response = json.loads(await self.post_async(url, send_data, header))
+        _LOGGER.debug("GetCodes_res: %s", str(response))
+        return response.get("message", {}).get("data", {})
+
+    async def get_ac_codes_async(
+        self, category, brand, idx, key, power, mode, temp, wind, swing
+    ):
+        """Get AC IR codes."""
+        url = self.get_api_url() + "/irapi.GetACCodes"
+        tick = int(time.time())
+        sdata = (
+            "method:GetACCodes,brand:"
+            + brand
+            + ",category:"
+            + category
+            + ",idx:"
+            + idx
+            + ",key:"
+            + key
+            + ",mode:"
+            + str(mode)
+            + ",power:"
+            + str(power)
+            + ",swing:"
+            + str(swing)
+            + ",temp:"
+            + str(temp)
+            + ",wind:"
+            + str(wind)
+            + ","
+            + self.__generate_time_and_credential_data(
+                tick, userid="10001", usertoken="10001"
+            )
+        )
+        send_values = {
+            "id": 1,
+            "method": "GetACCodes",
+            "params": {
+                "category": category,
+                "brand": brand,
+                "idx": idx,
+                "key": key,
+                "power": power,
+                "mode": mode,
+                "temp": temp,
+                "wind": wind,
+                "swing": swing,
+            },
+            "system": self.__generate_system_request_body(
+                tick, sdata, userid="10001", usertoken="10001"
+            ),
+        }
+        header = self.__generate_header()
+        send_data = json.dumps(send_values)
+        response = json.loads(await self.post_async(url, send_data, header))
+        _LOGGER.debug("GetACCodes_res: %s", str(response))
+        return response.get("message", [])
+
     async def post_async(self, url, data, headers):
         """Async method to make a POST api call."""
         async with aiohttp.ClientSession() as session:
@@ -420,27 +647,30 @@ class LifeSmartClient:
 
         return "wss://api." + self._region + ".ilifesmart.com:8443/wsapp/"
 
-    def __generate_system_request_body(self, tick, data):
+    def __generate_system_request_body(self, tick, data, userid=None, usertoken=None):
         """Generate system node in request body which contain credential and signature."""
+        uid = userid or self._userid
         return {
             "ver": "1.0",
             "lang": "en",
-            "userid": self._userid,
+            "userid": uid,
             "appkey": self._appkey,
             "time": tick,
             "sign": self.__get_signature(data),
         }
 
-    def __generate_time_and_credential_data(self, tick):
+    def __generate_time_and_credential_data(self, tick, userid=None, usertoken=None):
         """Generate default parameter required in body."""
+        uid = userid or self._userid
+        utoken = usertoken or self._usertoken
 
         return (
             "time:"
             + str(tick)
             + ",userid:"
-            + self._userid
+            + uid
             + ",usertoken:"
-            + self._usertoken
+            + utoken
             + ",appkey:"
             + self._appkey
             + ",apptoken:"

@@ -21,6 +21,7 @@ from homeassistant.components.light import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_REGION, STATE_OFF, STATE_ON, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry
 from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.entity import Entity
 
@@ -82,14 +83,29 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
     hass.data.setdefault(DOMAIN, {})
 
     app_key = config_entry.data.get(CONF_LIFESMART_APPKEY)
-    app_token = config_entry.data.get(CONF_LIFESMART_APPTOKEN)
-    user_id = config_entry.data.get(CONF_LIFESMART_USERID)
-    user_password = config_entry.data.get(CONF_LIFESMART_USERPASSWORD)
-    region = config_entry.data.get(CONF_REGION)
-    exclude_devices = config_entry.data.get(CONF_EXCLUDE_ITEMS)
-    exclude_hubs = config_entry.data.get(CONF_EXCLUDE_AGTS)
-    ai_include_hubs = config_entry.data.get(CONF_AI_INCLUDE_AGTS)
-    ai_include_items = config_entry.data.get(CONF_AI_INCLUDE_ITEMS)
+    app_key = config_entry.options.get(CONF_LIFESMART_APPKEY, app_key)
+    app_token = config_entry.options.get(
+        CONF_LIFESMART_APPTOKEN, config_entry.data.get(CONF_LIFESMART_APPTOKEN)
+    )
+    user_id = config_entry.options.get(
+        CONF_LIFESMART_USERID, config_entry.data.get(CONF_LIFESMART_USERID)
+    )
+    user_password = config_entry.options.get(
+        CONF_LIFESMART_USERPASSWORD, config_entry.data.get(CONF_LIFESMART_USERPASSWORD)
+    )
+    region = config_entry.options.get(CONF_REGION, config_entry.data.get(CONF_REGION))
+    exclude_devices = config_entry.options.get(
+        CONF_EXCLUDE_ITEMS, config_entry.data.get(CONF_EXCLUDE_ITEMS)
+    )
+    exclude_hubs = config_entry.options.get(
+        CONF_EXCLUDE_AGTS, config_entry.data.get(CONF_EXCLUDE_AGTS)
+    )
+    ai_include_hubs = config_entry.options.get(
+        CONF_AI_INCLUDE_AGTS, config_entry.data.get(CONF_AI_INCLUDE_AGTS)
+    )
+    ai_include_items = config_entry.options.get(
+        CONF_AI_INCLUDE_ITEMS, config_entry.data.get(CONF_AI_INCLUDE_ITEMS)
+    )
 
     # default data
     if exclude_devices is None:
@@ -121,6 +137,18 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         raise Exception(f"Error connecting to LifeSmart API: {response}")
 
     _LOGGER.info(devices)
+
+    # Create hub devices
+    dev_reg = device_registry.async_get(hass)
+    hub_ids = set(device[HUB_ID_KEY] for device in devices)
+    for hub_id in hub_ids:
+        dev_reg.async_get_or_create(
+            config_entry_id=config_entry.entry_id,
+            identifiers={(DOMAIN, hub_id)},
+            name=f"LifeSmart Hub {hub_id}",
+            manufacturer="LifeSmart",
+            model="Hub",
+        )
 
     hass.data[DOMAIN][config_entry.entry_id] = {
         "client": lifesmart_client,
@@ -383,6 +411,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         category = call.data["category"]
         brand = call.data["brand"]
         keys = call.data["keys"]
+        idx = call.data.get("idx", "")
         power = call.data["power"]
         mode = call.data["mode"]
         temp = call.data["temp"]
@@ -397,6 +426,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
             category,
             brand,
             keys,
+            idx,
             power,
             mode,
             temp,

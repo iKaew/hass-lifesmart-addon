@@ -88,7 +88,11 @@ Since there are a lot of refactored and code changes, some old device removed fr
 
 1. Curtain motor (DOOYA and other brands via LifeSmart controller)
 
-1. ~~Lighting: currently only supports Super Bowl night light~~
+1. Lighting: SPOT devices with RGB/RGBW control
+
+1. IR Remote Control: SPOT devices with IR remote learning and control
+
+1. A/C Remote Control: SPOT devices configured as climate entities through the options flow
 
 1. ~~Universal remote control~~
 
@@ -184,10 +188,45 @@ Curtain Motor / Cover:
 
 For detailed curtain device setup and usage, see [CURTAIN_SUPPORT.md](./CURTAIN_SUPPORT.md)
 
+Lighting / SPOT Devices: 
+| Model  | Remark |
+| ------ | ------ |
+| SL_SPOT | RGB/RGBW light control + IR remote control + optional A/C climate control |
+| MSL_IRCTL | IR remote control + optional A/C climate control |
+| OD_WE_IRCTL | IR remote control + optional A/C climate control |
+
+For SPOT devices, two entities are created:
+- **Light entity**: Controls RGB/RGBW lighting functions
+- **Remote entity**: Handles IR remote control learning and sending
+
+If a SPOT device is configured as an A/C remote, a third entity is also created:
+- **Climate entity**: Controls supported A/C functions through LifeSmart IR profiles
+
+## SPOT A/C Setup
+
+SPOT A/C control is configured from the integration options flow.
+
+1. Add and set up the LifeSmart integration normally
+1. Open `Settings -> Devices & Services -> LifeSmart -> Configure`
+1. Choose `Configure SPOT A/C remote`
+1. Select the SPOT device
+1. Optionally search for the brand name
+1. Select the A/C brand
+1. Select the remote profile returned by the LifeSmart API
+1. Save
+
+After saving, the integration reloads and creates a climate entity for that SPOT device.
+
+Current SPOT A/C behavior:
+- Uses LifeSmart cloud IR profiles for the selected A/C brand/profile
+- Restores the last Home Assistant state after reload
+- Does not expose current temperature, because SPOT devices do not have a built-in temperature sensor
+- Supports removing configured A/C remotes from the same options flow
+
+For more details, see [SPOT_SUPPORT.md](./SPOT_SUPPORT.md)
 
 This project is forked/combined from serveral projects below 
 ---
 - https://github.com/skyzhishui/custom_components by @skyzhishui
 - https://github.com/Blankdlh/hass-lifesmart by @Blankdlh
 - https://github.com/likso/hass-lifesmart by @likso
-
