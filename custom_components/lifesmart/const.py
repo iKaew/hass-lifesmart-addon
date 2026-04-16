@@ -13,6 +13,7 @@ CONF_EXCLUDE_AGTS = "exclude_agt"
 CONF_AI_INCLUDE_AGTS = "ai_include_agt"
 CONF_AI_INCLUDE_ITEMS = "ai_include_me"
 CONF_AC_CONFIG = "ac_config"
+IR_CATEGORY_AC = "ac"
 
 CON_AI_TYPE_SCENE = "scene"
 CON_AI_TYPE_AIB = "aib"

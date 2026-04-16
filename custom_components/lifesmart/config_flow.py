@@ -24,6 +24,7 @@ from .const import (
     DEVICE_TYPE_KEY,
     DOMAIN,
     HUB_ID_KEY,
+    IR_CATEGORY_AC,
     LIFESMART_REGION_OPTIONS,
     SPOT_TYPES,
 )
@@ -301,7 +302,7 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
                         or ""
                     )
                     device_matches = ai == device_id or device_id in ai or remote_me == device_id
-                    if device_matches and remote_category == "ac":
+                    if device_matches and remote_category == IR_CATEGORY_AC:
                         result = {
                             "category": remote_category,
                             "brand": remote_brand,
@@ -428,7 +429,9 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
 
         try:
             client = await self._get_client()
-            brand_map = self._normalize_brand_options(await client.get_brands_async("ac"))
+            brand_map = self._normalize_brand_options(
+                await client.get_brands_async(IR_CATEGORY_AC)
+            )
         except Exception as err:  # noqa: BLE001
             _LOGGER.error("Unable to fetch AC brands: %s", err)
             brand_map = {}
@@ -484,7 +487,7 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
         try:
             client = await self._get_client()
             remote_options = self._normalize_remote_idx_options(
-                await client.get_remote_idxs_async("ac", self._selected_brand)
+                await client.get_remote_idxs_async(IR_CATEGORY_AC, self._selected_brand)
             )
         except Exception as err:  # noqa: BLE001
             _LOGGER.error("Unable to fetch AC remote indexes: %s", err)
@@ -499,7 +502,7 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
                 ai = await client.resolve_ir_remote_ai_async(
                     hub_id,
                     device_id,
-                    "ac",
+                    IR_CATEGORY_AC,
                     self._selected_brand,
                     user_input["idx"],
                 )
@@ -508,7 +511,7 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
 
             ac_config = dict(self._get_entry_value(CONF_AC_CONFIG, {}))
             ac_config[self._selected_device_key] = {
-                "category": "ac",
+                "category": IR_CATEGORY_AC,
                 "brand": self._selected_brand,
                 "idx": user_input["idx"],
                 "ai": ai or remote_default.get("ai", ""),

@@ -22,6 +22,7 @@ from .const import (
     DEVICE_VERSION_KEY,
     DOMAIN,
     HUB_ID_KEY,
+    IR_CATEGORY_AC,
     SPOT_TYPES,
 )
 
@@ -92,6 +93,13 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
         device_key = f"{hub_id}_{device_id}"
         if device_key in ac_config:
             ac_info = ac_config[device_key]
+            if ac_info.get("category") != IR_CATEGORY_AC:
+                _LOGGER.warning(
+                    "Skipping SPOT climate setup for %s because remote category is %s",
+                    device_key,
+                    ac_info.get("category"),
+                )
+                continue
             ha_device = LifeSmartDevice(device, client)
             climate_devices.append(
                 LifeSmartSPOTACClimate(ha_device, device, client, ac_info)
@@ -108,7 +116,7 @@ class LifeSmartSPOTACClimate(ClimateEntity, RestoreEntity):
         self._device = ha_device
         self._raw_device_data = raw_device_data
         self._client = client
-        self._ac_info = ac_info  # {"category": "ac", "brand": "aux", "idx": "33.irxs"}
+        self._ac_info = ac_info  # {"category": IR_CATEGORY_AC, "brand": "aux", "idx": "33.irxs"}
 
         device_name = raw_device_data[DEVICE_NAME_KEY]
         device_type = raw_device_data[DEVICE_TYPE_KEY]
@@ -291,12 +299,15 @@ class LifeSmartSPOTACClimate(ClimateEntity, RestoreEntity):
     async def _send_ac_command(self, key, power, mode, temp, wind, swing):
         """Send AC command via GetACCodes + SendCodes."""
         try:
-            category = self._ac_info.get("category", "ac")
+            category = self._ac_info.get("category", IR_CATEGORY_AC)
             brand = self._ac_info.get("brand")
             idx = self._ac_info.get("idx")
 
             if not all([category, brand, idx]):
                 _LOGGER.error("AC info incomplete: %s", self._ac_info)
+                return
+            if category != IR_CATEGORY_AC:
+                _LOGGER.error("Invalid remote category for SPOT climate: %s", category)
                 return
 
             ac_codes = await self._client.get_ac_codes_async(
