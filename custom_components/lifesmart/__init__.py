@@ -10,7 +10,6 @@ from typing import cast
 
 import voluptuous as vol
 import websocket
-from homeassistant.components import climate
 from homeassistant.components.climate import FAN_HIGH, FAN_LOW, FAN_MEDIUM
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
@@ -47,7 +46,6 @@ from .const import (
     EV_SENSOR_TYPES,
     GAS_SENSOR_TYPES,
     HUB_ID_KEY,
-    LIFESMART_HVAC_STATE_LIST,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     LIFESMART_STATE_MANAGER,
     LIGHT_DIMMER_TYPES,
@@ -246,48 +244,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                     hass.states.set(entity_id, state, attrs)
 
             elif device_type in CLIMATE_TYPES:
-                _idx = sub_device_key
-                attrs = dict(hass.states.get(entity_id).attributes)
-                nstat = hass.states.get(entity_id).state
-                if _idx == "O":
-                    if data["type"] % 2 == 1:
-                        nstat = attrs["last_mode"]
-                        hass.states.set(entity_id, nstat, attrs)
-                    else:
-                        nstat = climate.const.HVACMode.OFF
-                        hass.states.set(entity_id, nstat, attrs)
-                if _idx == "P1":
-                    if data["type"] % 2 == 1:
-                        nstat = climate.const.HVACMode.HEAT
-                        hass.states.set(entity_id, nstat, attrs)
-                    else:
-                        nstat = climate.const.HVACMode.OFF
-                        hass.states.set(entity_id, nstat, attrs)
-                if _idx == "P2":
-                    if data["type"] % 2 == 1:
-                        attrs["Heating"] = "true"
-                        hass.states.set(entity_id, nstat, attrs)
-                    else:
-                        attrs["Heating"] = "false"
-                        hass.states.set(entity_id, nstat, attrs)
-                elif _idx == "MODE":
-                    if data["type"] == 206:
-                        if nstat != climate.const.HVACMode.OFF:
-                            nstat = LIFESMART_HVAC_STATE_LIST[data["val"]]
-                        attrs["last_mode"] = nstat
-                        hass.states.set(entity_id, nstat, attrs)
-                elif _idx == "F":
-                    if data["type"] == 206:
-                        attrs["fan_mode"] = get_fan_mode(data["val"])
-                        hass.states.set(entity_id, nstat, attrs)
-                elif _idx == "tT" or _idx == "P3":  # noqa: PLR1714
-                    if data["type"] == 136:
-                        attrs["temperature"] = data["v"]
-                        hass.states.set(entity_id, nstat, attrs)
-                elif _idx == "T" or _idx == "P4":  # noqa: PLR1714
-                    if data["type"] == 8 or data["type"] == 9:
-                        attrs["current_temperature"] = data["v"]
-                        hass.states.set(entity_id, nstat, attrs)
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
             elif device_type in LOCK_TYPES:
                 if sub_device_key in [
                     DIGITAL_DOORLOCK_BATTERY_EVENT_KEY,

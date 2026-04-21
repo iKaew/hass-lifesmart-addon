@@ -17,6 +17,7 @@ def load_generate_entity_id():
         SENSOR = "sensor"
         COVER = "cover"
         LIGHT = "light"
+        REMOTE = "remote"
         CLIMATE = "climate"
     ha_const.Platform = Platform
     sys.modules.setdefault("homeassistant.const", ha_const)
@@ -72,3 +73,16 @@ def test_cover_device():
 def test_light_dimmer():
     gen = load_generate_entity_id()
     assert gen("SL_LI_WW", "HUB1", "LIGHT1") == "light.sl_li_ww_hub1_light1_p1p2"
+
+
+def test_climate_device():
+    gen = load_generate_entity_id()
+    assert gen("V_AIR_P", "HUB:1", "AIR@1") == "climate.v_air_p_hub_1_air_1"
+
+
+def test_v_air_p_reference_climate_device():
+    gen = load_generate_entity_id()
+    assert (
+        gen("V_T8600_P", "HUB:1", "AIR@1")
+        == "climate.v_t8600_p_hub_1_air_1"
+    )
