@@ -1,5 +1,3 @@
-
-
 Instructions
 ==== 
 Lifesmart devices for Home Assistant
@@ -46,6 +44,7 @@ How to install:
 1. Go to HACS > Integration > 3 dots menu at the top right > choose Custom Repository
 
    ![HACS Custom Repository](https://github.com/iKaew/hass-lifesmart-addon/assets/6348112/2499f1f5-f973-40db-8bf5-76b08e3faa1d)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon?ref=badge_shield)
 1. In custom repository dialog enter 
 
    Repository: `https://github.com/iKaew/hass-lifesmart-addon`
@@ -233,3 +232,7 @@ This project is forked/combined from serveral projects below
 - https://github.com/skyzhishui/custom_components by @skyzhishui
 - https://github.com/Blankdlh/hass-lifesmart by @Blankdlh
 - https://github.com/likso/hass-lifesmart by @likso
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon?ref=badge_large)
