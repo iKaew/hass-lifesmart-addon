@@ -82,6 +82,20 @@ def test_motion_sensor_device():
     )
 
 
+def test_water_leak_sensor_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_SC_WA", "HUB1", "WATER1", "WA") == (
+        "binary_sensor.sl_sc_wa_hub1_water1_wa"
+    )
+
+
+def test_water_leak_battery_sensor_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_SC_WA", "HUB1", "WATER1", "V") == (
+        "sensor.sl_sc_wa_hub1_water1_v"
+    )
+
+
 def test_nature_temperature_sensor():
     gen = load_generate_entity_id()
     assert gen("SL_NATURE", "HUB1", "NATURE1", "P4") == (

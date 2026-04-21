@@ -6,6 +6,7 @@ Current supported features:
 - Smart plugs
 - Sensors
 - Motion sensors
+- Water leakage sensors
 - Curtain/cover devices
 - SPOT light control
 - SPOT IR remote control
@@ -22,6 +23,10 @@ Native motion sensor support currently includes:
 - `SL_SC_MHW`
 - `SL_SC_BM`
 - `SL_SC_CM`
+
+Native water leakage sensor support currently includes:
+- `SL_SC_WA` `WA` moisture alarm reporting
+- `SL_SC_WA` `V` battery reporting
 
 Native A/C control panel support currently includes:
 - `V_AIR_P`

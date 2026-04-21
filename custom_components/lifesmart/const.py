@@ -83,6 +83,7 @@ SUPPORTED_SUB_BINARY_SENSORS = [
     "G",
     "B",
     "AXS",
+    "WA",
     "P1",
     "P5",
     "P6",
@@ -105,6 +106,7 @@ QUANTUM_TYPES = [
 ]
 MOTION_SENSOR_TYPES = ["SL_SC_MHW", "SL_SC_BM", "SL_SC_CM"]
 SMOKE_SENSOR_TYPES = ["SL_P_A"]
+WATER_LEAK_SENSOR_TYPES = ["SL_SC_WA"]
 SPOT_TYPES = ["MSL_IRCTL", "OD_WE_IRCTL", "SL_SPOT"]
 BINARY_SENSOR_TYPES = [
     "SL_SC_G",
@@ -123,7 +125,7 @@ COVER_TYPES = [
     "SL_CN_FE",  # Gezhi/Sennathree-keycurtain
     "SL_P_V2",  # MINS curtain motor controller
 ]
-GAS_SENSOR_TYPES = ["SL_SC_WA ", "SL_SC_CH", "SL_SC_CP", "ELIQ_EM"]
+GAS_SENSOR_TYPES = ["SL_SC_CH", "SL_SC_CP", "ELIQ_EM"]
 EV_SENSOR_TYPES = ["SL_SC_THL", "SL_SC_BE", "SL_SC_CQ"]
 OT_SENSOR_TYPES = ["SL_SC_MHW", "SL_SC_BM", "SL_SC_G", "SL_SC_BG"]
 LOCK_TYPES = ["SL_LK_LS", "SL_LK_GTM", "SL_LK_AG", "SL_LK_SG", "SL_LK_YL"]
