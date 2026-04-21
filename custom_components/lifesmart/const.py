@@ -109,10 +109,8 @@ SPOT_TYPES = ["MSL_IRCTL", "OD_WE_IRCTL", "SL_SPOT"]
 BINARY_SENSOR_TYPES = [
     "SL_SC_G",
     "SL_SC_BG",
-    "SL_SC_MHW ",
-    "SL_SC_BM",
-    "SL_SC_CM",
-    "SL_P_A",
+    *MOTION_SENSOR_TYPES,
+    *SMOKE_SENSOR_TYPES,
     "SL_P",
 ]
 COVER_TYPES = [

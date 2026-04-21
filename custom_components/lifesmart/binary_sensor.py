@@ -150,33 +150,21 @@ class LifeSmartBinarySensor(BinarySensorEntity):
             device_type, hub_id, device_id, sub_device_key
         )
         self._client = client
-        # self._attrs = sub_device_data
+        self._attrs = {}
 
         if device_type in GUARD_SENSOR_TYPES:
             if sub_device_key in ["G"]:
                 self._device_class = BinarySensorDeviceClass.DOOR
-                if sub_device_data["val"] == 0:
-                    self._state = True
-                else:
-                    self._state = False
+                self._state = sub_device_data["val"] == 0
             if sub_device_key in ["AXS"]:
                 self._device_class = BinarySensorDeviceClass.VIBRATION
-                if sub_device_data["val"] == 0:
-                    self._state = False
-                else:
-                    self._state = True
+                self._state = sub_device_data["val"] != 0
             if sub_device_key in ["B"]:
                 self._device_class = None
-                if sub_device_data["val"] == 0:
-                    self._state = False
-                else:
-                    self._state = True
+                self._state = sub_device_data["val"] != 0
         elif device_type in MOTION_SENSOR_TYPES:
             self._device_class = BinarySensorDeviceClass.MOTION
-            if sub_device_data["val"] == 0:
-                self._state = False
-            else:
-                self._state = True
+            self._state = sub_device_data["val"] != 0
         elif (
             device_type in LOCK_TYPES
             and sub_device_key == DIGITAL_DOORLOCK_LOCK_EVENT_KEY
@@ -203,16 +191,10 @@ class LifeSmartBinarySensor(BinarySensorEntity):
             self._attrs = sub_device_data
             self._device_class = BinarySensorDeviceClass.LOCK
             # On means open (unlocked), Off means closed (locked)
-            if sub_device_data["val"] == 0:
-                self._state = True
-            else:
-                self._state = False
+            self._state = sub_device_data["val"] == 0
         else:
             self._device_class = BinarySensorDeviceClass.SMOKE
-            if sub_device_data["val"] == 0:
-                self._state = False
-            else:
-                self._state = True
+            self._state = sub_device_data["val"] != 0
 
     @property
     def name(self):
@@ -273,16 +255,25 @@ class LifeSmartBinarySensor(BinarySensorEntity):
 
             _LOGGER.debug(self._attrs)
         else:
-            if data["val"] == 0:
-                self._state = True
-            else:
-                self._state = False
+            self._state = self._state_from_data(data)
             self.schedule_update_ha_state()
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes."""
         return self._attrs
+
+    def _state_from_data(self, data) -> bool:
+        """Return the binary sensor state for the LifeSmart device event."""
+        device_type = data[DEVICE_TYPE_KEY]
+        sub_device_key = data[SUBDEVICE_INDEX_KEY]
+        val = data["val"]
+
+        if device_type in GUARD_SENSOR_TYPES and sub_device_key == "G":
+            return val == 0
+        if device_type in GENERIC_CONTROLLER_TYPES:
+            return val == 0
+        return val != 0
 
 
 def extract_doorlock_unlocking_method(data):
