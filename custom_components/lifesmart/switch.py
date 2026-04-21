@@ -17,9 +17,12 @@ from .const import (
     HUB_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     MANUFACTURER,
+    NATURE_SWITCH_PORTS,
+    NATURE_TYPES,
     SMART_PLUG_TYPES,
     SUPPORTED_SUB_SWITCH_TYPES,
     SUPPORTED_SWTICH_TYPES,
+    is_nature_switch,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -69,6 +72,21 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         client,
                     )
                 )
+            elif device_type in NATURE_TYPES:
+                if not is_nature_switch(device):
+                    continue
+
+                for sub_device_key in device[DEVICE_DATA_KEY]:
+                    if sub_device_key in NATURE_SWITCH_PORTS:
+                        switch_devices.append(
+                            LifeSmartSwitch(
+                                ha_device,
+                                device,
+                                sub_device_key,
+                                device[DEVICE_DATA_KEY][sub_device_key],
+                                client,
+                            )
+                        )
             else:
                 for sub_device_key in device[DEVICE_DATA_KEY]:
                     if sub_device_key in SUPPORTED_SUB_SWITCH_TYPES:

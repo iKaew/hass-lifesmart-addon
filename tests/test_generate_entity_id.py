@@ -82,6 +82,20 @@ def test_motion_sensor_device():
     )
 
 
+def test_nature_temperature_sensor():
+    gen = load_generate_entity_id()
+    assert gen("SL_NATURE", "HUB1", "NATURE1", "P4") == (
+        "sensor.sl_nature_hub1_nature1_p4"
+    )
+
+
+def test_nature_thermostat_climate():
+    gen = load_generate_entity_id()
+    assert gen("SL_NATURE", "HUB:1", "NATURE@1", "climate") == (
+        "climate.sl_nature_hub_1_nature_1_thermostat"
+    )
+
+
 def test_climate_device():
     gen = load_generate_entity_id()
     assert gen("V_AIR_P", "HUB:1", "AIR@1") == "climate.v_air_p_hub_1_air_1"

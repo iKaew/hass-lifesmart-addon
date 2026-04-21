@@ -30,6 +30,7 @@ from .const import (
     MANUFACTURER,
     THERMOSTAT_TYPES,
 )
+from .nature_climate import async_setup_entry as async_setup_nature_entry
 from .spotac_climate import async_setup_entry as async_setup_spotac_entry
 
 _LOGGER = logging.getLogger(__name__)
@@ -60,6 +61,7 @@ THER_TYPES = THERMOSTAT_TYPES
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up LifeSmart Climate entities from config entry."""
     await async_setup_spotac_entry(hass, config_entry, async_add_entities)
+    await async_setup_nature_entry(hass, config_entry, async_add_entities)
 
     devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
     exclude_devices = hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"]
@@ -100,7 +102,9 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     devices = []
     dev = discovery_info.get("dev")
     client = discovery_info.get("param")
-    if client is None or not _has_required_climate_data(dev):
+    if client is None or dev is None:
+        return
+    if not _has_required_climate_data(dev):
         return
     devices.append(LifeSmartClimateDevice(LifeSmartDevice(dev, client), dev, client))
     async_add_entities(devices)
