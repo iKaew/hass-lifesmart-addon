@@ -87,7 +87,7 @@ Since there are a lot of refactored and code changes, some old device removed fr
 
 1. Smart Plug
 
-1. Dynamic sensor, door sensor, environmental sensor, formaldehyde/gas sensor
+1. Motion sensor, dynamic sensor, door sensor, environmental sensor, formaldehyde/gas sensor
 
 1. Curtain motor (DOOYA and other brands via LifeSmart controller)
 
@@ -97,9 +97,9 @@ Since there are a lot of refactored and code changes, some old device removed fr
 
 1. A/C Remote Control: SPOT devices configured as climate entities through the options flow
 
-1. ~~Universal remote control~~
+1. A/C Control Panel: native LifeSmart central air board devices
 
-1. ~~Air conditioning control panel~~
+1. ~~Universal remote control~~
 
 List of supported devices
 
@@ -177,6 +177,17 @@ Smart Plug:
 | ~~SL_OL_3C~~ | |
 | ~~SL_O~~L | |
 
+Binary Sensors:
+| Model  | Remark |
+| ------ | ------ |
+| SL_SC_MHW | Motion sensor |
+| SL_SC_BM | CUBE motion sensor |
+| SL_SC_CM | Motion sensor (AAA battery) |
+| SL_SC_G | Guard / door sensor |
+| SL_SC_BG | CUBE guard / door sensor |
+| SL_P_A | Smoke sensor |
+| SL_P | Generic controller binary inputs |
+
 Curtain Motor / Cover: 
 | Model  | Remark |
 | ------ | ------ |
@@ -227,6 +238,25 @@ Current SPOT A/C behavior:
 - Supports removing configured A/C remotes from the same options flow
 
 For more details, see [SPOT_SUPPORT.md](./SPOT_SUPPORT.md)
+
+## Native A/C Control Panels
+
+Native LifeSmart A/C control panels are discovered automatically as climate entities.
+
+| Model  | Remark |
+| ------ | ------ |
+| V_AIR_P | Central air board |
+| V_SZJSXR_P | Uses the V_AIR_P attribute specification |
+| V_T8600_P | Uses the V_AIR_P attribute specification |
+
+Supported controls:
+- Power on/off
+- HVAC mode: Auto, Fan, Cool, Heat, Dry
+- Target temperature
+- Current temperature
+- Fan speed: Low, Medium, High
+
+These devices use the LifeSmart `EpSet` API directly, rather than SPOT IR profiles.
 
 This project is forked/combined from serveral projects below 
 ---
