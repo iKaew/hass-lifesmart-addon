@@ -15,7 +15,6 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from . import LifeSmartDevice, generate_entity_id
 from .const import (
     CONF_AC_CONFIG,
-    DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,

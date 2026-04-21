@@ -296,3 +296,17 @@ def test_v_air_p_reference_climate_device():
         gen("V_T8600_P", "HUB:1", "AIR@1")
         == "climate.v_t8600_p_hub_1_air_1"
     )
+
+
+def test_spot_remote_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_SPOT", "HUB1", "SPOT1", "remote") == (
+        "remote.sl_spot_hub1_spot1_remote"
+    )
+
+
+def test_spot_ac_climate_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_SPOT", "HUB1", "SPOT1", "climate_ac") == (
+        "climate.sl_spot_hub1_spot1_climate_ac"
+    )

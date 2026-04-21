@@ -771,6 +771,10 @@ def get_platform_by_device(device_type, sub_device=None):
         return Platform.SENSOR
     elif device_type in NATURE_TYPES and sub_device in NATURE_SWITCH_PORTS:
         return Platform.SWITCH
+    elif device_type in SPOT_TYPES and sub_device == "climate_ac":
+        return Platform.CLIMATE
+    elif device_type in SPOT_TYPES and sub_device == "remote":
+        return Platform.REMOTE
     if device_type in SUPPORTED_SWTICH_TYPES:
         return Platform.SWITCH
     elif device_type in AIR_PURIFIER_TYPES and sub_device == "O":
@@ -902,6 +906,16 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
     if device_type in NATURE_TYPES and sub_device == NATURE_CLIMATE_KEY:
         return Platform.CLIMATE + (
             "." + device_type + "_" + hub_id + "_" + device_id + "_thermostat"
+        ).lower().replace(":", "_").replace("@", "_")
+
+    if device_type in SPOT_TYPES and sub_device == "remote":
+        return Platform.REMOTE + (
+            "." + device_type + "_" + hub_id + "_" + device_id + "_remote"
+        ).lower().replace(":", "_").replace("@", "_")
+
+    if device_type in SPOT_TYPES and sub_device == "climate_ac":
+        return Platform.CLIMATE + (
+            "." + device_type + "_" + hub_id + "_" + device_id + "_climate_ac"
         ).lower().replace(":", "_").replace("@", "_")
 
     if device_type in [  # noqa: RET503
