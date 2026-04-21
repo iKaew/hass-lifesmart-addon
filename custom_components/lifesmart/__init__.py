@@ -27,6 +27,7 @@ from homeassistant.helpers.entity import Entity
 from .const import (
     BINARY_SENSOR_TYPES,
     CLIMATE_TYPES,
+    CO2_SENSOR_TYPES,
     CONF_AI_INCLUDE_AGTS,
     CONF_AI_INCLUDE_ITEMS,
     CONF_EXCLUDE_AGTS,
@@ -36,6 +37,9 @@ from .const import (
     CONF_LIFESMART_USERID,
     CONF_LIFESMART_USERPASSWORD,
     COVER_TYPES,
+    DEFED_DOOR_SENSOR_TYPES,
+    DEFED_MOTION_SENSOR_TYPES,
+    DEFED_SENSOR_TYPES,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
@@ -44,6 +48,7 @@ from .const import (
     DIGITAL_DOORLOCK_LOCK_EVENT_KEY,
     DOMAIN,
     EV_SENSOR_TYPES,
+    GARAGE_DOOR_TYPES,
     GAS_SENSOR_TYPES,
     HUB_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
@@ -55,7 +60,9 @@ from .const import (
     NATURE_SWITCH_PORTS,
     NATURE_TYPES,
     OT_SENSOR_TYPES,
+    RADAR_MOTION_SENSOR_TYPES,
     SMART_PLUG_TYPES,
+    SMOKE_SENSOR_TYPES,
     SPOT_TYPES,
     SUBDEVICE_INDEX_KEY,
     SUPPORTED_PLATFORMS,
@@ -226,8 +233,51 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                 elif sub_device_key == "V":
                     attrs = hass.states.get(entity_id).attributes
                     hass.states.set(entity_id, data["v"], attrs)
+            elif (
+                device_type in RADAR_MOTION_SENSOR_TYPES
+                and sub_device_key == "P1"
+            ):
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
+            elif device_type in DEFED_SENSOR_TYPES:
+                if (
+                    device_type in DEFED_DOOR_SENSOR_TYPES
+                    and sub_device_key in ["GA", "A2", "TR"]
+                    or device_type in DEFED_MOTION_SENSOR_TYPES
+                    and sub_device_key in ["M", "TR"]
+                ):
+                    dispatcher_send(
+                        hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                    )
+                elif sub_device_key in ["T", "V"]:
+                    dispatcher_send(
+                        hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                    )
+            elif (
+                device_type in CO2_SENSOR_TYPES
+                and sub_device_key in ["P1", "P2", "P3", "P4"]
+            ):
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
+            elif (
+                device_type == "SL_SC_CM"
+                and sub_device_key == "P3"
+                or device_type in SMOKE_SENSOR_TYPES
+                and sub_device_key == "P2"
+            ):
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
 
-            elif device_type in COVER_TYPES and sub_device_key == "P1":
+            elif (
+                device_type in COVER_TYPES
+                and device_type not in GARAGE_DOOR_TYPES
+                and sub_device_key == "P1"
+                or device_type in GARAGE_DOOR_TYPES
+                and sub_device_key == "P2"
+            ):
                 attrs = dict(hass.states.get(entity_id).attributes)
                 nval = data["val"]
                 ntype = data["type"]
@@ -601,6 +651,26 @@ def get_platform_by_device(device_type, sub_device=None):
         return Platform.BINARY_SENSOR
     elif device_type in WATER_LEAK_SENSOR_TYPES and sub_device == "V":
         return Platform.SENSOR
+    elif device_type in RADAR_MOTION_SENSOR_TYPES and sub_device == "P1":
+        return Platform.BINARY_SENSOR
+    elif (
+        device_type in DEFED_DOOR_SENSOR_TYPES
+        and sub_device in ["GA", "A2", "TR"]
+        or device_type in DEFED_MOTION_SENSOR_TYPES
+        and sub_device in ["M", "TR"]
+    ):
+        return Platform.BINARY_SENSOR
+    elif device_type in DEFED_SENSOR_TYPES and sub_device in ["T", "V"]:
+        return Platform.SENSOR
+    elif device_type in CO2_SENSOR_TYPES:
+        return Platform.SENSOR
+    elif (
+        device_type == "SL_SC_CM"
+        and sub_device == "P3"
+        or device_type in SMOKE_SENSOR_TYPES
+        and sub_device == "P2"
+    ):
+        return Platform.SENSOR
     elif device_type in BINARY_SENSOR_TYPES:
         return Platform.BINARY_SENSOR
     elif device_type in COVER_TYPES:
@@ -651,6 +721,10 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
         *SMART_PLUG_TYPES,
         *LOCK_TYPES,
         *WATER_LEAK_SENSOR_TYPES,
+        *RADAR_MOTION_SENSOR_TYPES,
+        *DEFED_SENSOR_TYPES,
+        *CO2_SENSOR_TYPES,
+        *SMOKE_SENSOR_TYPES,
     ]:
         if sub_device:
             return (

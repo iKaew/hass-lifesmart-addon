@@ -96,6 +96,48 @@ def test_water_leak_battery_sensor_device():
     )
 
 
+def test_co2_sensor_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_SC_CA", "HUB1", "CO21", "P3") == (
+        "sensor.sl_sc_ca_hub1_co21_p3"
+    )
+
+
+def test_radar_motion_sensor_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_P_RM", "HUB1", "RADAR1", "P1") == (
+        "binary_sensor.sl_p_rm_hub1_radar1_p1"
+    )
+
+
+def test_defed_door_sensor_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_DF_GG", "HUB1", "DOOR1", "GA") == (
+        "binary_sensor.sl_df_gg_hub1_door1_ga"
+    )
+
+
+def test_defed_battery_sensor_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_DF_MM", "HUB1", "MOTION1", "V") == (
+        "sensor.sl_df_mm_hub1_motion1_v"
+    )
+
+
+def test_garage_door_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_ETDOOR", "HUB1", "GARAGE1") == (
+        "cover.sl_etdoor_hub1_garage1"
+    )
+
+
+def test_smoke_battery_sensor_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_P_A", "HUB1", "SMOKE1", "P2") == (
+        "sensor.sl_p_a_hub1_smoke1_p2"
+    )
+
+
 def test_nature_temperature_sensor():
     gen = load_generate_entity_id()
     assert gen("SL_NATURE", "HUB1", "NATURE1", "P4") == (

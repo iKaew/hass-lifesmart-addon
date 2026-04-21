@@ -8,6 +8,7 @@ from homeassistant.const import (
     CONCENTRATION_PARTS_PER_MILLION,
     LIGHT_LUX,
     PERCENTAGE,
+    UnitOfElectricPotential,
     UnitOfEnergy,
     UnitOfPower,
     UnitOfTemperature,
@@ -19,6 +20,8 @@ from homeassistant.helpers.entity import DeviceInfo
 # ENTITY_ID_FORMAT = DOMAIN + ".{}"
 from . import LifeSmartDevice, generate_entity_id
 from .const import (
+    CO2_SENSOR_TYPES,
+    DEFED_SENSOR_TYPES,
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
@@ -31,9 +34,11 @@ from .const import (
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     LOCK_TYPES,
     MANUFACTURER,
+    MOTION_SENSOR_TYPES,
     NATURE_TYPES,
     OT_SENSOR_TYPES,
     SMART_PLUG_TYPES,
+    SMOKE_SENSOR_TYPES,
     WATER_LEAK_SENSOR_TYPES,
 )
 
@@ -62,6 +67,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             + SMART_PLUG_TYPES
             + NATURE_TYPES
             + WATER_LEAK_SENSOR_TYPES
+            + CO2_SENSOR_TYPES
+            + DEFED_SENSOR_TYPES
+            + MOTION_SENSOR_TYPES
+            + SMOKE_SENSOR_TYPES
         )
 
         if device_type not in supported_sensors:
@@ -140,6 +149,51 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         client,
                     )
                 )
+            elif device_type in CO2_SENSOR_TYPES and sub_device_key in [
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+            ]:
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in DEFED_SENSOR_TYPES and sub_device_key in ["T", "V"]:
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type == "SL_SC_CM" and sub_device_key == "P3":
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in SMOKE_SENSOR_TYPES and sub_device_key == "P2":
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
     async_add_entities(sensor_devices)
 
 
@@ -194,6 +248,36 @@ class LifeSmartSensor(SensorEntity):
             self._device_class = SensorDeviceClass.POWER
             self._unit = UnitOfPower.WATT
             self._state = sub_device_data["v"]
+        elif device_type in CO2_SENSOR_TYPES:
+            if sub_device_key == "P1":
+                self._device_class = SensorDeviceClass.TEMPERATURE
+                self._unit = UnitOfTemperature.CELSIUS
+            elif sub_device_key == "P2":
+                self._device_class = SensorDeviceClass.HUMIDITY
+                self._unit = PERCENTAGE
+            elif sub_device_key == "P3":
+                self._device_class = SensorDeviceClass.CO2
+                self._unit = CONCENTRATION_PARTS_PER_MILLION
+            else:
+                self._device_class = SensorDeviceClass.BATTERY
+                self._unit = PERCENTAGE
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in DEFED_SENSOR_TYPES:
+            if sub_device_key == "T":
+                self._device_class = SensorDeviceClass.TEMPERATURE
+                self._unit = UnitOfTemperature.CELSIUS
+            else:
+                self._device_class = SensorDeviceClass.BATTERY
+                self._unit = PERCENTAGE
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type == "SL_SC_CM" and sub_device_key == "P3":
+            self._device_class = SensorDeviceClass.BATTERY
+            self._unit = PERCENTAGE
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in SMOKE_SENSOR_TYPES and sub_device_key == "P2":
+            self._device_class = SensorDeviceClass.BATTERY
+            self._unit = PERCENTAGE
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
         else:
             if sub_device_key in ("T", "P1") or (
                 device_type in NATURE_TYPES and sub_device_key == "P4"
@@ -209,6 +293,9 @@ class LifeSmartSensor(SensorEntity):
             elif sub_device_key == "V":
                 self._device_class = SensorDeviceClass.BATTERY
                 self._unit = PERCENTAGE
+            elif sub_device_key == "P5":
+                self._device_class = SensorDeviceClass.VOLTAGE
+                self._unit = UnitOfElectricPotential.VOLT
             elif sub_device_key == "P3":
                 self._device_class = "None"
                 self._unit = CONCENTRATION_PARTS_PER_MILLION
@@ -221,7 +308,7 @@ class LifeSmartSensor(SensorEntity):
             else:
                 self._unit = "None"
                 self._device_class = "None"
-            self._state = _display_value(sub_device_data)
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
 
     @property
     def unit_of_measurement(self):
@@ -267,14 +354,16 @@ class LifeSmartSensor(SensorEntity):
 
     async def _update_value(self, data) -> None:
         if data is not None:
-            self._state = _display_value(data)
+            self._state = _display_value(data, self.device_type, self.sub_device_key)
             self.schedule_update_ha_state()
 
 
-def _display_value(data):
+def _display_value(data, device_type=None, sub_device_key=None):
     """Return the display value, falling back to raw tenths for temperature."""
     if "v" in data:
         return data["v"]
+    if device_type in CO2_SENSOR_TYPES and sub_device_key == "P3":
+        return data.get("val")
     if "val" in data:
         return data["val"] / 10
     return None

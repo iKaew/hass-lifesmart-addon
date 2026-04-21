@@ -6,7 +6,11 @@ Current supported features:
 - Smart plugs
 - Sensors
 - Motion sensors
+- Radar motion sensors
+- CO2 sensors
+- DEFED door/motion sensors
 - Water leakage sensors
+- Garage door covers
 - Curtain/cover devices
 - SPOT light control
 - SPOT IR remote control
@@ -27,6 +31,19 @@ Native motion sensor support currently includes:
 Native water leakage sensor support currently includes:
 - `SL_SC_WA` `WA` moisture alarm reporting
 - `SL_SC_WA` `V` battery reporting
+
+Native CO2 sensor support currently includes:
+- `SL_SC_CA` temperature, humidity, CO2, and battery reporting
+
+Native DEFED sensor support currently includes:
+- `SL_DF_GG` door, external input, tamper, temperature, and battery reporting
+- `SL_DF_MM` motion, tamper, temperature, and battery reporting
+
+Native radar motion sensor support currently includes:
+- `SL_P_RM` motion reporting
+
+Native garage door support currently includes:
+- `SL_ETDOOR` position cover reporting and open/close/stop/position control
 
 Native A/C control panel support currently includes:
 - `V_AIR_P`
