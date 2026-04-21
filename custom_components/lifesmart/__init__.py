@@ -51,6 +51,9 @@ from .const import (
     LIGHT_DIMMER_TYPES,
     LIGHT_SWITCH_TYPES,
     LOCK_TYPES,
+    NATURE_CLIMATE_KEY,
+    NATURE_SWITCH_PORTS,
+    NATURE_TYPES,
     OT_SENSOR_TYPES,
     SMART_PLUG_TYPES,
     SPOT_TYPES,
@@ -60,6 +63,7 @@ from .const import (
     SUPPORTED_SUB_SWITCH_TYPES,
     SUPPORTED_SWTICH_TYPES,
     UPDATE_LISTENER,
+    is_nature_thermostat,
 )
 from .lifesmart_client import LifeSmartClient
 
@@ -173,6 +177,31 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
             entity_id = generate_entity_id(
                 device_type, hub_id, device_id, sub_device_key
             )
+
+            if device_type in NATURE_TYPES and sub_device_key in [
+                "P1",
+                "P4",
+                "P7",
+                "P8",
+                "P9",
+                "P10",
+            ]:
+                raw_device = _find_device(devices, hub_id, device_id)
+                if raw_device and is_nature_thermostat(raw_device):
+                    climate_entity_id = generate_entity_id(
+                        device_type, hub_id, device_id, NATURE_CLIMATE_KEY
+                    )
+                    dispatcher_send(
+                        hass,
+                        f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{climate_entity_id}",
+                        data,
+                    )
+                    return
+                if sub_device_key == "P4":
+                    dispatcher_send(
+                        hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                    )
+                    return
 
             if (  # noqa: SIM114
                 device_type in SUPPORTED_SWTICH_TYPES
@@ -551,6 +580,12 @@ def get_fan_mode(_fanspeed):
 
 def get_platform_by_device(device_type, sub_device=None):
     """Convert lifesmart device subtype tp HA device type."""
+    if device_type in NATURE_TYPES and sub_device == NATURE_CLIMATE_KEY:
+        return Platform.CLIMATE
+    elif device_type in NATURE_TYPES and sub_device == "P4":
+        return Platform.SENSOR
+    elif device_type in NATURE_TYPES and sub_device in NATURE_SWITCH_PORTS:
+        return Platform.SWITCH
     if device_type in SUPPORTED_SWTICH_TYPES:
         return Platform.SWITCH
     elif device_type in BINARY_SENSOR_TYPES:
@@ -586,6 +621,11 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
         sub_device = idx
     else:
         sub_device = None
+
+    if device_type in NATURE_TYPES and sub_device == NATURE_CLIMATE_KEY:
+        return Platform.CLIMATE + (
+            "." + device_type + "_" + hub_id + "_" + device_id + "_thermostat"
+        ).lower().replace(":", "_").replace("@", "_")
 
     if device_type in [  # noqa: RET503
         *SUPPORTED_SWTICH_TYPES,
@@ -633,3 +673,16 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
         return Platform.CLIMATE + (
             "." + device_type + "_" + hub_id + "_" + device_id
         ).lower().replace(":", "_").replace("@", "_")
+
+
+def _find_device(devices, hub_id, device_id):
+    """Find a LifeSmart raw device by hub and device id."""
+    return next(
+        (
+            device
+            for device in devices
+            if device.get(HUB_ID_KEY) == hub_id
+            and device.get(DEVICE_ID_KEY) == device_id
+        ),
+        None,
+    )

@@ -11,6 +11,7 @@ Current supported features:
 - SPOT IR remote control
 - SPOT A/C climate control through LifeSmart A/C remote profiles
 - Native A/C control panel climate entities
+- Nature Series switch, temperature, and thermostat support
 
 SPOT support currently includes:
 - `SL_SPOT`
@@ -27,6 +28,11 @@ Native A/C control panel support currently includes:
 - `V_SZJSXR_P`
 - `V_T8600_P`
 
+Nature Series support currently includes:
+- `SL_NATURE` switch-board variants
+- `SL_NATURE` thermostat variants
+- `SL_NATURE` `P4` temperature sensor reporting
+
 SPOT A/C support currently provides:
 - Climate entity creation from the A/C remote already assigned in the LifeSmart app
 - Power on/off
@@ -39,6 +45,14 @@ SPOT A/C support currently provides:
 
 Native A/C control panel support currently provides:
 - Automatic climate entity creation from LifeSmart devices
+- Power on/off
+- HVAC mode
+- Current temperature
+- Target temperature
+- Fan speed
+
+Nature thermostat support currently provides:
+- Automatic climate entity creation for thermostat variants
 - Power on/off
 - HVAC mode
 - Current temperature

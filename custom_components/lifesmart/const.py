@@ -139,6 +139,9 @@ DEVICE_WITHOUT_IDXNAME = [
 ]
 GENERIC_CONTROLLER_TYPES = ["SL_P"]
 SMART_PLUG_TYPES = ["SL_OE_DE"]
+NATURE_TYPES = ["SL_NATURE"]
+NATURE_SWITCH_PORTS = ["P1", "P2", "P3"]
+NATURE_CLIMATE_KEY = "climate"
 
 LIFESMART_HVAC_STATE_LIST = [
     climate.const.HVACMode.OFF,
@@ -194,3 +197,28 @@ LIFESMART_REGION_OPTIONS = {
 DIGITAL_DOORLOCK_LOCK_EVENT_KEY = "EVTLO"
 DIGITAL_DOORLOCK_ALARM_EVENT_KEY = "ALM"
 DIGITAL_DOORLOCK_BATTERY_EVENT_KEY = "BAT"
+
+
+def is_nature_thermostat(device):
+    """Return true for SL_NATURE thermostat variants."""
+    if device.get(DEVICE_TYPE_KEY) not in NATURE_TYPES:
+        return False
+
+    data = device.get(DEVICE_DATA_KEY, {})
+    device_type_value = data.get("P5", {}).get("val", 0) & 0xFF
+    if device_type_value in (3, 6):
+        return True
+
+    return all(idx in data for idx in ("P1", "P4", "P6", "P7", "P8"))
+
+
+def is_nature_switch(device):
+    """Return true for SL_NATURE switch-board variants."""
+    if device.get(DEVICE_TYPE_KEY) not in NATURE_TYPES:
+        return False
+
+    data = device.get(DEVICE_DATA_KEY, {})
+    device_type_value = data.get("P5", {}).get("val")
+    if device_type_value is None:
+        return True
+    return device_type_value & 0xFF == 1

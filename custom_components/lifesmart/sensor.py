@@ -31,6 +31,7 @@ from .const import (
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     LOCK_TYPES,
     MANUFACTURER,
+    NATURE_TYPES,
     OT_SENSOR_TYPES,
     SMART_PLUG_TYPES,
 )
@@ -54,7 +55,11 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
         device_type = device[DEVICE_TYPE_KEY]
         supported_sensors = (
-            OT_SENSOR_TYPES + GAS_SENSOR_TYPES + LOCK_TYPES + SMART_PLUG_TYPES
+            OT_SENSOR_TYPES
+            + GAS_SENSOR_TYPES
+            + LOCK_TYPES
+            + SMART_PLUG_TYPES
+            + NATURE_TYPES
         )
 
         if device_type not in supported_sensors:
@@ -104,6 +109,16 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     )
                 )
             elif device_type in SMART_PLUG_TYPES and sub_device_key in ["P2", "P3"]:
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in NATURE_TYPES and sub_device_key == "P4":
                 sensor_devices.append(
                     LifeSmartSensor(
                         ha_device,
@@ -168,7 +183,9 @@ class LifeSmartSensor(SensorEntity):
             self._unit = UnitOfPower.WATT
             self._state = sub_device_data["v"]
         else:
-            if sub_device_key in ("T", "P1"):
+            if sub_device_key in ("T", "P1") or (
+                device_type in NATURE_TYPES and sub_device_key == "P4"
+            ):
                 self._device_class = SensorDeviceClass.TEMPERATURE
                 self._unit = UnitOfTemperature.CELSIUS
             elif sub_device_key in ("H", "P2"):
@@ -192,7 +209,7 @@ class LifeSmartSensor(SensorEntity):
             else:
                 self._unit = "None"
                 self._device_class = "None"
-            self._state = sub_device_data["v"]
+            self._state = _display_value(sub_device_data)
 
     @property
     def unit_of_measurement(self):
@@ -238,5 +255,14 @@ class LifeSmartSensor(SensorEntity):
 
     async def _update_value(self, data) -> None:
         if data is not None:
-            self._state = data["v"]
+            self._state = _display_value(data)
             self.schedule_update_ha_state()
+
+
+def _display_value(data):
+    """Return the display value, falling back to raw tenths for temperature."""
+    if "v" in data:
+        return data["v"]
+    if "val" in data:
+        return data["val"] / 10
+    return None

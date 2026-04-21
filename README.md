@@ -99,6 +99,8 @@ Since there are a lot of refactored and code changes, some old device removed fr
 
 1. A/C Control Panel: native LifeSmart central air board devices
 
+1. Nature Series: switch panels, temperature sensor, and thermostat panel variants
+
 1. ~~Universal remote control~~
 
 List of supported devices
@@ -187,6 +189,14 @@ Binary Sensors:
 | SL_SC_BG | CUBE guard / door sensor |
 | SL_P_A | Smoke sensor |
 | SL_P | Generic controller binary inputs |
+
+Nature Series:
+| Model  | Remark |
+| ------ | ------ |
+| SL_NATURE | Nature Mini/MiniS and Nature Mini Pro switch panels |
+| SL_NATURE | Nature thermostat panels with current/target temperature, HVAC mode, and fan speed |
+
+Nature Series support is based on the attributes reported by the device. Switch-board variants create switch entities for `P1`, `P2`, and `P3`. Thermostat variants create a climate entity, and devices with a `P4` temperature attribute also expose a temperature sensor.
 
 Curtain Motor / Cover: 
 | Model  | Remark |
