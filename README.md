@@ -24,11 +24,27 @@ How it works:
 How to install:
 ---
 
-### Manual 
+### HACS (Recommended)
 
-1. Copy the custom_components/lifesmart directory to config/custom_components/ of Home Assistant
+1. Open Home Assistant.
+1. Go to `HACS` -> `Integrations`.
+1. Click `Explore & Download Repositories`.
+1. Search for `LifeSmart`.
+1. Select the LifeSmart integration and click `Download`.
+1. Restart Home Assistant when HACS asks you to.
+1. Go to `Settings` -> `Devices & Services`.
+1. Click `Add Integration`, search for `LifeSmart`, and complete the setup.
 
-1. Setup integration via add Integration
+Installing from HACS lets Home Assistant notify you when a new version is available.
+
+### Manual
+
+Use manual installation only if you cannot use HACS.
+
+1. Copy the `custom_components/lifesmart` directory to `config/custom_components/` in Home Assistant.
+1. Restart Home Assistant.
+1. Go to `Settings` -> `Devices & Services`.
+1. Click `Add Integration`, search for `LifeSmart`, and complete the setup.
 
    Configuration required for this add-on via UI (see example screen below)
    ```
@@ -40,24 +56,6 @@ How to install:
      userpassword: | your password that use to login mobile app |
      url: | your api address|  #e.g. api.apz.ilifesmart.com for asia pacific, api.us.ilifesmart.com for US  
     ```
-
-
-### HACS with Custom repository (Recommended)
-1. Go to HACS > Integration > 3 dots menu at the top right > choose Custom Repository
-
-   ![HACS Custom Repository](https://github.com/iKaew/hass-lifesmart-addon/assets/6348112/2499f1f5-f973-40db-8bf5-76b08e3faa1d)
-1. In custom repository dialog enter 
-
-   Repository: `https://github.com/iKaew/hass-lifesmart-addon`
-
-   Category: `Integration`
-
-1. Click Add
-1. Setup integration via add Integration
-
-Via HACS should allow you to get new version when it ready. 
-
-After the addon stable, I'll push the repo be in deault list of HACS and (long way) later to be included in Official Integration of HA.
 
 
 How to find user id from the mobile app
