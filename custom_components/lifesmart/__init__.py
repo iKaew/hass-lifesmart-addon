@@ -63,6 +63,7 @@ from .const import (
     SUPPORTED_SUB_SWITCH_TYPES,
     SUPPORTED_SWTICH_TYPES,
     UPDATE_LISTENER,
+    WATER_LEAK_SENSOR_TYPES,
     is_nature_thermostat,
 )
 from .lifesmart_client import LifeSmartClient
@@ -217,6 +218,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                 dispatcher_send(
                     hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
                 )
+            elif device_type in WATER_LEAK_SENSOR_TYPES:
+                if sub_device_key == "WA":
+                    dispatcher_send(
+                        hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                    )
+                elif sub_device_key == "V":
+                    attrs = hass.states.get(entity_id).attributes
+                    hass.states.set(entity_id, data["v"], attrs)
 
             elif device_type in COVER_TYPES and sub_device_key == "P1":
                 attrs = dict(hass.states.get(entity_id).attributes)
@@ -588,6 +597,10 @@ def get_platform_by_device(device_type, sub_device=None):
         return Platform.SWITCH
     if device_type in SUPPORTED_SWTICH_TYPES:
         return Platform.SWITCH
+    elif device_type in WATER_LEAK_SENSOR_TYPES and sub_device == "WA":
+        return Platform.BINARY_SENSOR
+    elif device_type in WATER_LEAK_SENSOR_TYPES and sub_device == "V":
+        return Platform.SENSOR
     elif device_type in BINARY_SENSOR_TYPES:
         return Platform.BINARY_SENSOR
     elif device_type in COVER_TYPES:
@@ -637,6 +650,7 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
         *OT_SENSOR_TYPES,
         *SMART_PLUG_TYPES,
         *LOCK_TYPES,
+        *WATER_LEAK_SENSOR_TYPES,
     ]:
         if sub_device:
             return (

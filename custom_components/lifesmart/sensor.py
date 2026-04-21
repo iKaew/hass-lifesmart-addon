@@ -34,6 +34,7 @@ from .const import (
     NATURE_TYPES,
     OT_SENSOR_TYPES,
     SMART_PLUG_TYPES,
+    WATER_LEAK_SENSOR_TYPES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -60,6 +61,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             + LOCK_TYPES
             + SMART_PLUG_TYPES
             + NATURE_TYPES
+            + WATER_LEAK_SENSOR_TYPES
         )
 
         if device_type not in supported_sensors:
@@ -119,6 +121,16 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     )
                 )
             elif device_type in NATURE_TYPES and sub_device_key == "P4":
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in WATER_LEAK_SENSOR_TYPES and sub_device_key == "V":
                 sensor_devices.append(
                     LifeSmartSensor(
                         ha_device,

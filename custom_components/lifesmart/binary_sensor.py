@@ -27,6 +27,7 @@ from .const import (
     MANUFACTURER,
     MOTION_SENSOR_TYPES,
     SUBDEVICE_INDEX_KEY,
+    WATER_LEAK_SENSOR_TYPES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,7 +49,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
         device_type = device[DEVICE_TYPE_KEY]
 
-        if device_type not in BINARY_SENSOR_TYPES + LOCK_TYPES:
+        supported_binary_sensor_types = (
+            BINARY_SENSOR_TYPES + LOCK_TYPES + WATER_LEAK_SENSOR_TYPES
+        )
+        if device_type not in supported_binary_sensor_types:
             continue
 
         ha_device = LifeSmartDevice(
@@ -114,6 +118,16 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         client,
                     )
                 )
+            elif device_type in WATER_LEAK_SENSOR_TYPES and sub_device_key == "WA":
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
     async_add_entities(sensor_devices)
 
 
@@ -164,6 +178,9 @@ class LifeSmartBinarySensor(BinarySensorEntity):
                 self._state = sub_device_data["val"] != 0
         elif device_type in MOTION_SENSOR_TYPES:
             self._device_class = BinarySensorDeviceClass.MOTION
+            self._state = sub_device_data["val"] != 0
+        elif device_type in WATER_LEAK_SENSOR_TYPES:
+            self._device_class = BinarySensorDeviceClass.MOISTURE
             self._state = sub_device_data["val"] != 0
         elif (
             device_type in LOCK_TYPES
