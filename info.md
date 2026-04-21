@@ -8,7 +8,16 @@ Current supported features:
 - Motion sensors
 - Radar motion sensors
 - CO2 sensors
-- DEFED door/motion sensors
+- Environment sensors
+- DEFED door/motion/siren/key fob sensors
+- TVOC+CO2 environment sensors
+- ELIQ electricity meters
+- Air purifiers
+- C100/C200 door locks
+- HA interface and 485 controllers
+- DLT electricity meters
+- Noise sensors
+- Smart alarm status
 - Water leakage sensors
 - Garage door covers
 - Curtain/cover devices
@@ -35,9 +44,40 @@ Native water leakage sensor support currently includes:
 Native CO2 sensor support currently includes:
 - `SL_SC_CA` temperature, humidity, CO2, and battery reporting
 
+Native environment sensor support currently includes:
+- `SL_SC_THL` temperature, humidity, illuminance, and battery reporting
+- `SL_SC_BE` temperature, humidity, illuminance, and battery reporting
+
+Native TVOC+CO2 environment sensor support currently includes:
+- `SL_SC_CQ` temperature, humidity, CO2, TVOC, battery, and USB supply voltage reporting
+
+Native ELIQ electricity meter support currently includes:
+- `ELIQ_EM` average power reporting
+
+Native air purifier support currently includes:
+- `OD_MFRESH_M8088` power control
+- `OD_MFRESH_M8088` operating mode, temperature, humidity, PM2.5, filter life, and UV reporting
+
+Native C100/C200 door lock support currently includes:
+- `SL_LK_TY` battery, lock, alarm, and doorbell reporting
+- `SL_LK_DJ` battery, lock, alarm, and doorbell reporting
+
+Native controller support currently includes:
+- `SL_JEMA` relay control and status input reporting
+- `V_485_P` relay control and metering/environment/air-quality sensor reporting
+- `V_DLT_645_P` / `V_DLT645_P` energy and power reporting
+
 Native DEFED sensor support currently includes:
 - `SL_DF_GG` door, external input, tamper, temperature, and battery reporting
 - `SL_DF_MM` motion, tamper, temperature, and battery reporting
+- `SL_DF_SR` siren, tamper, temperature, and battery reporting
+- `SL_DF_BB` key fob button and battery reporting
+
+Native noise sensor support currently includes:
+- `SL_SC_CN` noise, alarm threshold, buzzer alarm, and correction reporting
+
+Native smart alarm support currently includes:
+- `SL_ALM` play and volume/silent state reporting
 
 Native radar motion sensor support currently includes:
 - `SL_P_RM` motion reporting

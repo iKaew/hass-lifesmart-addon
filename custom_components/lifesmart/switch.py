@@ -8,15 +8,20 @@ from homeassistant.helpers.entity import DeviceInfo
 
 from . import LifeSmartDevice, generate_entity_id
 from .const import (
+    AIR_PURIFIER_TYPES,
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     DEVICE_VERSION_KEY,
     DOMAIN,
+    GENERIC_CONTROLLER_SWITCH_PORTS,
+    GENERIC_CONTROLLER_TYPES,
+    HA_CONTROLLER_SWITCH_PORTS,
     HUB_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     MANUFACTURER,
+    MODBUS_CONTROLLER_TYPES,
     NATURE_SWITCH_PORTS,
     NATURE_TYPES,
     SMART_PLUG_TYPES,
@@ -53,7 +58,14 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             continue
 
         device_type = device[DEVICE_TYPE_KEY]
-        if device_type in SUPPORTED_SWTICH_TYPES + SMART_PLUG_TYPES:
+        if (
+            device_type
+            in SUPPORTED_SWTICH_TYPES
+            + SMART_PLUG_TYPES
+            + AIR_PURIFIER_TYPES
+            + GENERIC_CONTROLLER_TYPES
+            + MODBUS_CONTROLLER_TYPES
+        ):
             ha_device = LifeSmartDevice(
                 device,
                 client,
@@ -61,6 +73,48 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
             if device_type in AI_TYPES:
                 switch_devices.append(LifeSmartSceneSwitch(ha_device, device, client))
+            elif device_type in AIR_PURIFIER_TYPES:
+                sub_device_key = "O"
+                switch_devices.append(
+                    LifeSmartSwitch(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        device[DEVICE_DATA_KEY][sub_device_key],
+                        client,
+                    )
+                )
+            elif device_type in GENERIC_CONTROLLER_TYPES:
+                supported_ports = GENERIC_CONTROLLER_SWITCH_PORTS
+                if device_type == "SL_JEMA":
+                    supported_ports = HA_CONTROLLER_SWITCH_PORTS
+
+                for sub_device_key in device[DEVICE_DATA_KEY]:
+                    if sub_device_key in supported_ports:
+                        switch_devices.append(
+                            LifeSmartSwitch(
+                                ha_device,
+                                device,
+                                sub_device_key,
+                                device[DEVICE_DATA_KEY][sub_device_key],
+                                client,
+                            )
+                        )
+            elif device_type in MODBUS_CONTROLLER_TYPES:
+                for sub_device_key in device[DEVICE_DATA_KEY]:
+                    if sub_device_key == "O" or (
+                        sub_device_key.startswith("L")
+                        and sub_device_key[1:].isdigit()
+                    ):
+                        switch_devices.append(
+                            LifeSmartSwitch(
+                                ha_device,
+                                device,
+                                sub_device_key,
+                                device[DEVICE_DATA_KEY][sub_device_key],
+                                client,
+                            )
+                        )
             elif device_type in SMART_PLUG_TYPES:
                 sub_device_key = "P1"
                 switch_devices.append(

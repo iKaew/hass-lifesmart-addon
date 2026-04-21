@@ -138,6 +138,139 @@ def test_smoke_battery_sensor_device():
     )
 
 
+def test_defed_siren_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_DF_SR", "HUB1", "SIREN1", "SR") == (
+        "binary_sensor.sl_df_sr_hub1_siren1_sr"
+    )
+
+
+def test_defed_keyfob_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_DF_BB", "HUB1", "KEYFOB1", "eB1") == (
+        "binary_sensor.sl_df_bb_hub1_keyfob1_eb1"
+    )
+
+
+def test_noise_sensor_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_SC_CN", "HUB1", "NOISE1", "P1") == (
+        "sensor.sl_sc_cn_hub1_noise1_p1"
+    )
+
+
+def test_noise_buzzer_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_SC_CN", "HUB1", "NOISE1", "P3") == (
+        "binary_sensor.sl_sc_cn_hub1_noise1_p3"
+    )
+
+
+def test_gas_alarm_sound_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_SC_CP", "HUB1", "GAS1", "P3") == (
+        "binary_sensor.sl_sc_cp_hub1_gas1_p3"
+    )
+
+
+def test_smart_alarm_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_ALM", "HUB1", "ALARM1", "P1") == (
+        "binary_sensor.sl_alm_hub1_alarm1_p1"
+    )
+
+
+def test_env_sensor_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_SC_THL", "HUB1", "ENV1", "T") == (
+        "sensor.sl_sc_thl_hub1_env1_t"
+    )
+
+
+def test_tvoc_co2_sensor_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_SC_CQ", "HUB1", "AIR1", "P4") == (
+        "sensor.sl_sc_cq_hub1_air1_p4"
+    )
+
+
+def test_eliq_meter_device():
+    gen = load_generate_entity_id()
+    assert gen("ELIQ_EM", "HUB1", "METER1", "EPA") == (
+        "sensor.eliq_em_hub1_meter1_epa"
+    )
+
+
+def test_air_purifier_switch_device():
+    gen = load_generate_entity_id()
+    assert gen("OD_MFRESH_M8088", "HUB1", "PURIFIER1", "O") == (
+        "switch.od_mfresh_m8088_hub1_purifier1_o"
+    )
+
+
+def test_air_purifier_sensor_device():
+    gen = load_generate_entity_id()
+    assert gen("OD_MFRESH_M8088", "HUB1", "PURIFIER1", "PM") == (
+        "sensor.od_mfresh_m8088_hub1_purifier1_pm"
+    )
+
+
+def test_c100_door_lock_battery_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_LK_TY", "HUB1", "LOCK1", "BAT") == (
+        "sensor.sl_lk_ty_hub1_lock1_bat"
+    )
+
+
+def test_c200_door_lock_doorbell_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_LK_DJ", "HUB1", "LOCK1", "EVTBELL") == (
+        "binary_sensor.sl_lk_dj_hub1_lock1_evtbell"
+    )
+
+
+def test_ha_controller_switch_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_JEMA", "HUB1", "CTRL1", "P8") == (
+        "switch.sl_jema_hub1_ctrl1_p8"
+    )
+
+
+def test_ha_controller_status_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_JEMA", "HUB1", "CTRL1", "P5") == (
+        "binary_sensor.sl_jema_hub1_ctrl1_p5"
+    )
+
+
+def test_dlt_meter_energy_device():
+    gen = load_generate_entity_id()
+    assert gen("V_DLT_645_P", "HUB1", "METER1", "EE") == (
+        "sensor.v_dlt_645_p_hub1_meter1_ee"
+    )
+
+
+def test_dlt_meter_appendix_alias_device():
+    gen = load_generate_entity_id()
+    assert gen("V_DLT645_P", "HUB1", "METER1", "EP") == (
+        "sensor.v_dlt645_p_hub1_meter1_ep"
+    )
+
+
+def test_485_controller_switch_device():
+    gen = load_generate_entity_id()
+    assert gen("V_485_P", "HUB1", "CTRL1", "L1") == (
+        "switch.v_485_p_hub1_ctrl1_l1"
+    )
+
+
+def test_485_controller_power_device():
+    gen = load_generate_entity_id()
+    assert gen("V_485_P", "HUB1", "CTRL1", "EP") == (
+        "sensor.v_485_p_hub1_ctrl1_ep"
+    )
+
+
 def test_nature_temperature_sensor():
     gen = load_generate_entity_id()
     assert gen("SL_NATURE", "HUB1", "NATURE1", "P4") == (

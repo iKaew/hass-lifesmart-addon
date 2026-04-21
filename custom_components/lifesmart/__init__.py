@@ -25,6 +25,7 @@ from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.entity import Entity
 
 from .const import (
+    AIR_PURIFIER_TYPES,
     BINARY_SENSOR_TYPES,
     CLIMATE_TYPES,
     CO2_SENSOR_TYPES,
@@ -38,18 +39,28 @@ from .const import (
     CONF_LIFESMART_USERPASSWORD,
     COVER_TYPES,
     DEFED_DOOR_SENSOR_TYPES,
+    DEFED_KEYFOB_TYPES,
     DEFED_MOTION_SENSOR_TYPES,
     DEFED_SENSOR_TYPES,
+    DEFED_SIREN_TYPES,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     DIGITAL_DOORLOCK_ALARM_EVENT_KEY,
     DIGITAL_DOORLOCK_BATTERY_EVENT_KEY,
+    DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY,
     DIGITAL_DOORLOCK_LOCK_EVENT_KEY,
+    DLT_METER_TYPES,
     DOMAIN,
+    ELECTRICITY_METER_TYPES,
+    ENV_SENSOR_TYPES,
     EV_SENSOR_TYPES,
     GARAGE_DOOR_TYPES,
     GAS_SENSOR_TYPES,
+    GENERIC_CONTROLLER_BINARY_PORTS,
+    GENERIC_CONTROLLER_SWITCH_PORTS,
+    GENERIC_CONTROLLER_TYPES,
+    HA_CONTROLLER_SWITCH_PORTS,
     HUB_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     LIFESMART_STATE_MANAGER,
@@ -59,9 +70,12 @@ from .const import (
     NATURE_CLIMATE_KEY,
     NATURE_SWITCH_PORTS,
     NATURE_TYPES,
+    NOISE_SENSOR_TYPES,
+    MODBUS_CONTROLLER_TYPES,
     OT_SENSOR_TYPES,
     RADAR_MOTION_SENSOR_TYPES,
     SMART_PLUG_TYPES,
+    SMART_ALARM_TYPES,
     SMOKE_SENSOR_TYPES,
     SPOT_TYPES,
     SUBDEVICE_INDEX_KEY,
@@ -69,6 +83,7 @@ from .const import (
     SUPPORTED_SUB_BINARY_SENSORS,
     SUPPORTED_SUB_SWITCH_TYPES,
     SUPPORTED_SWTICH_TYPES,
+    TVOC_CO2_SENSOR_TYPES,
     UPDATE_LISTENER,
     WATER_LEAK_SENSOR_TYPES,
     is_nature_thermostat,
@@ -214,6 +229,28 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
             if (  # noqa: SIM114
                 device_type in SUPPORTED_SWTICH_TYPES
                 and sub_device_key in SUPPORTED_SUB_SWITCH_TYPES
+                or device_type in AIR_PURIFIER_TYPES
+                and sub_device_key == "O"
+                or device_type in GENERIC_CONTROLLER_TYPES
+                and sub_device_key
+                in (
+                    HA_CONTROLLER_SWITCH_PORTS
+                    if device_type == "SL_JEMA"
+                    else GENERIC_CONTROLLER_SWITCH_PORTS
+                )
+                or device_type in MODBUS_CONTROLLER_TYPES
+                and (
+                    sub_device_key == "O"
+                    or sub_device_key.startswith("L")
+                    and sub_device_key[1:].isdigit()
+                )
+            ):
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
+            elif (
+                device_type in GENERIC_CONTROLLER_TYPES
+                and sub_device_key in GENERIC_CONTROLLER_BINARY_PORTS
             ):
                 dispatcher_send(
                     hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
@@ -246,6 +283,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                     and sub_device_key in ["GA", "A2", "TR"]
                     or device_type in DEFED_MOTION_SENSOR_TYPES
                     and sub_device_key in ["M", "TR"]
+                    or device_type in DEFED_SIREN_TYPES
+                    and sub_device_key in ["SR", "TR"]
+                    or device_type in DEFED_KEYFOB_TYPES
+                    and sub_device_key in ["eB1", "eB2", "eB3", "eB4"]
                 ):
                     dispatcher_send(
                         hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
@@ -261,12 +302,95 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                 dispatcher_send(
                     hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
                 )
+            elif device_type in ENV_SENSOR_TYPES and sub_device_key in [
+                "T",
+                "H",
+                "Z",
+                "V",
+            ]:
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
+            elif device_type in TVOC_CO2_SENSOR_TYPES and sub_device_key in [
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+                "P5",
+                "P6",
+            ]:
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
             elif (
                 device_type == "SL_SC_CM"
                 and sub_device_key == "P3"
                 or device_type in SMOKE_SENSOR_TYPES
                 and sub_device_key == "P2"
             ):
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
+            elif device_type in NOISE_SENSOR_TYPES:
+                if sub_device_key in ["P1", "P2", "P3", "P4"]:
+                    dispatcher_send(
+                        hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                    )
+            elif device_type in GAS_SENSOR_TYPES and sub_device_key in ["P1", "P2", "P3"]:
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
+            elif device_type in SMART_ALARM_TYPES and sub_device_key in ["P1", "P2"]:
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
+            elif device_type in ELECTRICITY_METER_TYPES and sub_device_key == "EPA":
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
+            elif device_type in DLT_METER_TYPES and sub_device_key in ["EE", "EP"]:
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
+            elif device_type in MODBUS_CONTROLLER_TYPES and (
+                sub_device_key
+                in [
+                    "P1",
+                    "EE",
+                    "EP",
+                    "EPF",
+                    "EF",
+                    "EI",
+                    "EV",
+                    "T",
+                    "H",
+                    "PM",
+                    "COPPM",
+                    "CO2PPM",
+                    "CH2OPPM",
+                    "O2VOL",
+                    "NH3PPM",
+                    "H2SPPM",
+                    "TVOC",
+                    "PHM",
+                    "SMOKE",
+                ]
+                or sub_device_key.startswith(("EE", "EP", "EPF", "EF", "EI", "EV"))
+                and sub_device_key[-1].isdigit()
+                or sub_device_key.startswith("PM")
+                and sub_device_key[2:].isdigit()
+            ):
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
+            elif device_type in AIR_PURIFIER_TYPES and sub_device_key in [
+                "RM",
+                "T",
+                "H",
+                "PM",
+                "FL",
+                "UV",
+            ]:
                 dispatcher_send(
                     hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
                 )
@@ -295,8 +419,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                     nstat = "closing"
                 hass.states.set(entity_id, nstat, attrs)
             elif device_type in EV_SENSOR_TYPES:
-                attrs = hass.states.get(entity_id).attributes
-                hass.states.set(entity_id, data["v"], attrs)
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
             elif device_type in GAS_SENSOR_TYPES and data["val"] > 0:
                 attrs = hass.states.get(entity_id).attributes
                 hass.states.set(entity_id, data["val"], attrs)
@@ -340,6 +465,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                     DIGITAL_DOORLOCK_BATTERY_EVENT_KEY,
                     DIGITAL_DOORLOCK_ALARM_EVENT_KEY,
                     DIGITAL_DOORLOCK_LOCK_EVENT_KEY,
+                    DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY,
                 ]:
                     dispatcher_send(
                         hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
@@ -647,6 +773,23 @@ def get_platform_by_device(device_type, sub_device=None):
         return Platform.SWITCH
     if device_type in SUPPORTED_SWTICH_TYPES:
         return Platform.SWITCH
+    elif device_type in AIR_PURIFIER_TYPES and sub_device == "O":
+        return Platform.SWITCH
+    elif device_type in GENERIC_CONTROLLER_TYPES and sub_device in (
+        HA_CONTROLLER_SWITCH_PORTS
+        if device_type == "SL_JEMA"
+        else GENERIC_CONTROLLER_SWITCH_PORTS
+    ):
+        return Platform.SWITCH
+    elif device_type in MODBUS_CONTROLLER_TYPES and sub_device and (
+        sub_device == "O" or sub_device.startswith("L") and sub_device[1:].isdigit()
+    ):
+        return Platform.SWITCH
+    elif (
+        device_type in GENERIC_CONTROLLER_TYPES
+        and sub_device in GENERIC_CONTROLLER_BINARY_PORTS
+    ):
+        return Platform.BINARY_SENSOR
     elif device_type in WATER_LEAK_SENSOR_TYPES and sub_device == "WA":
         return Platform.BINARY_SENSOR
     elif device_type in WATER_LEAK_SENSOR_TYPES and sub_device == "V":
@@ -658,12 +801,24 @@ def get_platform_by_device(device_type, sub_device=None):
         and sub_device in ["GA", "A2", "TR"]
         or device_type in DEFED_MOTION_SENSOR_TYPES
         and sub_device in ["M", "TR"]
+        or device_type in DEFED_SIREN_TYPES
+        and sub_device in ["SR", "TR"]
+        or device_type in DEFED_KEYFOB_TYPES
+        and sub_device in ["eB1", "eB2", "eB3", "eB4"]
     ):
         return Platform.BINARY_SENSOR
     elif device_type in DEFED_SENSOR_TYPES and sub_device in ["T", "V"]:
         return Platform.SENSOR
     elif device_type in CO2_SENSOR_TYPES:
         return Platform.SENSOR
+    elif device_type in NOISE_SENSOR_TYPES and sub_device in ["P1", "P2", "P4"]:
+        return Platform.SENSOR
+    elif device_type in NOISE_SENSOR_TYPES and sub_device == "P3":
+        return Platform.BINARY_SENSOR
+    elif device_type in GAS_SENSOR_TYPES and sub_device == "P3":
+        return Platform.BINARY_SENSOR
+    elif device_type in SMART_ALARM_TYPES and sub_device in ["P1", "P2"]:
+        return Platform.BINARY_SENSOR
     elif (
         device_type == "SL_SC_CM"
         and sub_device == "P3"
@@ -675,7 +830,44 @@ def get_platform_by_device(device_type, sub_device=None):
         return Platform.BINARY_SENSOR
     elif device_type in COVER_TYPES:
         return Platform.COVER
-    elif device_type in EV_SENSOR_TYPES + GAS_SENSOR_TYPES + OT_SENSOR_TYPES:
+    elif (
+        device_type
+        in EV_SENSOR_TYPES + GAS_SENSOR_TYPES + OT_SENSOR_TYPES + ELECTRICITY_METER_TYPES
+        or device_type in AIR_PURIFIER_TYPES
+        and sub_device in ["RM", "T", "H", "PM", "FL", "UV"]
+        or device_type in DLT_METER_TYPES
+        and sub_device in ["EE", "EP"]
+        or device_type in MODBUS_CONTROLLER_TYPES
+        and sub_device
+        and (
+            sub_device
+            in [
+                "P1",
+                "EE",
+                "EP",
+                "EPF",
+                "EF",
+                "EI",
+                "EV",
+                "T",
+                "H",
+                "PM",
+                "COPPM",
+                "CO2PPM",
+                "CH2OPPM",
+                "O2VOL",
+                "NH3PPM",
+                "H2SPPM",
+                "TVOC",
+                "PHM",
+                "SMOKE",
+            ]
+            or sub_device.startswith(("EE", "EP", "EPF", "EF", "EI", "EV"))
+            and sub_device[-1].isdigit()
+            or sub_device.startswith("PM")
+            and sub_device[2:].isdigit()
+        )
+    ):
         return Platform.SENSOR
     elif device_type in SPOT_TYPES + LIGHT_SWITCH_TYPES + LIGHT_DIMMER_TYPES:
         return Platform.LIGHT
@@ -688,6 +880,8 @@ def get_platform_by_device(device_type, sub_device=None):
         and sub_device == DIGITAL_DOORLOCK_LOCK_EVENT_KEY
         or device_type in LOCK_TYPES
         and sub_device == DIGITAL_DOORLOCK_ALARM_EVENT_KEY
+        or device_type in LOCK_TYPES
+        and sub_device == DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY
     ):
         return Platform.BINARY_SENSOR
     elif device_type in SMART_PLUG_TYPES and sub_device == "P1":
@@ -712,9 +906,14 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
 
     if device_type in [  # noqa: RET503
         *SUPPORTED_SWTICH_TYPES,
+        *AIR_PURIFIER_TYPES,
+        *GENERIC_CONTROLLER_TYPES,
+        *DLT_METER_TYPES,
+        *MODBUS_CONTROLLER_TYPES,
         *BINARY_SENSOR_TYPES,
         *EV_SENSOR_TYPES,
         *GAS_SENSOR_TYPES,
+        *ELECTRICITY_METER_TYPES,
         *SPOT_TYPES,
         *LIGHT_SWITCH_TYPES,
         *OT_SENSOR_TYPES,
@@ -725,6 +924,8 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
         *DEFED_SENSOR_TYPES,
         *CO2_SENSOR_TYPES,
         *SMOKE_SENSOR_TYPES,
+        *NOISE_SENSOR_TYPES,
+        *SMART_ALARM_TYPES,
     ]:
         if sub_device:
             return (
