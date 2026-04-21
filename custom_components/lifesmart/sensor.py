@@ -1,16 +1,23 @@
 """Support for lifesmart sensors."""
 
 import logging
+import struct
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import (
+    CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
     CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER,
     CONCENTRATION_PARTS_PER_MILLION,
     LIGHT_LUX,
     PERCENTAGE,
+    UnitOfElectricCurrent,
+    UnitOfElectricPotential,
     UnitOfEnergy,
+    UnitOfFrequency,
     UnitOfPower,
+    UnitOfSoundPressure,
     UnitOfTemperature,
+    UnitOfTime,
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
@@ -19,25 +26,67 @@ from homeassistant.helpers.entity import DeviceInfo
 # ENTITY_ID_FORMAT = DOMAIN + ".{}"
 from . import LifeSmartDevice, generate_entity_id
 from .const import (
+    AIR_PURIFIER_TYPES,
+    CO2_SENSOR_TYPES,
+    DEFED_SENSOR_TYPES,
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     DEVICE_VERSION_KEY,
     DIGITAL_DOORLOCK_BATTERY_EVENT_KEY,
+    DLT_METER_TYPES,
     DOMAIN,
+    ELECTRICITY_METER_TYPES,
+    ENV_SENSOR_TYPES,
     GAS_SENSOR_TYPES,
     HUB_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     LOCK_TYPES,
     MANUFACTURER,
+    MODBUS_CONTROLLER_TYPES,
+    MOTION_SENSOR_TYPES,
     NATURE_TYPES,
+    NOISE_SENSOR_TYPES,
     OT_SENSOR_TYPES,
     SMART_PLUG_TYPES,
+    SMOKE_SENSOR_TYPES,
+    TVOC_CO2_SENSOR_TYPES,
     WATER_LEAK_SENSOR_TYPES,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+AIR_PURIFIER_MODES = {
+    0: "auto",
+    1: "fan_1",
+    2: "fan_2",
+    3: "fan_3",
+    4: "max",
+    5: "sleep",
+}
+
+MODBUS_SENSOR_KEYS = {
+    "P1",
+    "EE",
+    "EP",
+    "EPF",
+    "EF",
+    "EI",
+    "EV",
+    "T",
+    "H",
+    "PM",
+    "COPPM",
+    "CO2PPM",
+    "CH2OPPM",
+    "O2VOL",
+    "NH3PPM",
+    "H2SPPM",
+    "TVOC",
+    "PHM",
+    "SMOKE",
+}
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -62,6 +111,17 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             + SMART_PLUG_TYPES
             + NATURE_TYPES
             + WATER_LEAK_SENSOR_TYPES
+            + CO2_SENSOR_TYPES
+            + DEFED_SENSOR_TYPES
+            + ENV_SENSOR_TYPES
+            + TVOC_CO2_SENSOR_TYPES
+            + MOTION_SENSOR_TYPES
+            + SMOKE_SENSOR_TYPES
+            + NOISE_SENSOR_TYPES
+            + ELECTRICITY_METER_TYPES
+            + AIR_PURIFIER_TYPES
+            + DLT_METER_TYPES
+            + MODBUS_CONTROLLER_TYPES
         )
 
         if device_type not in supported_sensors:
@@ -88,7 +148,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         client,
                     )
                 )
-            elif device_type in GAS_SENSOR_TYPES:  # noqa: SIM114
+            elif device_type in GAS_SENSOR_TYPES and sub_device_key in ["P1", "P2"]:
                 sensor_devices.append(
                     LifeSmartSensor(
                         ha_device,
@@ -140,6 +200,146 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         client,
                     )
                 )
+            elif device_type in CO2_SENSOR_TYPES and sub_device_key in [
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+            ]:
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in ENV_SENSOR_TYPES and sub_device_key in [
+                "T",
+                "H",
+                "Z",
+                "V",
+            ]:
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in TVOC_CO2_SENSOR_TYPES and sub_device_key in [
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+                "P5",
+                "P6",
+            ]:
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in DEFED_SENSOR_TYPES and sub_device_key in ["T", "V"]:
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in ELECTRICITY_METER_TYPES and sub_device_key == "EPA":
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in DLT_METER_TYPES and sub_device_key in ["EE", "EP"]:
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in MODBUS_CONTROLLER_TYPES and _is_modbus_sensor_key(
+                sub_device_key
+            ):
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in AIR_PURIFIER_TYPES and sub_device_key in [
+                "RM",
+                "T",
+                "H",
+                "PM",
+                "FL",
+                "UV",
+            ]:
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in NOISE_SENSOR_TYPES and sub_device_key in [
+                "P1",
+                "P2",
+                "P4",
+            ]:
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type == "SL_SC_CM" and sub_device_key == "P3":
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in SMOKE_SENSOR_TYPES and sub_device_key == "P2":
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
     async_add_entities(sensor_devices)
 
 
@@ -180,12 +380,16 @@ class LifeSmartSensor(SensorEntity):
             device_type, hub_id, device_id, sub_device_key
         )
         self._client = client
+        self._attrs = _state_attributes(sub_device_data, device_type, sub_device_key)
 
         # devtype = raw_device_data["devtype"]
         if device_type in GAS_SENSOR_TYPES:
-            self._device_class = SensorDeviceClass.GAS
+            if sub_device_key == "P1":
+                self._device_class = SensorDeviceClass.GAS
+            else:
+                self._device_class = None
             self._unit = "None"
-            self._state = sub_device_data["val"]
+            self._state = sub_device_data.get("val")
         elif device_type in SMART_PLUG_TYPES and sub_device_key == "P2":
             self._device_class = SensorDeviceClass.ENERGY
             self._unit = UnitOfEnergy.KILO_WATT_HOUR
@@ -194,6 +398,114 @@ class LifeSmartSensor(SensorEntity):
             self._device_class = SensorDeviceClass.POWER
             self._unit = UnitOfPower.WATT
             self._state = sub_device_data["v"]
+        elif device_type in CO2_SENSOR_TYPES:
+            if sub_device_key == "P1":
+                self._device_class = SensorDeviceClass.TEMPERATURE
+                self._unit = UnitOfTemperature.CELSIUS
+            elif sub_device_key == "P2":
+                self._device_class = SensorDeviceClass.HUMIDITY
+                self._unit = PERCENTAGE
+            elif sub_device_key == "P3":
+                self._device_class = SensorDeviceClass.CO2
+                self._unit = CONCENTRATION_PARTS_PER_MILLION
+            else:
+                self._device_class = SensorDeviceClass.BATTERY
+                self._unit = PERCENTAGE
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in ENV_SENSOR_TYPES:
+            if sub_device_key == "T":
+                self._device_class = SensorDeviceClass.TEMPERATURE
+                self._unit = UnitOfTemperature.CELSIUS
+            elif sub_device_key == "H":
+                self._device_class = SensorDeviceClass.HUMIDITY
+                self._unit = PERCENTAGE
+            elif sub_device_key == "Z":
+                self._device_class = SensorDeviceClass.ILLUMINANCE
+                self._unit = LIGHT_LUX
+            else:
+                self._device_class = SensorDeviceClass.BATTERY
+                self._unit = PERCENTAGE
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in TVOC_CO2_SENSOR_TYPES:
+            if sub_device_key == "P1":
+                self._device_class = SensorDeviceClass.TEMPERATURE
+                self._unit = UnitOfTemperature.CELSIUS
+            elif sub_device_key == "P2":
+                self._device_class = SensorDeviceClass.HUMIDITY
+                self._unit = PERCENTAGE
+            elif sub_device_key == "P3":
+                self._device_class = SensorDeviceClass.CO2
+                self._unit = CONCENTRATION_PARTS_PER_MILLION
+            elif sub_device_key == "P4":
+                self._device_class = SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS
+                self._unit = CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER
+            elif sub_device_key == "P5":
+                self._device_class = SensorDeviceClass.BATTERY
+                self._unit = PERCENTAGE
+            else:
+                self._device_class = SensorDeviceClass.VOLTAGE
+                self._unit = UnitOfElectricPotential.VOLT
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in DEFED_SENSOR_TYPES:
+            if sub_device_key == "T":
+                self._device_class = SensorDeviceClass.TEMPERATURE
+                self._unit = UnitOfTemperature.CELSIUS
+            else:
+                self._device_class = SensorDeviceClass.BATTERY
+                self._unit = PERCENTAGE
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in NOISE_SENSOR_TYPES:
+            if sub_device_key == "P1":
+                self._device_class = SensorDeviceClass.SOUND_PRESSURE
+                self._unit = UnitOfSoundPressure.DECIBEL
+            else:
+                self._device_class = None
+                self._unit = "None"
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type == "SL_SC_CM" and sub_device_key == "P3":
+            self._device_class = SensorDeviceClass.BATTERY
+            self._unit = PERCENTAGE
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in SMOKE_SENSOR_TYPES and sub_device_key == "P2":
+            self._device_class = SensorDeviceClass.BATTERY
+            self._unit = PERCENTAGE
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in ELECTRICITY_METER_TYPES and sub_device_key == "EPA":
+            self._device_class = SensorDeviceClass.POWER
+            self._unit = UnitOfPower.WATT
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in DLT_METER_TYPES:
+            if sub_device_key == "EE":
+                self._device_class = SensorDeviceClass.ENERGY
+                self._unit = UnitOfEnergy.KILO_WATT_HOUR
+            else:
+                self._device_class = SensorDeviceClass.POWER
+                self._unit = UnitOfPower.WATT
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in MODBUS_CONTROLLER_TYPES:
+            self._device_class, self._unit = _modbus_sensor_metadata(sub_device_key)
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in AIR_PURIFIER_TYPES:
+            if sub_device_key == "RM":
+                self._device_class = SensorDeviceClass.ENUM
+                self._unit = None
+                self._attr_options = list(AIR_PURIFIER_MODES.values())
+            elif sub_device_key == "T":
+                self._device_class = SensorDeviceClass.TEMPERATURE
+                self._unit = UnitOfTemperature.CELSIUS
+            elif sub_device_key == "H":
+                self._device_class = SensorDeviceClass.HUMIDITY
+                self._unit = PERCENTAGE
+            elif sub_device_key == "PM":
+                self._device_class = SensorDeviceClass.PM25
+                self._unit = CONCENTRATION_MICROGRAMS_PER_CUBIC_METER
+            elif sub_device_key == "FL":
+                self._device_class = SensorDeviceClass.DURATION
+                self._unit = UnitOfTime.HOURS
+            else:
+                self._device_class = None
+                self._unit = "None"
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
         else:
             if sub_device_key in ("T", "P1") or (
                 device_type in NATURE_TYPES and sub_device_key == "P4"
@@ -209,6 +521,9 @@ class LifeSmartSensor(SensorEntity):
             elif sub_device_key == "V":
                 self._device_class = SensorDeviceClass.BATTERY
                 self._unit = PERCENTAGE
+            elif sub_device_key == "P5":
+                self._device_class = SensorDeviceClass.VOLTAGE
+                self._unit = UnitOfElectricPotential.VOLT
             elif sub_device_key == "P3":
                 self._device_class = "None"
                 self._unit = CONCENTRATION_PARTS_PER_MILLION
@@ -221,7 +536,7 @@ class LifeSmartSensor(SensorEntity):
             else:
                 self._unit = "None"
                 self._device_class = "None"
-            self._state = _display_value(sub_device_data)
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
 
     @property
     def unit_of_measurement(self):
@@ -267,14 +582,131 @@ class LifeSmartSensor(SensorEntity):
 
     async def _update_value(self, data) -> None:
         if data is not None:
-            self._state = _display_value(data)
+            self._state = _display_value(data, self.device_type, self.sub_device_key)
+            self._attrs = _state_attributes(
+                data, self.device_type, self.sub_device_key
+            )
             self.schedule_update_ha_state()
 
+    @property
+    def extra_state_attributes(self):
+        """Return the state attributes."""
+        return self._attrs
 
-def _display_value(data):
+
+def _display_value(data, device_type=None, sub_device_key=None):
     """Return the display value, falling back to raw tenths for temperature."""
     if "v" in data:
         return data["v"]
+    if (
+        device_type in CO2_SENSOR_TYPES
+        and sub_device_key == "P3"
+        or device_type in NOISE_SENSOR_TYPES
+    ):
+        return data.get("val")
+    if device_type in ENV_SENSOR_TYPES and sub_device_key == "Z":
+        return data.get("val")
+    if device_type in TVOC_CO2_SENSOR_TYPES:
+        if sub_device_key == "P3":
+            return data.get("val")
+        if sub_device_key == "P4":
+            return data.get("val") / 1000 if "val" in data else None
+    if device_type in ELECTRICITY_METER_TYPES:
+        return data.get("val")
+    if device_type in DLT_METER_TYPES:
+        return _display_float_value(data)
+    if device_type in MODBUS_CONTROLLER_TYPES:
+        if sub_device_key in ["T", "H"]:
+            return data["v"] if "v" in data else data.get("val") / 10
+        if sub_device_key in ["PM", "PHM", "SMOKE"]:
+            return data.get("val")
+        return _display_float_value(data)
+    if device_type in AIR_PURIFIER_TYPES:
+        if sub_device_key == "RM":
+            return AIR_PURIFIER_MODES.get(data.get("val"), f"unknown_{data.get('val')}")
+        if sub_device_key in ["PM", "FL", "UV"]:
+            return data.get("val")
+    if device_type in LOCK_TYPES and sub_device_key == DIGITAL_DOORLOCK_BATTERY_EVENT_KEY:
+        return data.get("val")
     if "val" in data:
         return data["val"] / 10
     return None
+
+
+def _display_float_value(data):
+    """Return friendly value, decoding raw IEEE-754 integers when needed."""
+    if "v" in data:
+        return data["v"]
+    if "val" not in data:
+        return None
+    return _float32_from_int(data["val"])
+
+
+def _float32_from_int(value):
+    """Decode a raw unsigned 32-bit IEEE-754 integer."""
+    return struct.unpack("!f", int(value).to_bytes(4, "big", signed=False))[0]
+
+
+def _is_modbus_sensor_key(sub_device_key):
+    """Return true for documented V_485_P sensor IO keys."""
+    if sub_device_key in MODBUS_SENSOR_KEYS:
+        return True
+    return (
+        sub_device_key.startswith(("EE", "EP", "EPF", "EF", "EI", "EV"))
+        and sub_device_key[-1].isdigit()
+        or sub_device_key.startswith("PM")
+        and sub_device_key[2:].isdigit()
+    )
+
+
+def _modbus_sensor_metadata(sub_device_key):
+    """Return Home Assistant metadata for a V_485_P sensor IO key."""
+    if sub_device_key.startswith("EE"):
+        return SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR
+    if sub_device_key.startswith("EPF"):
+        return SensorDeviceClass.POWER_FACTOR, None
+    if sub_device_key.startswith("EP"):
+        return SensorDeviceClass.POWER, UnitOfPower.WATT
+    if sub_device_key.startswith("EF"):
+        return SensorDeviceClass.FREQUENCY, UnitOfFrequency.HERTZ
+    if sub_device_key.startswith("EI"):
+        return SensorDeviceClass.CURRENT, UnitOfElectricCurrent.AMPERE
+    if sub_device_key.startswith("EV"):
+        return SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT
+    if sub_device_key == "T":
+        return SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS
+    if sub_device_key == "H":
+        return SensorDeviceClass.HUMIDITY, PERCENTAGE
+    if sub_device_key == "PM":
+        return SensorDeviceClass.PM25, CONCENTRATION_MICROGRAMS_PER_CUBIC_METER
+    if sub_device_key.startswith("PM"):
+        return SensorDeviceClass.PM10, CONCENTRATION_MICROGRAMS_PER_CUBIC_METER
+    if sub_device_key == "COPPM":
+        return SensorDeviceClass.CO, CONCENTRATION_PARTS_PER_MILLION
+    if sub_device_key == "CO2PPM":
+        return SensorDeviceClass.CO2, CONCENTRATION_PARTS_PER_MILLION
+    if sub_device_key == "TVOC":
+        return (
+            SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS,
+            CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER,
+        )
+    if sub_device_key == "PHM":
+        return SensorDeviceClass.SOUND_PRESSURE, UnitOfSoundPressure.DECIBEL
+    if sub_device_key in ["CH2OPPM", "NH3PPM", "H2SPPM", "SMOKE"]:
+        return SensorDeviceClass.GAS, CONCENTRATION_PARTS_PER_MILLION
+    if sub_device_key == "O2VOL":
+        return SensorDeviceClass.GAS, PERCENTAGE
+    return None, "None"
+
+
+def _state_attributes(data, device_type=None, sub_device_key=None):
+    """Return useful raw attributes for compound LifeSmart sensor values."""
+    attrs = {}
+    if device_type in GAS_SENSOR_TYPES and sub_device_key == "P1":
+        attrs["alarm"] = data.get("type", 0) % 2 == 1
+    elif device_type in NOISE_SENSOR_TYPES and sub_device_key == "P1":
+        attrs["alarm"] = data.get("type", 0) % 2 == 1
+
+    if "val" in data:
+        attrs["raw"] = data["val"]
+    return attrs

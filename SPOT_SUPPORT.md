@@ -54,7 +54,7 @@ The SPOT light entity supports:
 
 The SPOT remote entity supports:
 
-- **IR Code Learning**: Learn IR codes from existing remote controls
+- **IR Code Learning**: Store named IR codes locally in Home Assistant
 - **IR Code Sending**: Send learned or predefined IR codes
 - **Multiple Device Support**: Control multiple IR devices from one SPOT
 - **Command Storage**: Store learned commands for reuse
@@ -69,19 +69,30 @@ The SPOT remote entity supports:
   data:
     command: "power_toggle"
 
-# Send a Base64 encoded IR code directly
+# Send raw IR data directly
 - service: remote.send_command
   target:
     entity_id: remote.spot_device_remote
   data:
-    command: "SGVsbG8gV29ybGQ="  # Base64 encoded IR code
+    command: "018B4F0538016F4F3E57FF57FF7FFDD554FF0001AD8B0360014F6F0340C2"
 
-# Learn a new IR command (requires physical remote)
+# Save a new local IR command
 - service: remote.learn_command
   target:
     entity_id: remote.spot_device_remote
   data:
     command: "volume_up"
+    device: "tv_remote"
+    command_type: "018B4F0538016F4F3E57FF57FF7FFDD554FF0001AD8B0360014F6F0340C2"
+
+# Alternative local save format
+- service: remote.learn_command
+  target:
+    entity_id: remote.spot_device_remote
+  data:
+    command:
+      - "volume_down"
+      - "018B4F0538016F4F3E57FF57FF7FFDD554FF0001AD8B0360014F6F0340C2"
     device: "tv_remote"
 ```
 
@@ -98,12 +109,12 @@ For example, a SPOT device named "Living Room SPOT" will create:
 - `light.living_room_spot_light`
 - `remote.living_room_spot_remote`
 
-## IR Remote Learning Process
+## Local IR Command Storage
 
-1. **Prepare**: Ensure the SPOT device is powered on and within range of the remote to learn from
-2. **Learn Command**: Use the `remote.learn_command` service to initiate learning mode
-3. **Send Signal**: Point the original remote at the SPOT device and press the desired button
-4. **Store**: The SPOT device captures and stores the IR code for future use
+The LifeSmart cloud API used by this integration sends IR data but does not expose a
+physical IR capture endpoint. The `remote.learn_command` service therefore stores the IR
+payload you provide in Home Assistant local storage. Later, `remote.send_command` will
+look up the saved command name and send the stored IR data through the SPOT device.
 
 ## Base64 IR Code Support
 
@@ -124,7 +135,7 @@ The SPOT remote entity supports sending IR codes that are encoded in Base64 form
     command: "UHJvdG9jb2w6IE5FQyA2NDAgS0h6"  # Example Base64 IR code
 ```
 
-The system automatically detects Base64 format and decodes it before sending to the device. If the code is not valid Base64, it's treated as a plain text command name.
+Saved and raw commands are sent to LifeSmart as provided.
 
 ## A/C Climate Entity
 

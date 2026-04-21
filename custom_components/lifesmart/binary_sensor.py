@@ -12,13 +12,21 @@ from homeassistant.helpers.entity import DeviceInfo
 from . import LifeSmartDevice, generate_entity_id
 from .const import (
     BINARY_SENSOR_TYPES,
+    DEFED_DOOR_SENSOR_TYPES,
+    DEFED_KEYFOB_TYPES,
+    DEFED_MOTION_SENSOR_TYPES,
+    DEFED_SENSOR_TYPES,
+    DEFED_SIREN_TYPES,
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     DIGITAL_DOORLOCK_ALARM_EVENT_KEY,
+    DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY,
     DIGITAL_DOORLOCK_LOCK_EVENT_KEY,
     DOMAIN,
+    GAS_SENSOR_TYPES,
+    GENERIC_CONTROLLER_BINARY_PORTS,
     GENERIC_CONTROLLER_TYPES,
     GUARD_SENSOR_TYPES,
     HUB_ID_KEY,
@@ -26,6 +34,9 @@ from .const import (
     LOCK_TYPES,
     MANUFACTURER,
     MOTION_SENSOR_TYPES,
+    NOISE_SENSOR_TYPES,
+    RADAR_MOTION_SENSOR_TYPES,
+    SMART_ALARM_TYPES,
     SUBDEVICE_INDEX_KEY,
     WATER_LEAK_SENSOR_TYPES,
 )
@@ -50,7 +61,14 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         device_type = device[DEVICE_TYPE_KEY]
 
         supported_binary_sensor_types = (
-            BINARY_SENSOR_TYPES + LOCK_TYPES + WATER_LEAK_SENSOR_TYPES
+            BINARY_SENSOR_TYPES
+            + LOCK_TYPES
+            + WATER_LEAK_SENSOR_TYPES
+            + RADAR_MOTION_SENSOR_TYPES
+            + DEFED_SENSOR_TYPES
+            + GAS_SENSOR_TYPES
+            + NOISE_SENSOR_TYPES
+            + SMART_ALARM_TYPES
         )
         if device_type not in supported_binary_sensor_types:
             continue
@@ -62,11 +80,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         for sub_device_key in device[DEVICE_DATA_KEY]:
             sub_device_data = device[DEVICE_DATA_KEY][sub_device_key]
             if device_type in GENERIC_CONTROLLER_TYPES:
-                if sub_device_key in [
-                    "P5",
-                    "P6",
-                    "P7",
-                ]:
+                if sub_device_key in GENERIC_CONTROLLER_BINARY_PORTS:
                     sensor_devices.append(
                         LifeSmartBinarySensor(
                             ha_device,
@@ -102,6 +116,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         client,
                     )
                 )
+            elif (
+                device_type in LOCK_TYPES
+                and sub_device_key == DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY
+            ):  # noqa: SIM114
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
             elif device_type in BINARY_SENSOR_TYPES and sub_device_key in [
                 "M",
                 "G",
@@ -119,6 +146,98 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     )
                 )
             elif device_type in WATER_LEAK_SENSOR_TYPES and sub_device_key == "WA":
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in RADAR_MOTION_SENSOR_TYPES and sub_device_key == "P1":
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in DEFED_DOOR_SENSOR_TYPES and sub_device_key in [
+                "GA",
+                "A2",
+                "TR",
+            ]:
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in DEFED_MOTION_SENSOR_TYPES and sub_device_key in [
+                "M",
+                "TR",
+            ]:
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in DEFED_SIREN_TYPES and sub_device_key in ["SR", "TR"]:
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in DEFED_KEYFOB_TYPES and sub_device_key in [
+                "eB1",
+                "eB2",
+                "eB3",
+                "eB4",
+            ]:
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in GAS_SENSOR_TYPES and sub_device_key == "P3":
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in NOISE_SENSOR_TYPES and sub_device_key == "P3":
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in SMART_ALARM_TYPES and sub_device_key in ["P1", "P2"]:
                 sensor_devices.append(
                     LifeSmartBinarySensor(
                         ha_device,
@@ -179,9 +298,44 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         elif device_type in MOTION_SENSOR_TYPES:
             self._device_class = BinarySensorDeviceClass.MOTION
             self._state = sub_device_data["val"] != 0
+        elif device_type in RADAR_MOTION_SENSOR_TYPES:
+            self._device_class = BinarySensorDeviceClass.MOTION
+            self._state = sub_device_data["val"] != 0
         elif device_type in WATER_LEAK_SENSOR_TYPES:
             self._device_class = BinarySensorDeviceClass.MOISTURE
             self._state = sub_device_data["val"] != 0
+        elif device_type in DEFED_DOOR_SENSOR_TYPES:
+            if sub_device_key == "GA":
+                self._device_class = BinarySensorDeviceClass.DOOR
+            elif sub_device_key == "A2":
+                self._device_class = BinarySensorDeviceClass.OPENING
+            else:
+                self._device_class = BinarySensorDeviceClass.TAMPER
+            self._state = sub_device_data.get("type", 0) % 2 == 1
+        elif device_type in DEFED_MOTION_SENSOR_TYPES:
+            if sub_device_key == "M":
+                self._device_class = BinarySensorDeviceClass.MOTION
+            else:
+                self._device_class = BinarySensorDeviceClass.TAMPER
+            self._state = sub_device_data.get("type", 0) % 2 == 1
+        elif device_type in DEFED_SIREN_TYPES:
+            if sub_device_key == "SR":
+                self._device_class = BinarySensorDeviceClass.SOUND
+            else:
+                self._device_class = BinarySensorDeviceClass.TAMPER
+            self._state = sub_device_data.get("type", 0) % 2 == 1
+        elif device_type in DEFED_KEYFOB_TYPES:
+            self._device_class = None
+            self._state = sub_device_data.get("type", 0) % 2 == 1
+        elif device_type in GAS_SENSOR_TYPES:
+            self._device_class = BinarySensorDeviceClass.SOUND
+            self._state = sub_device_data.get("type", 0) % 2 == 1
+        elif device_type in NOISE_SENSOR_TYPES:
+            self._device_class = BinarySensorDeviceClass.SOUND
+            self._state = sub_device_data.get("type", 0) % 2 == 1
+        elif device_type in SMART_ALARM_TYPES:
+            self._device_class = BinarySensorDeviceClass.SOUND
+            self._state = sub_device_data.get("type", 0) % 2 == 1
         elif (
             device_type in LOCK_TYPES
             and sub_device_key == DIGITAL_DOORLOCK_LOCK_EVENT_KEY
@@ -203,6 +357,14 @@ class LifeSmartBinarySensor(BinarySensorEntity):
             else:
                 self._state = False
             self._attrs = {"raw": val}
+        elif (
+            device_type in LOCK_TYPES
+            and sub_device_key == DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY
+        ):
+            self.device_name = "Doorbell"
+            self._device_class = BinarySensorDeviceClass.SOUND
+            self._state = sub_device_data["type"] % 2 == 1
+            self._attrs = {"raw": sub_device_data.get("val")}
 
         elif device_type in GENERIC_CONTROLLER_TYPES:
             self._attrs = sub_device_data
@@ -284,12 +446,25 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         """Return the binary sensor state for the LifeSmart device event."""
         device_type = data[DEVICE_TYPE_KEY]
         sub_device_key = data[SUBDEVICE_INDEX_KEY]
-        val = data["val"]
+        val = data.get("val", 0)
 
         if device_type in GUARD_SENSOR_TYPES and sub_device_key == "G":
             return val == 0
         if device_type in GENERIC_CONTROLLER_TYPES:
             return val == 0
+        if device_type in DEFED_SENSOR_TYPES:
+            return data.get("type", 0) % 2 == 1
+        if (
+            device_type in GAS_SENSOR_TYPES
+            or device_type in NOISE_SENSOR_TYPES
+            or device_type in SMART_ALARM_TYPES
+        ):
+            return data.get("type", 0) % 2 == 1
+        if (
+            device_type in LOCK_TYPES
+            and sub_device_key == DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY
+        ):
+            return data.get("type", 0) % 2 == 1
         return val != 0
 
 
