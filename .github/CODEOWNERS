@@ -1,0 +1,21 @@
+# Default ownership for the repository.
+* @iKaew
+
+# Home Assistant LifeSmart integration source.
+/custom_components/lifesmart/ @iKaew
+
+# Tests and test helpers.
+/tests/ @iKaew
+
+# Documentation, examples, and support guides.
+/README.md @iKaew
+/info.md @iKaew
+/CURTAIN_SUPPORT.md @iKaew
+/SPOT_SUPPORT.md @iKaew
+/docs/ @iKaew
+
+# Project metadata, dependencies, scripts, and automation.
+/hacs.json @iKaew
+/requirements.txt @iKaew
+/scripts/ @iKaew
+/.github/ @iKaew
