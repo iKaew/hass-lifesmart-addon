@@ -17,5 +17,3 @@
 # Project metadata, dependencies, scripts, and automation.
 /hacs.json @iKaew
 /requirements.txt @iKaew
-/scripts/ @iKaew
-/.github/ @iKaew
