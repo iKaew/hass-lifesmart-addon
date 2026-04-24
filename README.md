@@ -1,5 +1,5 @@
 
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ikaew/hass-lifesmart-addon/tests.yml) ![GitHub Release](https://img.shields.io/github/v/release/ikaew/hass-lifesmart-addon)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ikaew/hass-lifesmart-addon/tests.yml) [![GitHub Release](https://img.shields.io/github/v/release/ikaew/hass-lifesmart-addon)](https://github.com/ikaew/hass-lifesmart-addon/releases/latest)
  [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon?ref=badge_shield)
 ---
 
