@@ -9,7 +9,7 @@ from homeassistant.components.cover import (
     CoverEntityFeature,
 )
 
-from . import LifeSmartDevice, generate_entity_id
+from . import LifeSmartDevice
 from .const import (
     COVER_TYPES,
     DEVICE_DATA_KEY,
@@ -77,6 +77,13 @@ CURTAIN_DEVICE_CONFIG = {
         "close_idx": "P3",
         "type": "function",
         "supports_position": False,
+    },
+    "SL_ETDOOR": {
+        "status_idx": "P2",
+        "control_idx": "P3",
+        "type": "position",
+        "supports_position": True,
+        "device_class": CoverDeviceClass.GARAGE,
     },
 }
 
@@ -163,12 +170,16 @@ class LifeSmartCover(CoverEntity):
 
         # Initialize position based on device type
         if device_config.get("type") == "position":
-            self._pos = sub_device_data.get("val", 0)
+            self._pos = sub_device_data.get("val", 0) & 0x7F
+            self._moving = sub_device_data.get("type", 0) % 2 == 1
+            self._opening = self._moving and sub_device_data.get("val", 0) & 0x80 == 0x80
         else:
             self._pos = None
+            self._moving = None
+            self._opening = None
 
         self._attr_name = device_name
-        self._attr_device_class = CoverDeviceClass.CURTAIN
+        self._attr_device_class = device_config.get("device_class", CoverDeviceClass.CURTAIN)
         self._attr_unique_id = self.entity_id
 
     @property
@@ -207,16 +218,14 @@ class LifeSmartCover(CoverEntity):
     def is_closing(self):
         """Return if the cover is closing."""
         if self._device_config.get("type") == "position" and self._pos is not None:
-            # We can infer from position changes if needed, for now return None
-            return None
+            return self._moving and not self._opening
         return None
 
     @property
     def is_opening(self):
         """Return if the cover is opening."""
         if self._device_config.get("type") == "position" and self._pos is not None:
-            # We can infer from position changes if needed, for now return None
-            return None
+            return self._moving and self._opening
         return None
 
     async def async_close_cover(self, **kwargs):

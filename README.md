@@ -1,3 +1,8 @@
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon?ref=badge_shield)
+---
+
+
 Instructions
 ==== 
 Lifesmart devices for Home Assistant
@@ -22,11 +27,27 @@ How it works:
 How to install:
 ---
 
-### Manual 
+### HACS (Recommended)
 
-1. Copy the custom_components/lifesmart directory to config/custom_components/ of Home Assistant
+1. Open Home Assistant.
+1. Go to `HACS` -> `Integrations`.
+1. Click `Explore & Download Repositories`.
+1. Search for `LifeSmart`.
+1. Select the LifeSmart integration and click `Download`.
+1. Restart Home Assistant when HACS asks you to.
+1. Go to `Settings` -> `Devices & Services`.
+1. Click `Add Integration`, search for `LifeSmart`, and complete the setup.
 
-1. Setup integration via add Integration
+Installing from HACS lets Home Assistant notify you when a new version is available.
+
+### Manual
+
+Use manual installation only if you cannot use HACS.
+
+1. Copy the `custom_components/lifesmart` directory to `config/custom_components/` in Home Assistant.
+1. Restart Home Assistant.
+1. Go to `Settings` -> `Devices & Services`.
+1. Click `Add Integration`, search for `LifeSmart`, and complete the setup.
 
    Configuration required for this add-on via UI (see example screen below)
    ```
@@ -44,7 +65,6 @@ How to install:
 1. Go to HACS > Integration > 3 dots menu at the top right > choose Custom Repository
 
    ![HACS Custom Repository](https://github.com/iKaew/hass-lifesmart-addon/assets/6348112/2499f1f5-f973-40db-8bf5-76b08e3faa1d)
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon?ref=badge_shield)
 1. In custom repository dialog enter 
 
    Repository: `https://github.com/iKaew/hass-lifesmart-addon`
@@ -86,7 +106,7 @@ Since there are a lot of refactored and code changes, some old device removed fr
 
 1. Smart Plug
 
-1. Dynamic sensor, door sensor, environmental sensor, formaldehyde/gas sensor
+1. Motion sensor, dynamic sensor, door sensor, environmental sensor, formaldehyde/gas sensor
 
 1. Curtain motor (DOOYA and other brands via LifeSmart controller)
 
@@ -96,9 +116,11 @@ Since there are a lot of refactored and code changes, some old device removed fr
 
 1. A/C Remote Control: SPOT devices configured as climate entities through the options flow
 
-1. ~~Universal remote control~~
+1. A/C Control Panel: native LifeSmart central air board devices
 
-1. ~~Air conditioning control panel~~
+1. Nature Series: switch panels, temperature sensor, and thermostat panel variants
+
+1. ~~Universal remote control~~
 
 List of supported devices
 
@@ -176,6 +198,25 @@ Smart Plug:
 | ~~SL_OL_3C~~ | |
 | ~~SL_O~~L | |
 
+Binary Sensors:
+| Model  | Remark |
+| ------ | ------ |
+| SL_SC_MHW | Motion sensor |
+| SL_SC_BM | CUBE motion sensor |
+| SL_SC_CM | Motion sensor (AAA battery) |
+| SL_SC_G | Guard / door sensor |
+| SL_SC_BG | CUBE guard / door sensor |
+| SL_P_A | Smoke sensor |
+| SL_P | Generic controller binary inputs |
+
+Nature Series:
+| Model  | Remark |
+| ------ | ------ |
+| SL_NATURE | Nature Mini/MiniS and Nature Mini Pro switch panels |
+| SL_NATURE | Nature thermostat panels with current/target temperature, HVAC mode, and fan speed |
+
+Nature Series support is based on the attributes reported by the device. Switch-board variants create switch entities for `P1`, `P2`, and `P3`. Thermostat variants create a climate entity, and devices with a `P4` temperature attribute also expose a temperature sensor.
+
 Curtain Motor / Cover: 
 | Model  | Remark |
 | ------ | ------ |
@@ -226,6 +267,25 @@ Current SPOT A/C behavior:
 - Supports removing configured A/C remotes from the same options flow
 
 For more details, see [SPOT_SUPPORT.md](./SPOT_SUPPORT.md)
+
+## Native A/C Control Panels
+
+Native LifeSmart A/C control panels are discovered automatically as climate entities.
+
+| Model  | Remark |
+| ------ | ------ |
+| V_AIR_P | Central air board |
+| V_SZJSXR_P | Uses the V_AIR_P attribute specification |
+| V_T8600_P | Uses the V_AIR_P attribute specification |
+
+Supported controls:
+- Power on/off
+- HVAC mode: Auto, Fan, Cool, Heat, Dry
+- Target temperature
+- Current temperature
+- Fan speed: Low, Medium, High
+
+These devices use the LifeSmart `EpSet` API directly, rather than SPOT IR profiles.
 
 This project is forked/combined from serveral projects below 
 ---

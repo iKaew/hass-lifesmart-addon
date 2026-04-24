@@ -1,0 +1,93 @@
+name: Bug report
+description: Report a problem with the LifeSmart Home Assistant custom component
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+
+        Please fill in as much detail as possible so we can reproduce the issue quickly.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I am running the latest version of this integration
+          required: true
+        - label: I have searched existing issues to avoid creating a duplicate
+          required: true
+
+  - type: dropdown
+    id: install_method
+    attributes:
+      label: Installation method
+      description: How did you install this integration?
+      options:
+        - HACS
+        - Manual copy to custom_components
+    validations:
+      required: true
+
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+      description: Version shown in HACS or the release/tag you installed
+      placeholder: e.g. v1.2.3
+    validations:
+      required: true
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: e.g. 2026.4.3
+    validations:
+      required: true
+
+  - type: input
+    id: region
+    attributes:
+      label: LifeSmart API region
+      description: e.g. America, Europe, Asia Pacific, China old/new/VIP
+      placeholder: e.g. api.us.ilifesmart.com
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what is happening
+      placeholder: Tell us what you expected and what actually happened.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Configure ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: |
+        Paste Home Assistant logs here.
+        Please remove app token, user token, password, and any personal identifiers.
+      render: shell
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Additional context
+      description: Add screenshots, device model, and anything else helpful.

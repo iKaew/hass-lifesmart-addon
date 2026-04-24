@@ -58,7 +58,6 @@ SUPPORTED_SWTICH_TYPES = [
     "SL_SW_ND1",
     "SL_SW_ND2",
     "SL_SW_ND3",
-    "SL_SW_NS3",
     "SL_SW_RC",
     "SL_SW_RC1",
     "SL_SW_RC2",
@@ -83,6 +82,7 @@ SUPPORTED_SUB_BINARY_SENSORS = [
     "G",
     "B",
     "AXS",
+    "WA",
     "P1",
     "P5",
     "P6",
@@ -104,15 +104,35 @@ QUANTUM_TYPES = [
     "OD_WE_QUAN",
 ]
 MOTION_SENSOR_TYPES = ["SL_SC_MHW", "SL_SC_BM", "SL_SC_CM"]
+RADAR_MOTION_SENSOR_TYPES = ["SL_P_RM"]
 SMOKE_SENSOR_TYPES = ["SL_P_A"]
+WATER_LEAK_SENSOR_TYPES = ["SL_SC_WA"]
+CO2_SENSOR_TYPES = ["SL_SC_CA"]
+ENV_SENSOR_TYPES = ["SL_SC_THL", "SL_SC_BE"]
+TVOC_CO2_SENSOR_TYPES = ["SL_SC_CQ"]
+DEFED_DOOR_SENSOR_TYPES = ["SL_DF_GG"]
+DEFED_MOTION_SENSOR_TYPES = ["SL_DF_MM"]
+DEFED_SIREN_TYPES = ["SL_DF_SR"]
+DEFED_KEYFOB_TYPES = ["SL_DF_BB"]
+DEFED_SENSOR_TYPES = (
+    DEFED_DOOR_SENSOR_TYPES
+    + DEFED_MOTION_SENSOR_TYPES
+    + DEFED_SIREN_TYPES
+    + DEFED_KEYFOB_TYPES
+)
+NOISE_SENSOR_TYPES = ["SL_SC_CN"]
+SMART_ALARM_TYPES = ["SL_ALM"]
+AIR_PURIFIER_TYPES = ["OD_MFRESH_M8088"]
+GARAGE_DOOR_TYPES = ["SL_ETDOOR"]
+HA_CONTROLLER_TYPES = ["SL_JEMA"]
+DLT_METER_TYPES = ["V_DLT_645_P", "V_DLT645_P"]
+MODBUS_CONTROLLER_TYPES = ["V_485_P"]
 SPOT_TYPES = ["MSL_IRCTL", "OD_WE_IRCTL", "SL_SPOT"]
 BINARY_SENSOR_TYPES = [
     "SL_SC_G",
     "SL_SC_BG",
-    "SL_SC_MHW ",
-    "SL_SC_BM",
-    "SL_SC_CM",
-    "SL_P_A",
+    *MOTION_SENSOR_TYPES,
+    *SMOKE_SENSOR_TYPES,
     "SL_P",
 ]
 COVER_TYPES = [
@@ -124,11 +144,21 @@ COVER_TYPES = [
     "SL_CN_IF",  # BLEND curtain controller
     "SL_CN_FE",  # Gezhi/Sennathree-keycurtain
     "SL_P_V2",  # MINS curtain motor controller
+    *GARAGE_DOOR_TYPES,
 ]
-GAS_SENSOR_TYPES = ["SL_SC_WA ", "SL_SC_CH", "SL_SC_CP", "ELIQ_EM"]
-EV_SENSOR_TYPES = ["SL_SC_THL", "SL_SC_BE", "SL_SC_CQ"]
+GAS_SENSOR_TYPES = ["SL_SC_CH", "SL_SC_CP"]
+ELECTRICITY_METER_TYPES = ["ELIQ_EM"]
+EV_SENSOR_TYPES = ENV_SENSOR_TYPES + TVOC_CO2_SENSOR_TYPES
 OT_SENSOR_TYPES = ["SL_SC_MHW", "SL_SC_BM", "SL_SC_G", "SL_SC_BG"]
-LOCK_TYPES = ["SL_LK_LS", "SL_LK_GTM", "SL_LK_AG", "SL_LK_SG", "SL_LK_YL"]
+LOCK_TYPES = [
+    "SL_LK_LS",
+    "SL_LK_GTM",
+    "SL_LK_AG",
+    "SL_LK_SG",
+    "SL_LK_YL",
+    "SL_LK_TY",
+    "SL_LK_DJ",
+]
 GUARD_SENSOR_TYPES = ["SL_SC_G", "SL_SC_BG"]
 DEVICE_WITHOUT_IDXNAME = [
     "SL_NATURE",
@@ -139,8 +169,14 @@ DEVICE_WITHOUT_IDXNAME = [
     "SL_SW_MJ2",
     "SL_SW_MJ3",
 ]
-GENERIC_CONTROLLER_TYPES = ["SL_P"]
+GENERIC_CONTROLLER_TYPES = ["SL_P", *HA_CONTROLLER_TYPES]
+GENERIC_CONTROLLER_SWITCH_PORTS = ["P2", "P3", "P4"]
+HA_CONTROLLER_SWITCH_PORTS = [*GENERIC_CONTROLLER_SWITCH_PORTS, "P8", "P9", "P10"]
+GENERIC_CONTROLLER_BINARY_PORTS = ["P5", "P6", "P7"]
 SMART_PLUG_TYPES = ["SL_OE_DE"]
+NATURE_TYPES = ["SL_NATURE"]
+NATURE_SWITCH_PORTS = ["P1", "P2", "P3"]
+NATURE_CLIMATE_KEY = "climate"
 
 LIFESMART_HVAC_STATE_LIST = [
     climate.const.HVACMode.OFF,
@@ -196,3 +232,29 @@ LIFESMART_REGION_OPTIONS = {
 DIGITAL_DOORLOCK_LOCK_EVENT_KEY = "EVTLO"
 DIGITAL_DOORLOCK_ALARM_EVENT_KEY = "ALM"
 DIGITAL_DOORLOCK_BATTERY_EVENT_KEY = "BAT"
+DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY = "EVTBELL"
+
+
+def is_nature_thermostat(device):
+    """Return true for SL_NATURE thermostat variants."""
+    if device.get(DEVICE_TYPE_KEY) not in NATURE_TYPES:
+        return False
+
+    data = device.get(DEVICE_DATA_KEY, {})
+    device_type_value = data.get("P5", {}).get("val", 0) & 0xFF
+    if device_type_value in (3, 6):
+        return True
+
+    return all(idx in data for idx in ("P1", "P4", "P6", "P7", "P8"))
+
+
+def is_nature_switch(device):
+    """Return true for SL_NATURE switch-board variants."""
+    if device.get(DEVICE_TYPE_KEY) not in NATURE_TYPES:
+        return False
+
+    data = device.get(DEVICE_DATA_KEY, {})
+    device_type_value = data.get("P5", {}).get("val")
+    if device_type_value is None:
+        return True
+    return device_type_value & 0xFF == 1

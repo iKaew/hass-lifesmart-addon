@@ -3,3 +3,4 @@ homeassistant==2026.4.1
 ruff==0.9.8
 zlib-ng
 pytest==9.0.3
+websocket-client
