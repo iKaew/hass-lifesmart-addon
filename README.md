@@ -33,6 +33,11 @@ How to install:
 
 ### HACS (Recommended)
 
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?category=integration&repository=hass-lifesmart-addon&owner=iKaew)
+
+OR
+
 1. Open Home Assistant.
 1. Go to `HACS` -> `Integrations`.
 1. Click `Explore & Download Repositories`.
