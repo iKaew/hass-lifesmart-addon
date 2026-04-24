@@ -1,4 +1,7 @@
 
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon?ref=badge_shield)
+---
+
 
 Instructions
 ==== 
@@ -56,6 +59,24 @@ Use manual installation only if you cannot use HACS.
      userpassword: | your password that use to login mobile app |
      url: | your api address|  #e.g. api.apz.ilifesmart.com for asia pacific, api.us.ilifesmart.com for US  
     ```
+
+
+### HACS with Custom repository (Recommended)
+1. Go to HACS > Integration > 3 dots menu at the top right > choose Custom Repository
+
+   ![HACS Custom Repository](https://github.com/iKaew/hass-lifesmart-addon/assets/6348112/2499f1f5-f973-40db-8bf5-76b08e3faa1d)
+1. In custom repository dialog enter 
+
+   Repository: `https://github.com/iKaew/hass-lifesmart-addon`
+
+   Category: `Integration`
+
+1. Click Add
+1. Setup integration via add Integration
+
+Via HACS should allow you to get new version when it ready. 
+
+After the addon stable, I'll push the repo be in deault list of HACS and (long way) later to be included in Official Integration of HA.
 
 
 How to find user id from the mobile app
@@ -271,3 +292,7 @@ This project is forked/combined from serveral projects below
 - https://github.com/skyzhishui/custom_components by @skyzhishui
 - https://github.com/Blankdlh/hass-lifesmart by @Blankdlh
 - https://github.com/likso/hass-lifesmart by @likso
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon?ref=badge_large)
