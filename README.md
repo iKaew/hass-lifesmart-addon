@@ -4,6 +4,7 @@
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ikaew/hass-lifesmart-addon/hacs.yaml?label=Validate%20for%20HACS) 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ikaew/hass-lifesmart-addon/hass.yml?label=Validate%20with%20hassfest)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon?ref=badge_shield)
+[![codecov](https://codecov.io/github/iKaew/hass-lifesmart-addon/graph/badge.svg?token=RBLBCNEPI2)](https://codecov.io/github/iKaew/hass-lifesmart-addon)
 ---
 
 
