@@ -1,13 +1,19 @@
 """The LifeSmart API Client."""
 
+import asyncio
 import hashlib
+import itertools
 import json
 import logging
 import time
+from typing import Any
 
 import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
+DEFAULT_REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=15)
+SERVER_TIMEOUT_CODE = 10009
+SERVER_TIMEOUT_MESSAGE = "timeout"
 
 
 class LifeSmartClient:
@@ -20,6 +26,9 @@ class LifeSmartClient:
         apptoken,
         userid,
         userpassword,
+        session: aiohttp.ClientSession | None = None,
+        request_timeout: aiohttp.ClientTimeout | None = None,
+        max_timeout_retries: int = 2,
     ) -> None:
         """Initialize LifeSmart client."""
         self._region = region
@@ -29,6 +38,10 @@ class LifeSmartClient:
         self._userpassword = userpassword
         self._usertoken = None
         self._rgn = None
+        self._session = session
+        self._request_timeout = request_timeout or DEFAULT_REQUEST_TIMEOUT
+        self._max_timeout_retries = max_timeout_retries
+        self._request_ids = itertools.count(1)
 
     async def get_all_device_async(self):
         """Get all devices belong to current user."""
@@ -37,14 +50,11 @@ class LifeSmartClient:
         sdata = "method:EpGetAll," + self.__generate_time_and_credential_data(tick)
 
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "EpGetAll",
             "system": self.__generate_system_request_body(tick, sdata),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-
-        response = json.loads(await self.post_async(url, send_data, header))
+        response = await self._post_json(url, send_values)
         _LOGGER.debug("EpGetAll_res: %s", response)
         if response["code"] == 0:
             return response["message"]
@@ -61,16 +71,14 @@ class LifeSmartClient:
             + self.__generate_time_and_credential_data(tick)
         )
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "SceneGet",
             "params": {
                 "agt": agt,
             },
             "system": self.__generate_system_request_body(tick, sdata),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-        response = json.loads(await self.post_async(url, send_data, header))
+        response = await self._post_json(url, send_values)
         if response["code"] == 0:
             return response["message"]
         return False
@@ -84,9 +92,7 @@ class LifeSmartClient:
             "pwd": self._userpassword,
             "appkey": self._appkey,
         }
-        header = self.__generate_header()
-        send_data = json.dumps(login_data)
-        response = json.loads(await self.post_async(url, send_data, header))
+        response = await self._post_json(url, login_data)
         if response["code"] != "success":
             return response
 
@@ -102,8 +108,7 @@ class LifeSmartClient:
             "rgn": self._rgn,
         }
 
-        send_data = json.dumps(auth_data)
-        response = json.loads(await self.post_async(url, send_data, header))
+        response = await self._post_json(url, auth_data)
         if response["code"] == "success":
             self._usertoken = response["usertoken"]
 
@@ -123,7 +128,7 @@ class LifeSmartClient:
             + self.__generate_time_and_credential_data(tick)
         )
         send_values = {
-            "id": 101,
+            "id": self._next_request_id(),
             "method": "SceneSet",
             "params": {
                 "agt": agt,
@@ -131,10 +136,7 @@ class LifeSmartClient:
             },
             "system": self.__generate_system_request_body(tick, sdata),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-
-        return json.loads(await self.post_async(url, send_data, header))
+        return await self._post_json(url, send_values)
 
     async def send_ir_key_async(self, agt, ai, me, category, brand, keys):
         """Send an IR key to a specific device."""
@@ -158,7 +160,7 @@ class LifeSmartClient:
             + self.__generate_time_and_credential_data(tick)
         )
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "SendKeys",
             "params": {
                 "agt": agt,
@@ -170,10 +172,7 @@ class LifeSmartClient:
             },
             "system": self.__generate_system_request_body(tick, sdata),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-
-        return json.loads(await self.post_async(url, send_data, header))
+        return await self._post_json(url, send_values)
 
     def _normalize_ir_keys(self, keys):
         """Normalize IR keys into the SendCodes JSON string format."""
@@ -209,7 +208,7 @@ class LifeSmartClient:
             + self.__generate_time_and_credential_data(tick)
         )
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "SendCodes",
             "params": {
                 "agt": agt,
@@ -218,10 +217,8 @@ class LifeSmartClient:
             },
             "system": self.__generate_system_request_body(tick, sdata),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-        _LOGGER.debug("ir code req: %s", str(send_data))
-        response = json.loads(await self.post_async(url, send_data, header))
+        _LOGGER.debug("Sending IR code request for agt=%s me=%s", agt, me)
+        response = await self._post_json(url, send_values)
         _LOGGER.debug("ir code res: %s", str(response))
         return response
 
@@ -299,17 +296,14 @@ class LifeSmartClient:
             + ","
             + self.__generate_time_and_credential_data(tick)
         )
-        _LOGGER.debug("sendackey: %s", str(sdata))
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "SendACKeys",
             "params": params,
             "system": self.__generate_system_request_body(tick, sdata),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-
-        response = json.loads(await self.post_async(url, send_data, header))
+        _LOGGER.debug("Sending AC IR key request for agt=%s me=%s", agt, me)
+        response = await self._post_json(url, send_values)
         _LOGGER.debug("sendackey_res: %s", str(response))
         return response
 
@@ -340,17 +334,20 @@ class LifeSmartClient:
             + self.__generate_time_and_credential_data(tick)
         )
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "EpSet",
             "system": self.__generate_system_request_body(tick, sdata),
             "params": {"agt": agt, "me": me, "idx": idx, "type": type, "val": val},
         }
 
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-
-        _LOGGER.debug("epset_req: %s", str(send_data))
-        response = json.loads(await self.post_async(url, send_data, header))
+        _LOGGER.debug(
+            "Sending EpSet request for agt=%s me=%s idx=%s type=%s",
+            agt,
+            me,
+            idx,
+            type,
+        )
+        response = await self._post_json(url, send_values)
         _LOGGER.debug("epset_res: %s", str(response))
         return response["code"]
 
@@ -367,15 +364,12 @@ class LifeSmartClient:
             + self.__generate_time_and_credential_data(tick)
         )
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "EpGet",
             "system": self.__generate_system_request_body(tick, sdata),
             "params": {"agt": agt, "me": me},
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-
-        response = json.loads(await self.post_async(url, send_data, header))
+        response = await self._post_json(url, send_values)
         _LOGGER.debug("epget_res: %s", str(response))
         return response["message"]["data"]
 
@@ -391,17 +385,12 @@ class LifeSmartClient:
             + self.__generate_time_and_credential_data(tick)
         )
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "GetRemoteList",
             "params": {"agt": agt},
             "system": self.__generate_system_request_body(tick, sdata),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-
-        _LOGGER.debug("GetRemoteList_req: %s", str(send_data))
-
-        response = json.loads(await self.post_async(url, send_data, header))
+        response = await self._post_json(url, send_values)
         _LOGGER.debug("GetRemoteList_res: %s", str(response))
         return response["message"]
 
@@ -420,15 +409,12 @@ class LifeSmartClient:
             + self.__generate_time_and_credential_data(tick)
         )
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "GetRemote",
             "params": {"agt": agt, "ai": ai, "needKeys": 2},
             "system": self.__generate_system_request_body(tick, sdata),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-
-        response = json.loads(await self.post_async(url, send_data, header))
+        response = await self._post_json(url, send_values)
         _LOGGER.debug("get_ir_remote_res: %s", str(response))
         return response["message"]["codes"]
 
@@ -452,7 +438,7 @@ class LifeSmartClient:
                 or ""
             )
 
-            device_matches = ai == me or me in ai or remote_me == me
+            device_matches = self._ai_matches_device(ai, me) or remote_me == me
             profile_matches = (
                 remote_category == category
                 and remote_brand == brand
@@ -472,15 +458,13 @@ class LifeSmartClient:
             tick, userid="10001", usertoken="10001"
         )
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "GetCategory",
             "system": self.__generate_system_request_body(
                 tick, sdata, userid="10001", usertoken="10001"
             ),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-        response = json.loads(await self.post_async(url, send_data, header))
+        response = await self._post_json(url, send_values)
         _LOGGER.debug("GetCategory_res: %s", str(response))
         return response.get("message", [])
 
@@ -497,16 +481,14 @@ class LifeSmartClient:
             )
         )
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "GetBrands",
             "params": {"category": category},
             "system": self.__generate_system_request_body(
                 tick, sdata, userid="10001", usertoken="10001"
             ),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-        response = json.loads(await self.post_async(url, send_data, header))
+        response = await self._post_json(url, send_values)
         _LOGGER.debug("GetBrands_res: %s", str(response))
         return response.get("message", {}).get("data", {})
 
@@ -525,16 +507,14 @@ class LifeSmartClient:
             )
         )
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "GetRemoteIdxs",
             "params": {"category": category, "brand": brand},
             "system": self.__generate_system_request_body(
                 tick, sdata, userid="10001", usertoken="10001"
             ),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-        response = json.loads(await self.post_async(url, send_data, header))
+        response = await self._post_json(url, send_values)
         _LOGGER.debug("GetRemoteIdxs_res: %s", str(response))
         return response.get("message", {}).get("data", [])
 
@@ -555,16 +535,14 @@ class LifeSmartClient:
             params["keys"] = json.dumps(keys) if isinstance(keys, list) else keys
 
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "GetCodes",
             "params": params,
             "system": self.__generate_system_request_body(
                 tick, params_str, userid="10001", usertoken="10001"
             ),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-        response = json.loads(await self.post_async(url, send_data, header))
+        response = await self._post_json(url, send_values)
         _LOGGER.debug("GetCodes_res: %s", str(response))
         return response.get("message", {}).get("data", {})
 
@@ -599,7 +577,7 @@ class LifeSmartClient:
             )
         )
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "GetACCodes",
             "params": {
                 "category": category,
@@ -616,15 +594,73 @@ class LifeSmartClient:
                 tick, sdata, userid="10001", usertoken="10001"
             ),
         }
-        header = self.__generate_header()
-        send_data = json.dumps(send_values)
-        response = json.loads(await self.post_async(url, send_data, header))
+        response = await self._post_json(url, send_values)
         _LOGGER.debug("GetACCodes_res: %s", str(response))
         return response.get("message", [])
 
+    def _ai_matches_device(self, ai: str, me: str) -> bool:
+        """Return whether an AI identifier belongs to the target device."""
+        if ai == me:
+            return True
+
+        return me in ai.replace(":", "-").split("-")
+
+    def _next_request_id(self) -> int:
+        """Return the next outbound request identifier."""
+        return next(self._request_ids)
+
+    async def _post_json(self, url: str, payload: dict[str, Any]) -> Any:
+        """Send a JSON payload and decode the JSON response."""
+        for attempt in range(self._max_timeout_retries + 1):
+            try:
+                response_text = await self.post_async(
+                    url, json.dumps(payload), self.__generate_header()
+                )
+            except (aiohttp.ClientError, TimeoutError) as err:
+                _LOGGER.error("LifeSmart API request failed for %s: %s", url, err)
+                raise
+
+            try:
+                response = json.loads(response_text)
+            except json.JSONDecodeError as err:
+                _LOGGER.error(
+                    "LifeSmart API returned invalid JSON for %s: %s", url, err
+                )
+                raise
+
+            if not self._is_server_timeout_response(response):
+                return response
+
+            if attempt >= self._max_timeout_retries:
+                return response
+
+            delay = 0.5 * (attempt + 1)
+            _LOGGER.warning(
+                "LifeSmart API timeout for %s, retrying in %.1fs (%s/%s)",
+                url,
+                delay,
+                attempt + 1,
+                self._max_timeout_retries,
+            )
+            await asyncio.sleep(delay)
+
+        return response
+
+    def _is_server_timeout_response(self, response: Any) -> bool:
+        """Return whether the API response is a retryable server timeout."""
+        return (
+            isinstance(response, dict)
+            and response.get("code") == SERVER_TIMEOUT_CODE
+            and str(response.get("message", "")).lower() == SERVER_TIMEOUT_MESSAGE
+        )
+
     async def post_async(self, url, data, headers):
         """Async method to make a POST api call."""
-        async with aiohttp.ClientSession() as session:
+        if self._session is not None:
+            async with self._session.post(url, data=data, headers=headers) as response:
+                return await response.text()
+
+        async with aiohttp.ClientSession(timeout=self._request_timeout) as session:
             async with session.post(url, data=data, headers=headers) as response:
                 return await response.text()
 
@@ -687,7 +723,7 @@ class LifeSmartClient:
         sdata = "method:WbAuth," + self.__generate_time_and_credential_data(tick)
 
         send_values = {
-            "id": 1,
+            "id": self._next_request_id(),
             "method": "WbAuth",
             "system": self.__generate_system_request_body(tick, sdata),
         }
