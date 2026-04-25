@@ -205,6 +205,10 @@ def setup_entry_for_ws_tests(monkeypatch, devices, options=None):
     return hass, config_entry, FakeWebSocketApp.instances[0], dispatch_calls
 
 
+def send_ws_device_update(ws, payload):
+    ws.on_message(ws, json.dumps({"type": "io", "msg": payload}))
+
+
 def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch):
     hass = FakeHass()
     config_entry = make_config_entry(
@@ -525,6 +529,278 @@ def test_on_message_routes_nature_thermostat_and_ignores_non_io(monkeypatch):
             },
         )
     ]
+
+
+@pytest.mark.parametrize(
+    ("device_type", "sub_device_key"),
+    [
+        ("OD_MFRESH_M8088", "O"),
+        ("SL_P", "P2"),
+        ("SL_JEMA", "P8"),
+        ("V_485_P", "L2"),
+        ("SL_P", "P6"),
+        ("SL_SC_G", "G"),
+        ("SL_SC_WA", "WA"),
+        ("SL_P_RM", "P1"),
+        ("SL_DF_GG", "GA"),
+        ("SL_DF_GG", "T"),
+        ("SL_SC_CA", "P1"),
+        ("SL_SC_THL", "T"),
+        ("SL_SC_CQ", "P6"),
+        ("SL_SC_CM", "P3"),
+        ("SL_P_A", "P2"),
+        ("SL_SC_CN", "P3"),
+        ("SL_SC_CH", "P2"),
+        ("SL_ALM", "P1"),
+        ("ELIQ_EM", "EPA"),
+        ("V_DLT_645_P", "EE"),
+        ("V_485_P", "CO2PPM"),
+        ("V_485_P", "EPF2"),
+        ("V_485_P", "PM10"),
+        ("OD_MFRESH_M8088", "PM"),
+        ("SL_SC_BE", "P9"),
+        ("SL_SPOT", "P1"),
+        ("V_AIR_P", "O"),
+        ("SL_LK_LS", "BAT"),
+        ("SL_LK_LS", "EVTLO"),
+    ],
+)
+def test_on_message_dispatches_supported_device_update_families(
+    monkeypatch, device_type, sub_device_key
+):
+    hass, _entry, ws, dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch,
+        devices=[
+            {
+                HUB_ID_KEY: "HUB1",
+                DEVICE_ID_KEY: "DEV1",
+                "devtype": device_type,
+            }
+        ],
+    )
+    payload = {
+        "devtype": device_type,
+        HUB_ID_KEY: "HUB1",
+        DEVICE_ID_KEY: "DEV1",
+        SUBDEVICE_INDEX_KEY: sub_device_key,
+        "type": 1,
+        "val": 1,
+        "v": 1,
+    }
+
+    send_ws_device_update(ws, payload)
+
+    expected_entity_id = lifesmart_init.generate_entity_id(
+        device_type, "HUB1", "DEV1", sub_device_key
+    )
+    assert dispatch_calls == [
+        (f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{expected_entity_id}", payload)
+    ]
+    assert hass.states._states == {}
+
+
+def test_on_message_routes_nature_sensor_update_when_not_thermostat(monkeypatch):
+    nature_type = next(iter(lifesmart_init.NATURE_TYPES))
+    hass, _entry, ws, dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch,
+        devices=[
+            {
+                HUB_ID_KEY: "HUB1",
+                DEVICE_ID_KEY: "NATURE1",
+                "devtype": nature_type,
+            }
+        ],
+    )
+    monkeypatch.setattr(lifesmart_init, "is_nature_thermostat", lambda raw_device: False)
+    payload = {
+        "devtype": nature_type,
+        HUB_ID_KEY: "HUB1",
+        DEVICE_ID_KEY: "NATURE1",
+        SUBDEVICE_INDEX_KEY: "P4",
+        "type": 1,
+        "val": 23,
+    }
+
+    send_ws_device_update(ws, payload)
+
+    expected_entity_id = lifesmart_init.generate_entity_id(
+        nature_type, "HUB1", "NATURE1", "P4"
+    )
+    assert dispatch_calls == [
+        (f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{expected_entity_id}", payload)
+    ]
+
+
+def test_on_message_ignores_excluded_and_unsupported_updates(monkeypatch):
+    hass, _entry, ws, dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch,
+        devices=[
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "EXCLUDED_DEV", "devtype": "SL_OL"},
+            {HUB_ID_KEY: "EXCLUDED_HUB", DEVICE_ID_KEY: "DEV1", "devtype": "SL_OL"},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "UNSUPPORTED", "devtype": "UNKNOWN"},
+        ],
+        options={
+            CONF_EXCLUDE_ITEMS: ["EXCLUDED_DEV"],
+            CONF_EXCLUDE_AGTS: ["EXCLUDED_HUB"],
+        },
+    )
+
+    for payload in [
+        {
+            "devtype": "SL_OL",
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "EXCLUDED_DEV",
+            SUBDEVICE_INDEX_KEY: "P1",
+            "type": 1,
+            "val": 1,
+        },
+        {
+            "devtype": "SL_OL",
+            HUB_ID_KEY: "EXCLUDED_HUB",
+            DEVICE_ID_KEY: "DEV1",
+            SUBDEVICE_INDEX_KEY: "P1",
+            "type": 1,
+            "val": 1,
+        },
+        {
+            "devtype": "UNKNOWN",
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "UNSUPPORTED",
+            SUBDEVICE_INDEX_KEY: "P1",
+            "type": 1,
+            "val": 1,
+        },
+        {
+            "devtype": "SL_SPOT",
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "AI_NOT_INCLUDED",
+            SUBDEVICE_INDEX_KEY: "s",
+            "stat": 3,
+        },
+    ]:
+        send_ws_device_update(ws, payload)
+
+    assert dispatch_calls == []
+    assert hass.states._states == {}
+
+
+def test_on_message_applies_direct_state_updates(monkeypatch):
+    cover_type = next(iter(lifesmart_init.COVER_TYPES))
+    garage_type = next(iter(lifesmart_init.GARAGE_DOOR_TYPES))
+    light_type = next(iter(lifesmart_init.LIGHT_DIMMER_TYPES))
+    smart_plug_type = next(iter(lifesmart_init.SMART_PLUG_TYPES))
+    ot_type = next(iter(lifesmart_init.OT_SENSOR_TYPES))
+    gas_type = next(iter(lifesmart_init.GAS_SENSOR_TYPES))
+    hass, _entry, ws, dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch,
+        devices=[
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "COVER1", "devtype": cover_type},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "GARAGE1", "devtype": garage_type},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "LIGHT1", "devtype": light_type},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "PLUG1", "devtype": smart_plug_type},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "OT1", "devtype": ot_type},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "GAS1", "devtype": gas_type},
+        ],
+    )
+    cover_entity = lifesmart_init.generate_entity_id(cover_type, "HUB1", "COVER1", "P1")
+    garage_entity = lifesmart_init.generate_entity_id(garage_type, "HUB1", "GARAGE1", "P2")
+    light_entity = lifesmart_init.generate_entity_id(light_type, "HUB1", "LIGHT1", "P2")
+    plug_switch_entity = lifesmart_init.generate_entity_id(
+        smart_plug_type, "HUB1", "PLUG1", "P1"
+    )
+    plug_sensor_entity = lifesmart_init.generate_entity_id(
+        smart_plug_type, "HUB1", "PLUG1", "P3"
+    )
+    ot_entity = lifesmart_init.generate_entity_id(ot_type, "HUB1", "OT1", "Z")
+    gas_entity = lifesmart_init.generate_entity_id(gas_type, "HUB1", "GAS1", "G")
+
+    hass.states.set(cover_entity, "closed", {"current_position": 0})
+    hass.states.set(garage_entity, "closed", {"current_position": 0})
+    hass.states.set(
+        light_entity,
+        STATE_ON,
+        {
+            ATTR_MIN_COLOR_TEMP_KELVIN: 2700,
+            ATTR_MAX_COLOR_TEMP_KELVIN: 6500,
+            ATTR_COLOR_TEMP_KELVIN: 2700,
+        },
+    )
+    hass.states.set(plug_switch_entity, STATE_OFF, {"friendly_name": "Plug switch"})
+    hass.states.set(plug_sensor_entity, 0, {"unit": "kWh"})
+    hass.states.set(ot_entity, 0, {"unit": "lx"})
+    hass.states.set(gas_entity, 0, {"unit": "ppm"})
+
+    for payload in [
+        {
+            "devtype": cover_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "COVER1",
+            SUBDEVICE_INDEX_KEY: "P1",
+            "type": 3,
+            "val": 0x80 | 45,
+        },
+        {
+            "devtype": garage_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "GARAGE1",
+            SUBDEVICE_INDEX_KEY: "P2",
+            "type": 3,
+            "val": 10,
+        },
+        {
+            "devtype": light_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "LIGHT1",
+            SUBDEVICE_INDEX_KEY: "P2",
+            "type": 1,
+            "val": 0,
+        },
+        {
+            "devtype": smart_plug_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "PLUG1",
+            SUBDEVICE_INDEX_KEY: "P1",
+            "type": 1,
+            "val": 1,
+        },
+        {
+            "devtype": smart_plug_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "PLUG1",
+            SUBDEVICE_INDEX_KEY: "P3",
+            "type": 1,
+            "v": 42,
+        },
+        {
+            "devtype": ot_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "OT1",
+            SUBDEVICE_INDEX_KEY: "Z",
+            "type": 1,
+            "v": 99,
+        },
+        {
+            "devtype": gas_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "GAS1",
+            SUBDEVICE_INDEX_KEY: "G",
+            "type": 1,
+            "val": 7,
+        },
+    ]:
+        send_ws_device_update(ws, payload)
+
+    assert dispatch_calls == []
+    assert hass.states.get(cover_entity).state == "opening"
+    assert hass.states.get(cover_entity).attributes["current_position"] == 45
+    assert hass.states.get(garage_entity).state == "closing"
+    assert hass.states.get(garage_entity).attributes["current_position"] == 10
+    assert hass.states.get(light_entity).state == STATE_ON
+    assert hass.states.get(light_entity).attributes[ATTR_COLOR_TEMP_KELVIN] == 6500
+    assert hass.states.get(plug_switch_entity).state == STATE_ON
+    assert hass.states.get(plug_sensor_entity).state == 42
+    assert hass.states.get(ot_entity).state == 99
+    assert hass.states.get(gas_entity).state == 7
 
 
 class FakeBaseClient:
