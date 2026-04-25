@@ -10,6 +10,6 @@
 
 .idea_modules/
 config/*
-config/blueprints/automation/homeassistant/notify_leaving_zone.yaml
-config/blueprints/script/homeassistant/confirmable_notification.yaml
 
+.coverage
+coverage.xml
