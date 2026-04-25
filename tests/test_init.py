@@ -525,3 +525,150 @@ def test_on_message_routes_nature_thermostat_and_ignores_non_io(monkeypatch):
             },
         )
     ]
+
+
+class FakeBaseClient:
+    def __init__(self):
+        self.epset_calls = []
+        self.epget_calls = []
+        self.scene_calls = []
+
+    async def send_epset_async(self, type, val, idx, agt, me):
+        self.epset_calls.append((type, val, idx, agt, me))
+        return "epset-ok"
+
+    async def get_epget_async(self, agt, me):
+        self.epget_calls.append((agt, me))
+        return {"value": 1}
+
+    def set_scene_async(self, agt, scene_id):
+        self.scene_calls.append((agt, scene_id))
+        return {"code": 0}
+
+
+def test_lifesmart_device_exposes_metadata_and_proxies_client_calls():
+    dev = {
+        "name": "Living Room",
+        "agt": "HUB1",
+        "me": "DEV1",
+        "devtype": "SL_SC_G",
+    }
+    client = FakeBaseClient()
+    device = lifesmart_init.LifeSmartDevice(dev, client)
+    device.entity_id = "binary_sensor.sl_sc_g_hub1_dev1_g"
+
+    assert device.object_id == "binary_sensor.sl_sc_g_hub1_dev1_g"
+    assert device.extra_state_attributes == {"agt": "HUB1", "me": "DEV1", "devtype": "SL_SC_G"}
+    assert device.name == "Living Room"
+    assert device.assumed_state is False
+    assert device.should_poll is False
+    assert asyncio.run(device.async_lifesmart_epset("0x81", 1, "P1")) == "epset-ok"
+    assert asyncio.run(device.async_lifesmart_epget()) == {"value": 1}
+    assert asyncio.run(device.async_lifesmart_sceneset("ignored", "ignored")) == 0
+    assert client.epset_calls == [("0x81", 1, "P1", "HUB1", "DEV1")]
+    assert client.epget_calls == [("HUB1", "DEV1")]
+    assert client.scene_calls == [("HUB1", "DEV1")]
+
+
+def test_states_manager_run_start_and_stop(monkeypatch):
+    events = []
+
+    class FakeWS:
+        def run_forever(self):
+            events.append("run_forever")
+            manager._run = False
+
+    manager = lifesmart_init.LifeSmartStatesManager(FakeWS())
+    monkeypatch.setattr(lifesmart_init.threading.Thread, "start", lambda self: events.append("thread-start"))
+    monkeypatch.setattr(lifesmart_init.time, "sleep", lambda seconds: events.append(("sleep", seconds)))
+    monkeypatch.setattr(manager, "join", lambda: events.append("join"))
+
+    manager.start_keep_alive()
+    assert manager._run is True
+    assert events == ["thread-start"]
+
+    manager.run()
+    assert events[-2:] == ["run_forever", ("sleep", 10)]
+
+    manager.stop_keep_alive()
+    assert manager._run is False
+    assert events[-1] == "join"
+
+
+@pytest.mark.parametrize(
+    ("speed", "expected"),
+    [
+        (10, lifesmart_init.FAN_LOW),
+        (30, lifesmart_init.FAN_MEDIUM),
+        (64, lifesmart_init.FAN_MEDIUM),
+        (65, lifesmart_init.FAN_HIGH),
+    ],
+)
+def test_get_fan_mode(speed, expected):
+    assert lifesmart_init.get_fan_mode(speed) == expected
+
+
+@pytest.mark.parametrize(
+    ("device_type", "sub_device", "expected"),
+    [
+        ("SL_NATURE", lifesmart_init.NATURE_CLIMATE_KEY, lifesmart_init.Platform.CLIMATE),
+        ("SL_NATURE", "P4", lifesmart_init.Platform.SENSOR),
+        ("SL_NATURE", "P1", lifesmart_init.Platform.SWITCH),
+        ("SL_SPOT", "climate_ac", lifesmart_init.Platform.CLIMATE),
+        ("SL_SPOT", "remote", lifesmart_init.Platform.REMOTE),
+        ("SL_OL", None, lifesmart_init.Platform.SWITCH),
+        ("OD_MFRESH_M8088", "O", lifesmart_init.Platform.SWITCH),
+        ("SL_JEMA", "P8", lifesmart_init.Platform.SWITCH),
+        ("V_485_P", "L1", lifesmart_init.Platform.SWITCH),
+        ("SL_P", "P6", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_SC_WA", "WA", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_SC_WA", "V", lifesmart_init.Platform.SENSOR),
+        ("SL_P_RM", "P1", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_DF_GG", "GA", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_DF_GG", "T", lifesmart_init.Platform.SENSOR),
+        ("SL_SC_CA", "P1", lifesmart_init.Platform.SENSOR),
+        ("SL_SC_CN", "P1", lifesmart_init.Platform.SENSOR),
+        ("SL_SC_CN", "P3", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_SC_CH", "P3", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_ALM", "P1", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_SC_CM", "P3", lifesmart_init.Platform.SENSOR),
+        ("SL_SC_G", "G", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_DOOYA", None, lifesmart_init.Platform.COVER),
+        ("SL_SC_THL", "T", lifesmart_init.Platform.SENSOR),
+        ("SL_SPOT", "P1", lifesmart_init.Platform.LIGHT),
+        ("V_AIR_P", None, lifesmart_init.Platform.CLIMATE),
+        ("SL_LK_LS", "BAT", lifesmart_init.Platform.SENSOR),
+        ("SL_LK_LS", "EVTLO", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_OE_DE", "P1", lifesmart_init.Platform.SWITCH),
+        ("SL_OE_DE", "P2", lifesmart_init.Platform.SENSOR),
+        ("UNKNOWN", None, ""),
+    ],
+)
+def test_get_platform_by_device(device_type, sub_device, expected):
+    assert lifesmart_init.get_platform_by_device(device_type, sub_device) == expected
+
+
+@pytest.mark.parametrize(
+    ("device_type", "hub_id", "device_id", "idx", "expected"),
+    [
+        ("SL_NATURE", "HUB__1", "DEV:1", lifesmart_init.NATURE_CLIMATE_KEY, "climate.sl_nature_hub_1_dev_1_thermostat"),
+        ("SL_SPOT", "HUB-1", "DEV@1", "remote", "remote.sl_spot_hub_1_dev_1_remote"),
+        ("SL_SPOT", "HUB-1", "DEV@1", "climate_ac", "climate.sl_spot_hub_1_dev_1_climate_ac"),
+        ("SL_SC_G", "HUB-1", "DEV1", "G", "binary_sensor.sl_sc_g_hub_1_dev1_g"),
+        ("SL_DOOYA", "HUB-1", "DEV1", None, "cover.sl_dooya_hub_1_dev1"),
+        ("SL_LI_WW", "HUB-1", "DEV1", None, "light.sl_li_ww_hub_1_dev1_p1p2"),
+        ("V_AIR_P", "HUB-1", "DEV:1", None, "climate.v_air_p_hub_1_dev_1"),
+    ],
+)
+def test_generate_entity_id_module_paths(device_type, hub_id, device_id, idx, expected):
+    assert lifesmart_init.generate_entity_id(device_type, hub_id, device_id, idx) == expected
+
+
+def test_find_device_returns_match_or_none():
+    devices = [
+        {"agt": "HUB1", "me": "A"},
+        {"agt": "HUB2", "me": "B"},
+    ]
+
+    assert lifesmart_init._find_device(devices, "HUB2", "B") == {"agt": "HUB2", "me": "B"}
+    assert lifesmart_init._find_device(devices, "HUB3", "C") is None
