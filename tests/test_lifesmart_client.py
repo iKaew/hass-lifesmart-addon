@@ -1,6 +1,9 @@
 import asyncio
 import json
 
+import aiohttp
+import pytest
+
 from custom_components.lifesmart.lifesmart_client import LifeSmartClient
 
 
@@ -19,7 +22,9 @@ class FakeLifeSmartClient(LifeSmartClient):
         self.post_calls = []
 
     async def get_ir_remote_list_async(self, agt):
-        return self.remote_list
+        if self.remote_list is not None:
+            return self.remote_list
+        return await super().get_ir_remote_list_async(agt)
 
     async def post_async(self, url, data, headers):
         self.post_calls.append((url, data, headers))
@@ -218,3 +223,303 @@ def test_generate_wss_auth_uses_next_request_id():
 
     assert first_message["id"] == 1
     assert second_message["id"] == 2
+
+
+def test_login_async_success_updates_credentials():
+    client = FakeLifeSmartClient(
+        post_responses=[
+            '{"code":"success","userid":"new-user","rgn":"us","token":"temp-token"}',
+            '{"code":"success","usertoken":"user-token"}',
+        ]
+    )
+
+    response = asyncio.run(client.login_async())
+
+    assert response == {"code": "success", "usertoken": "user-token"}
+    assert client._userid == "new-user"
+    assert client._rgn == "us"
+    assert client._usertoken == "user-token"
+
+
+def test_login_async_returns_failure_response_without_updating_state():
+    client = FakeLifeSmartClient(post_responses=['{"code":"failure","message":"bad auth"}'])
+
+    response = asyncio.run(client.login_async())
+
+    assert response == {"code": "failure", "message": "bad auth"}
+    assert client._userid == "userid"
+    assert client._usertoken is None
+
+
+def test_login_async_does_not_set_usertoken_when_second_step_fails():
+    client = FakeLifeSmartClient(
+        post_responses=[
+            '{"code":"success","userid":"new-user","rgn":"us","token":"temp-token"}',
+            '{"code":"failure","message":"auth failed"}',
+        ]
+    )
+
+    response = asyncio.run(client.login_async())
+
+    assert response == {"code": "failure", "message": "auth failed"}
+    assert client._userid == "new-user"
+    assert client._usertoken is None
+
+
+def test_device_and_scene_calls_return_api_payloads_for_success_and_failure():
+    client = FakeLifeSmartClient(
+        post_responses=[
+            '{"code":123,"message":"error"}',
+            '{"code":0,"message":["scene-1"]}',
+            '{"code":1,"message":"bad"}',
+        ]
+    )
+    client._usertoken = "usertoken"
+
+    devices = asyncio.run(client.get_all_device_async())
+    scenes = asyncio.run(client.get_all_scene_async("HUB1"))
+    failed_scenes = asyncio.run(client.get_all_scene_async("HUB1"))
+
+    assert devices == {"code": 123, "message": "error"}
+    assert scenes == ["scene-1"]
+    assert failed_scenes is False
+
+
+def test_scene_and_ir_send_methods_build_expected_payloads():
+    client = FakeLifeSmartClient(
+        post_responses=[
+            '{"code":0,"message":"ok"}',
+            '{"code":0,"message":"ok"}',
+            '{"code":0,"message":"ok"}',
+            '{"code":0,"message":"ok"}',
+        ]
+    )
+    client._usertoken = "usertoken"
+
+    scene_response = asyncio.run(client.set_scene_async("HUB1", "scene-9"))
+    ir_key_response = asyncio.run(
+        client.send_ir_key_async("HUB1", "AI1", "ME1", "tv", "aux", "power")
+    )
+    ir_code_response = asyncio.run(client.send_ir_code_async("HUB1", "ME1", "RAW"))
+    ac_response = asyncio.run(
+        client.send_ir_ackey_async(
+            "HUB1", "AI1", "ME1", "ac", "aux", "power", "33.irxs", 1, 2, 24, 3, 0
+        )
+    )
+
+    scene_payload = json.loads(client.post_calls[0][1])
+    ir_key_payload = json.loads(client.post_calls[1][1])
+    ir_code_payload = json.loads(client.post_calls[2][1])
+    ac_payload = json.loads(client.post_calls[3][1])
+
+    assert scene_response == {"code": 0, "message": "ok"}
+    assert scene_payload["method"] == "SceneSet"
+    assert scene_payload["params"] == {"agt": "HUB1", "id": "scene-9"}
+    assert ir_key_response == {"code": 0, "message": "ok"}
+    assert ir_key_payload["params"]["ai"] == "AI1"
+    assert ir_key_payload["params"]["keys"] == "power"
+    assert ir_code_response == {"code": 0, "message": "ok"}
+    assert ir_code_payload["params"]["keys"] == json.dumps(
+        [{"param": {"data": "RAW", "type": 1}}]
+    )
+    assert ac_response == {"code": 0, "message": "ok"}
+    assert ac_payload["params"]["ai"] == "AI1"
+    assert "idx" not in ac_payload["params"]
+
+
+def test_send_ir_ackey_uses_idx_when_ai_is_missing():
+    client = FakeLifeSmartClient(post_responses=['{"code":0,"message":"ok"}'])
+    client._usertoken = "usertoken"
+
+    asyncio.run(
+        client.send_ir_ackey_async(
+            "HUB1", "", "ME1", "ac", "aux", "power", "33.irxs", 1, 2, 24, 3, 0
+        )
+    )
+
+    payload = json.loads(client.post_calls[0][1])
+
+    assert payload["params"]["idx"] == "33.irxs"
+    assert "ai" not in payload["params"]
+
+
+def test_light_and_device_methods_return_expected_values():
+    client = FakeLifeSmartClient(
+        post_responses=[
+            '{"code":0,"message":"on"}',
+            '{"code":1,"message":"off"}',
+            '{"code":0,"message":{"data":[{"idx":"P1"}]}}',
+        ]
+    )
+    client._usertoken = "usertoken"
+
+    on_code = asyncio.run(client.turn_on_light_swith_async("P1", "HUB1", "ME1"))
+    off_code = asyncio.run(client.turn_off_light_swith_async("P1", "HUB1", "ME1"))
+    epget_data = asyncio.run(client.get_epget_async("HUB1", "ME1"))
+
+    assert on_code == 0
+    assert off_code == 1
+    assert epget_data == [{"idx": "P1"}]
+
+
+def test_ir_query_methods_parse_messages_and_defaults():
+    client = FakeLifeSmartClient(
+        post_responses=[
+            '{"message":{"ai-1":{"brand":"aux"}}}',
+            '{"message":{"codes":["power"]}}',
+            '{"message":["tv","ac"]}',
+            '{"message":{"data":{"aux":"Aux"}}}',
+            '{"message":{"data":["33.irxs"]}}',
+            '{"message":{"data":{"power":"001"}}}',
+            '{"message":[{"data":"ABC"}]}',
+        ]
+    )
+    client._usertoken = "usertoken"
+
+    remote_list = asyncio.run(client.get_ir_remote_list_async("HUB1"))
+    remote_codes = asyncio.run(client.get_ir_remote_async("HUB1", "AI1"))
+    categories = asyncio.run(client.get_category_async())
+    brands = asyncio.run(client.get_brands_async("ac"))
+    remote_idxs = asyncio.run(client.get_remote_idxs_async("ac", "aux"))
+    codes = asyncio.run(client.get_codes_async("tv", "aux", "33.irxs", ["power"]))
+    ac_codes = asyncio.run(client.get_ac_codes_async("ac", "aux", "33.irxs", "power", 1, 2, 24, 3, 0))
+
+    codes_payload = json.loads(client.post_calls[5][1])
+
+    assert remote_list == {"ai-1": {"brand": "aux"}}
+    assert remote_codes == ["power"]
+    assert categories == ["tv", "ac"]
+    assert brands == {"aux": "Aux"}
+    assert remote_idxs == ["33.irxs"]
+    assert codes == {"power": "001"}
+    assert ac_codes == [{"data": "ABC"}]
+    assert codes_payload["params"]["keys"] == '["power"]'
+
+
+def test_getters_return_empty_defaults_when_message_data_is_missing():
+    client = FakeLifeSmartClient(
+        post_responses=[
+            '{"message":{}}',
+            '{"message":{}}',
+            '{"message":{}}',
+            '{"message":{}}',
+        ]
+    )
+    client._usertoken = "usertoken"
+
+    brands = asyncio.run(client.get_brands_async("ac"))
+    remote_idxs = asyncio.run(client.get_remote_idxs_async("ac", "aux"))
+    codes = asyncio.run(client.get_codes_async("tv", "aux", "33.irxs"))
+    ac_codes = asyncio.run(client.get_ac_codes_async("ac", "aux", "33.irxs", "power", 1, 2, 24, 3, 0))
+
+    assert brands == {}
+    assert remote_idxs == []
+    assert codes == {}
+    assert ac_codes == {}
+
+
+def test_post_json_raises_for_transport_and_json_errors():
+    client = FakeLifeSmartClient()
+
+    async def raise_client_error(url, data, headers):
+        raise aiohttp.ClientError("boom")
+
+    async def return_bad_json(url, data, headers):
+        return "{not-json"
+
+    client.post_async = raise_client_error
+    with pytest.raises(aiohttp.ClientError):
+        asyncio.run(client._post_json("https://example.com", {"id": 1}))
+
+    client.post_async = return_bad_json
+    with pytest.raises(json.JSONDecodeError):
+        asyncio.run(client._post_json("https://example.com", {"id": 1}))
+
+
+def test_post_async_uses_injected_session():
+    events = []
+
+    class FakeResponse:
+        async def __aenter__(self):
+            events.append("response-enter")
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            events.append("response-exit")
+
+        async def text(self):
+            return '{"code":0}'
+
+    class FakeSession:
+        def post(self, url, data, headers):
+            events.append(("post", url, data, headers))
+            return FakeResponse()
+
+    client = LifeSmartClient(
+        region="us",
+        appkey="appkey",
+        apptoken="apptoken",
+        userid="userid",
+        userpassword="password",
+        session=FakeSession(),
+    )
+
+    response = asyncio.run(
+        client.post_async("https://example.com", "{}", {"Content-Type": "application/json"})
+    )
+
+    assert response == '{"code":0}'
+    assert events[0][0] == "post"
+    assert events[1:] == ["response-enter", "response-exit"]
+
+
+def test_post_async_creates_client_session_when_no_session(monkeypatch):
+    events = []
+
+    class FakeResponse:
+        async def __aenter__(self):
+            events.append("response-enter")
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            events.append("response-exit")
+
+        async def text(self):
+            return '{"code":0}'
+
+    class FakeClientSession:
+        def __init__(self, timeout):
+            events.append(("session-init", timeout))
+
+        async def __aenter__(self):
+            events.append("session-enter")
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            events.append("session-exit")
+
+        def post(self, url, data, headers):
+            events.append(("post", url, data, headers))
+            return FakeResponse()
+
+    monkeypatch.setattr(
+        "custom_components.lifesmart.lifesmart_client.aiohttp.ClientSession",
+        FakeClientSession,
+    )
+
+    client = LifeSmartClient(
+        region="us",
+        appkey="appkey",
+        apptoken="apptoken",
+        userid="userid",
+        userpassword="password",
+    )
+
+    response = asyncio.run(
+        client.post_async("https://example.com", "{}", {"Content-Type": "application/json"})
+    )
+
+    assert response == '{"code":0}'
+    assert events[0][0] == "session-init"
+    assert "session-enter" in events
+    assert "session-exit" in events
