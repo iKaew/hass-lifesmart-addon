@@ -47,7 +47,11 @@ def test_sensor_async_setup_entry_creates_supported_entities():
     ieee = int.from_bytes(struct.pack("!f", 12.5), "big", signed=False)
     devices = [
         make_device("SL_SC_CH", {"P1": {"val": 11}, "P2": {"val": 12}}),
-        make_device("SL_LK_LS", {"BAT": {"val": 90}}, device_id="LOCK1"),
+        make_device(
+            "SL_LK_YL",
+            {"BAT": {"val": 90}, "EVTOP": {"type": 0x7E, "val": 0x12012303}},
+            device_id="LOCK1",
+        ),
         make_device("SL_OE_DE", {"P2": {"v": 1.5}, "P3": {"v": 200}}, device_id="PLUG1"),
         make_device("SL_NATURE", {"P4": {"val": 215}}, device_id="NAT1"),
         make_device("SL_SC_WA", {"V": {"v": 88}}, device_id="WATER1"),
@@ -71,7 +75,8 @@ def test_sensor_async_setup_entry_creates_supported_entities():
 
     assert len(added) >= 24
     assert any(entity.entity_id == "sensor.sl_sc_ch_hub1_dev1_p1" for entity in added)
-    assert any(entity.entity_id == "sensor.sl_lk_ls_hub1_lock1_bat" for entity in added)
+    assert any(entity.entity_id == "sensor.sl_lk_yl_hub1_lock1_bat" for entity in added)
+    assert any(entity.entity_id == "sensor.sl_lk_yl_hub1_lock1_evtop" for entity in added)
     assert any(entity.entity_id == "sensor.sl_sc_bm_hub1_bm1_v" for entity in added)
     assert any(entity.entity_id == "sensor.v_485_p_hub1_mod1_ev" for entity in added)
 
@@ -82,6 +87,9 @@ def test_sensor_entity_branches_and_properties():
     co2, _ = make_sensor_entity("SL_SC_CA", "P3", {"val": 500})
     env, _ = make_sensor_entity("SL_SC_THL", "T", {"val": 215})
     cube_motion_battery, _ = make_sensor_entity("SL_SC_BM", "V", {"val": 3000, "v": 82})
+    lock_operation, _ = make_sensor_entity(
+        "SL_LK_YL", "EVTOP", {"type": 0x7E, "val": 0x12012303}
+    )
     tvoc, _ = make_sensor_entity("SL_SC_CQ", "P4", {"val": 1200})
     defed, _ = make_sensor_entity("SL_DF_SR", "V", {"v": 81, "val": 3000})
     noise, _ = make_sensor_entity("SL_SC_CN", "P1", {"val": 50, "type": 1})
@@ -98,6 +106,16 @@ def test_sensor_entity_branches_and_properties():
     assert cube_motion_battery.device_class == sensor_module.SensorDeviceClass.BATTERY
     assert cube_motion_battery.state == 82
     assert cube_motion_battery.extra_state_attributes == {"raw": 3000}
+    assert lock_operation.device_name == "Operation Record"
+    assert lock_operation.state == 0x12012303
+    assert lock_operation.unit_of_measurement is None
+    assert lock_operation.extra_state_attributes == {
+        "record_type": 0x12,
+        "user_id": 0x0123,
+        "user_flag": 0x03,
+        "user_role": "administrator",
+        "raw": 0x12012303,
+    }
     assert tvoc.state == 1.2
     assert defed.extra_state_attributes == {"raw": 3000}
     assert noise.extra_state_attributes["alarm"] is True
@@ -144,6 +162,7 @@ def test_sensor_helper_functions_cover_remaining_paths():
     assert sensor_module._display_value({"val": 50}, "V_485_P", "PM") == 50
     assert sensor_module._display_value({"val": 2}, "OD_MFRESH_M8088", "RM") == "fan_2"
     assert sensor_module._display_value({"val": 9}, "SL_LK_LS", "BAT") == 9
+    assert sensor_module._display_value({"val": 0x12012303}, "SL_LK_YL", "EVTOP") == 0x12012303
     assert sensor_module._display_value({"val": 215}) == 21.5
     assert sensor_module._display_float_value({"val": ieee}) == 12.5
     assert sensor_module._float32_from_int(ieee) == 12.5
@@ -154,3 +173,9 @@ def test_sensor_helper_functions_cover_remaining_paths():
     assert sensor_module._modbus_sensor_metadata("UNKNOWN") == (None, "None")
     assert sensor_module._state_attributes({"type": 1, "val": 11}, "SL_SC_CH", "P1") == {"alarm": True, "raw": 11}
     assert sensor_module._state_attributes({"type": 1, "val": 50}, "SL_SC_CN", "P1") == {"alarm": True, "raw": 50}
+    assert sensor_module._doorlock_operation_user_role(0) == "deleted_user"
+    assert sensor_module._doorlock_operation_user_role(1) == "common_user"
+    assert sensor_module._doorlock_operation_user_role(2) == "unknown"
+    assert sensor_module._doorlock_operation_value_length({"type": 0x4E}) == 8
+    assert sensor_module._doorlock_operation_value_length({"type": 0x6E}) == 24
+    assert sensor_module._doorlock_operation_value_length({"type": 0x7E}) == 32

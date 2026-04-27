@@ -35,6 +35,7 @@ from .const import (
     DEVICE_TYPE_KEY,
     DEVICE_VERSION_KEY,
     DIGITAL_DOORLOCK_BATTERY_EVENT_KEY,
+    DIGITAL_DOORLOCK_OPERATION_EVENT_KEY,
     DLT_METER_TYPES,
     DOMAIN,
     ELECTRICITY_METER_TYPES,
@@ -161,6 +162,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             elif device_type in LOCK_TYPES and sub_device_key in [  # noqa: SIM114
                 DIGITAL_DOORLOCK_BATTERY_EVENT_KEY
             ]:
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif (
+                device_type in LOCK_TYPES
+                and sub_device_key == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY
+            ):
                 sensor_devices.append(
                     LifeSmartSensor(
                         ha_device,
@@ -533,6 +547,13 @@ class LifeSmartSensor(SensorEntity):
             elif sub_device_key == DIGITAL_DOORLOCK_BATTERY_EVENT_KEY:
                 self._device_class = SensorDeviceClass.BATTERY
                 self._unit = PERCENTAGE
+            elif (
+                device_type in LOCK_TYPES
+                and sub_device_key == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY
+            ):
+                self.device_name = "Operation Record"
+                self._device_class = None
+                self._unit = None
             else:
                 self._unit = "None"
                 self._device_class = "None"
@@ -628,6 +649,8 @@ def _display_value(data, device_type=None, sub_device_key=None):
             return data.get("val")
     if device_type in LOCK_TYPES and sub_device_key == DIGITAL_DOORLOCK_BATTERY_EVENT_KEY:
         return data.get("val")
+    if device_type in LOCK_TYPES and sub_device_key == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY:
+        return data.get("val")
     if "val" in data:
         return data["val"] / 10
     return None
@@ -706,7 +729,72 @@ def _state_attributes(data, device_type=None, sub_device_key=None):
         attrs["alarm"] = data.get("type", 0) % 2 == 1
     elif device_type in NOISE_SENSOR_TYPES and sub_device_key == "P1":
         attrs["alarm"] = data.get("type", 0) % 2 == 1
+    elif (
+        device_type in LOCK_TYPES
+        and sub_device_key == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY
+    ):
+        attrs.update(_doorlock_operation_attributes(data))
 
     if "val" in data:
         attrs["raw"] = data["val"]
     return attrs
+
+
+def _doorlock_operation_attributes(data):
+    """Decode documented digital door lock operation record fields."""
+    val = data.get("val")
+    if val is None:
+        return {}
+
+    record_type = None
+    user_id = None
+    user_flag = None
+    value_length = _doorlock_operation_value_length(data)
+    if value_length == 8:
+        record_type = val
+    elif value_length == 24:
+        record_type = (val >> 16) & 0xFF
+        user_id = val & 0xFFFF
+    else:
+        record_type = (val >> 24) & 0xFF
+        user_id = (val >> 8) & 0xFFFF
+        user_flag = val & 0xFF
+
+    attrs = {"record_type": record_type}
+    if user_id is not None:
+        attrs["user_id"] = user_id
+    if user_flag is not None:
+        attrs["user_flag"] = user_flag
+        attrs["user_role"] = _doorlock_operation_user_role(user_flag)
+    return attrs
+
+
+def _doorlock_operation_value_length(data):
+    """Return documented operation value bit length."""
+    type_value = data.get("type")
+    if type_value == 0x4E:
+        return 8
+    if type_value in [0x5E, 0x6E]:
+        return 24
+    if type_value == 0x7E:
+        return 32
+
+    val = data.get("val", 0)
+    if val <= 0xFF:
+        return 8
+    if val <= 0xFFFFFF:
+        return 24
+    return 32
+
+
+def _doorlock_operation_user_role(user_flag):
+    """Return documented operation record user role from low two bits."""
+    match user_flag & 0b11:
+        case 0b11:
+            return "administrator"
+        case 0b01:
+            return "common_user"
+        case 0b00:
+            return "deleted_user"
+        case _:
+            return "unknown"

@@ -49,7 +49,9 @@ from .const import (
     DIGITAL_DOORLOCK_ALARM_EVENT_KEY,
     DIGITAL_DOORLOCK_BATTERY_EVENT_KEY,
     DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY,
+    DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY,
     DIGITAL_DOORLOCK_LOCK_EVENT_KEY,
+    DIGITAL_DOORLOCK_OPERATION_EVENT_KEY,
     DLT_METER_TYPES,
     DOMAIN,
     ELECTRICITY_METER_TYPES,
@@ -466,6 +468,8 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                     DIGITAL_DOORLOCK_ALARM_EVENT_KEY,
                     DIGITAL_DOORLOCK_LOCK_EVENT_KEY,
                     DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY,
+                    DIGITAL_DOORLOCK_OPERATION_EVENT_KEY,
+                    DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY,
                 ]:
                     dispatcher_send(
                         hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
@@ -881,6 +885,8 @@ def get_platform_by_device(device_type, sub_device=None):
         return Platform.CLIMATE
     elif device_type in LOCK_TYPES and sub_device == DIGITAL_DOORLOCK_BATTERY_EVENT_KEY:
         return Platform.SENSOR
+    elif device_type in LOCK_TYPES and sub_device == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY:
+        return Platform.SENSOR
     elif (
         device_type in LOCK_TYPES
         and sub_device == DIGITAL_DOORLOCK_LOCK_EVENT_KEY
@@ -888,6 +894,8 @@ def get_platform_by_device(device_type, sub_device=None):
         and sub_device == DIGITAL_DOORLOCK_ALARM_EVENT_KEY
         or device_type in LOCK_TYPES
         and sub_device == DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY
+        or device_type in LOCK_TYPES
+        and sub_device == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
     ):
         return Platform.BINARY_SENSOR
     elif device_type in SMART_PLUG_TYPES and sub_device == "P1":

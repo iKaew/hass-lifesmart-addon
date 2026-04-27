@@ -563,6 +563,8 @@ def test_on_message_routes_nature_thermostat_and_ignores_non_io(monkeypatch):
         ("V_AIR_P", "O"),
         ("SL_LK_LS", "BAT"),
         ("SL_LK_LS", "EVTLO"),
+        ("SL_LK_YL", "EVTOP"),
+        ("SL_LK_YL", "HISLK"),
     ],
 )
 def test_on_message_dispatches_supported_device_update_families(
@@ -917,6 +919,8 @@ def test_get_fan_mode(speed, expected):
         ("V_AIR_P", None, lifesmart_init.Platform.CLIMATE),
         ("SL_LK_LS", "BAT", lifesmart_init.Platform.SENSOR),
         ("SL_LK_LS", "EVTLO", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_LK_YL", "EVTOP", lifesmart_init.Platform.SENSOR),
+        ("SL_LK_YL", "HISLK", lifesmart_init.Platform.BINARY_SENSOR),
         ("SL_OE_DE", "P1", lifesmart_init.Platform.SWITCH),
         ("SL_OE_DE", "P2", lifesmart_init.Platform.SENSOR),
         ("UNKNOWN", None, ""),

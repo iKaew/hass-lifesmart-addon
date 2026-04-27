@@ -54,7 +54,15 @@ def test_async_setup_entry_creates_supported_binary_sensors_and_skips_excluded()
         make_setup_device("SL_SC_WA", {"WA": {"val": 1}, "V": {"v": 87}}, device_id="LEAK1"),
         make_setup_device("SL_SC_BM", {"M": {"val": 1}, "V": {"v": 82}}, device_id="BM1"),
         make_setup_device("SL_SC_CN", {"P3": {"type": 1, "val": 1}}, device_id="NOISE1"),
-        make_setup_device("SL_LK_LS", {"EVTLO": {"type": 1, "val": 0x1001}}, device_id="LOCK1"),
+        make_setup_device(
+            "SL_LK_YL",
+            {
+                "EVTLO": {"type": 1, "val": 0x1001},
+                "ALM": {"val": 0b10001},
+                "HISLK": {"type": 1, "val": 0x200A},
+            },
+            device_id="LOCK1",
+        ),
         make_setup_device("SL_SPOT", {"P1": {"val": 1}}, device_id="SKIPME"),
         make_setup_device("SL_SC_G", {"G": {"val": 0}}, device_id="EXCLUDED_DEVICE"),
         make_setup_device("SL_SC_G", {"G": {"val": 0}}, device_id="EXCLUDED_HUB", hub_id="HUBX"),
@@ -77,14 +85,16 @@ def test_async_setup_entry_creates_supported_binary_sensors_and_skips_excluded()
 
     entity_ids = {entity.entity_id for entity in added_entities}
 
-    assert len(added_entities) == 7
+    assert len(added_entities) == 9
     assert "binary_sensor.sl_sc_g_hub1_device1_g" in entity_ids
     assert "binary_sensor.sl_df_sr_hub1_def1_sr" in entity_ids
     assert "binary_sensor.sl_df_sr_hub1_def1_tr" in entity_ids
     assert "binary_sensor.sl_sc_wa_hub1_leak1_wa" in entity_ids
     assert "binary_sensor.sl_sc_bm_hub1_bm1_m" in entity_ids
     assert "binary_sensor.sl_sc_cn_hub1_noise1_p3" in entity_ids
-    assert "binary_sensor.sl_lk_ls_hub1_lock1_evtlo" in entity_ids
+    assert "binary_sensor.sl_lk_yl_hub1_lock1_evtlo" in entity_ids
+    assert "binary_sensor.sl_lk_yl_hub1_lock1_alm" in entity_ids
+    assert "binary_sensor.sl_lk_yl_hub1_lock1_hislk" in entity_ids
 
 
 def test_guard_motion_water_and_smoke_binary_sensor_initialization():
@@ -119,6 +129,7 @@ def test_lock_binary_sensor_variants_and_attributes():
     lock = make_binary_sensor("SL_LK_LS", "EVTLO", {"type": 1, "val": 0x200A})
     alarm = make_binary_sensor("SL_LK_LS", "ALM", {"val": 3})
     doorbell = make_binary_sensor("SL_LK_LS", "EVTBELL", {"type": 1, "val": 7})
+    history = make_binary_sensor("SL_LK_YL", "HISLK", {"type": 1, "val": 0x300B})
 
     assert lock.name == "Status"
     assert lock.device_class == BinarySensorDeviceClass.LOCK
@@ -131,12 +142,31 @@ def test_lock_binary_sensor_variants_and_attributes():
     assert alarm.name == "Alarm"
     assert alarm.device_class == BinarySensorDeviceClass.PROBLEM
     assert alarm.is_on is True
-    assert alarm.extra_state_attributes == {"raw": 3}
+    assert alarm.extra_state_attributes == {
+        "raw": 3,
+        "error_alarm": True,
+        "duress_alarm": True,
+        "lock_pick_alarm": False,
+        "mechanical_key_alarm": False,
+        "low_battery_alarm": False,
+        "exception_alarm": False,
+        "doorbell": False,
+        "fire_alarm": False,
+        "intrusion_alarm": False,
+        "factory_reset_alarm": False,
+    }
 
     assert doorbell.name == "Doorbell"
     assert doorbell.device_class == BinarySensorDeviceClass.SOUND
     assert doorbell.is_on is True
     assert doorbell.extra_state_attributes == {"raw": 7}
+    assert history.name == "Last Unlock"
+    assert history.device_class == BinarySensorDeviceClass.LOCK
+    assert history.is_on is True
+    assert history.extra_state_attributes == {
+        "unlocking_method": "NFC",
+        "unlocking_user": 11,
+    }
 
 
 def test_binary_sensor_name_device_info_unique_id_and_attrs():

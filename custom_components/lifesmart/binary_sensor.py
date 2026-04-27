@@ -23,6 +23,7 @@ from .const import (
     DEVICE_TYPE_KEY,
     DIGITAL_DOORLOCK_ALARM_EVENT_KEY,
     DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY,
+    DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY,
     DIGITAL_DOORLOCK_LOCK_EVENT_KEY,
     DOMAIN,
     GAS_SENSOR_TYPES,
@@ -119,6 +120,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             elif (
                 device_type in LOCK_TYPES
                 and sub_device_key == DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY
+            ):  # noqa: SIM114
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif (
+                device_type in LOCK_TYPES
+                and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
             ):  # noqa: SIM114
                 sensor_devices.append(
                     LifeSmartBinarySensor(
@@ -350,13 +364,8 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         ):
             self.device_name = "Alarm"
             self._device_class = BinarySensorDeviceClass.PROBLEM
-            # On means problem detected, Off means no problem (OK)
-            val = sub_device_data["val"]
-            if val > 0:
-                self._state = True
-            else:
-                self._state = False
-            self._attrs = {"raw": val}
+            self._state = sub_device_data["val"] > 0
+            self._attrs = build_doorlock_alarm_attribute(sub_device_data)
         elif (
             device_type in LOCK_TYPES
             and sub_device_key == DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY
@@ -365,6 +374,14 @@ class LifeSmartBinarySensor(BinarySensorEntity):
             self._device_class = BinarySensorDeviceClass.SOUND
             self._state = sub_device_data["type"] % 2 == 1
             self._attrs = {"raw": sub_device_data.get("val")}
+        elif (
+            device_type in LOCK_TYPES
+            and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
+        ):
+            self.device_name = "Last Unlock"
+            self._device_class = BinarySensorDeviceClass.LOCK
+            self._state = is_doorlock_unlocked(sub_device_data)
+            self._attrs = build_doorlock_attribute(sub_device_data)
 
         elif device_type in GENERIC_CONTROLLER_TYPES:
             self._attrs = sub_device_data
@@ -427,12 +444,21 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         if (
             device_type in LOCK_TYPES
             and sub_device_key == DIGITAL_DOORLOCK_LOCK_EVENT_KEY
+            or device_type in LOCK_TYPES
+            and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
         ):
             self._state = is_doorlock_unlocked(data)
             self._attrs = build_doorlock_attribute(data)
             self.schedule_update_ha_state()
 
             _LOGGER.debug(self._attrs)
+        elif (
+            device_type in LOCK_TYPES
+            and sub_device_key == DIGITAL_DOORLOCK_ALARM_EVENT_KEY
+        ):
+            self._state = data.get("val", 0) > 0
+            self._attrs = build_doorlock_alarm_attribute(data)
+            self.schedule_update_ha_state()
         else:
             self._state = self._state_from_data(data)
             self.schedule_update_ha_state()
@@ -465,6 +491,11 @@ class LifeSmartBinarySensor(BinarySensorEntity):
             and sub_device_key == DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY
         ):
             return data.get("type", 0) % 2 == 1
+        if (
+            device_type in LOCK_TYPES
+            and sub_device_key == DIGITAL_DOORLOCK_ALARM_EVENT_KEY
+        ):
+            return val > 0
         return val != 0
 
 
@@ -530,4 +561,22 @@ def build_doorlock_attribute(data):
     return {
         "unlocking_method": extract_doorlock_unlocking_method(data),
         "unlocking_user": unlocking_user_id,
+    }
+
+
+def build_doorlock_alarm_attribute(data):
+    """Build decoded alarm attributes for digital door lock alarm reports."""
+    val = data.get("val", 0)
+    return {
+        "raw": val,
+        "error_alarm": bool(val & (1 << 0)),
+        "duress_alarm": bool(val & (1 << 1)),
+        "lock_pick_alarm": bool(val & (1 << 2)),
+        "mechanical_key_alarm": bool(val & (1 << 3)),
+        "low_battery_alarm": bool(val & (1 << 4)),
+        "exception_alarm": bool(val & (1 << 5)),
+        "doorbell": bool(val & (1 << 6)),
+        "fire_alarm": bool(val & (1 << 7)),
+        "intrusion_alarm": bool(val & (1 << 8)),
+        "factory_reset_alarm": bool(val & (1 << 11)),
     }
