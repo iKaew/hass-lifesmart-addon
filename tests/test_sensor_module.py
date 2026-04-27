@@ -52,11 +52,13 @@ def test_sensor_async_setup_entry_creates_supported_entities():
             {"BAT": {"val": 90}, "EVTOP": {"type": 0x7E, "val": 0x12012303}},
             device_id="LOCK1",
         ),
+        make_device("SL_P", {"P1": {"val": 0x8A07000A}}, device_id="CTRL1"),
         make_device("SL_OE_DE", {"P2": {"v": 1.5}, "P3": {"v": 200}}, device_id="PLUG1"),
         make_device("SL_NATURE", {"P4": {"val": 215}}, device_id="NAT1"),
         make_device("SL_SC_WA", {"V": {"v": 88}}, device_id="WATER1"),
         make_device("SL_SC_CA", {"P1": {"val": 215}, "P2": {"val": 450}, "P3": {"val": 500}, "P4": {"v": 95}}, device_id="CO21"),
         make_device("SL_SC_THL", {"T": {"val": 215}, "H": {"v": 55}, "Z": {"val": 100}, "V": {"v": 80}}, device_id="ENV1"),
+        make_device("SL_SC_BG", {"V": {"val": 3000, "v": 79}}, device_id="GUARD1"),
         make_device("SL_SC_BM", {"M": {"val": 1}, "V": {"val": 3000, "v": 82}}, device_id="BM1"),
         make_device("SL_SC_CQ", {"P1": {"val": 215}, "P4": {"val": 1200}, "P6": {"v": 3.2}}, device_id="TVOC1"),
         make_device("SL_DF_SR", {"T": {"val": 230}, "V": {"v": 81}}, device_id="DEF1"),
@@ -77,6 +79,8 @@ def test_sensor_async_setup_entry_creates_supported_entities():
     assert any(entity.entity_id == "sensor.sl_sc_ch_hub1_dev1_p1" for entity in added)
     assert any(entity.entity_id == "sensor.sl_lk_yl_hub1_lock1_bat" for entity in added)
     assert any(entity.entity_id == "sensor.sl_lk_yl_hub1_lock1_evtop" for entity in added)
+    assert any(entity.entity_id == "sensor.sl_p_hub1_ctrl1_p1" for entity in added)
+    assert any(entity.entity_id == "sensor.sl_sc_bg_hub1_guard1_v" for entity in added)
     assert any(entity.entity_id == "sensor.sl_sc_bm_hub1_bm1_v" for entity in added)
     assert any(entity.entity_id == "sensor.v_485_p_hub1_mod1_ev" for entity in added)
 
@@ -86,7 +90,9 @@ def test_sensor_entity_branches_and_properties():
     smart_plug, _ = make_sensor_entity("SL_OE_DE", "P2", {"v": 1.5})
     co2, _ = make_sensor_entity("SL_SC_CA", "P3", {"val": 500})
     env, _ = make_sensor_entity("SL_SC_THL", "T", {"val": 215})
+    cube_guard_battery, _ = make_sensor_entity("SL_SC_BG", "V", {"val": 3000, "v": 79})
     cube_motion_battery, _ = make_sensor_entity("SL_SC_BM", "V", {"val": 3000, "v": 82})
+    controller_config, _ = make_sensor_entity("SL_P", "P1", {"val": 0x8A07000A})
     lock_operation, _ = make_sensor_entity(
         "SL_LK_YL", "EVTOP", {"type": 0x7E, "val": 0x12012303}
     )
@@ -103,6 +109,9 @@ def test_sensor_entity_branches_and_properties():
     assert smart_plug.state == 1.5
     assert co2.device_class == sensor_module.SensorDeviceClass.CO2
     assert env.state == 21.5
+    assert cube_guard_battery.device_class == sensor_module.SensorDeviceClass.BATTERY
+    assert cube_guard_battery.state == 79
+    assert cube_guard_battery.extra_state_attributes == {"raw": 3000}
     assert cube_motion_battery.device_class == sensor_module.SensorDeviceClass.BATTERY
     assert cube_motion_battery.state == 82
     assert cube_motion_battery.extra_state_attributes == {"raw": 3000}
@@ -116,6 +125,11 @@ def test_sensor_entity_branches_and_properties():
         "user_role": "administrator",
         "raw": 0x12012303,
     }
+    assert controller_config.state == 0x8A07000A
+    assert controller_config.extra_state_attributes["working_mode"] == (
+        "three_way_switch_rocker"
+    )
+    assert controller_config.extra_state_attributes["auto_close_delay"] == 10
     assert tvoc.state == 1.2
     assert defed.extra_state_attributes == {"raw": 3000}
     assert noise.extra_state_attributes["alarm"] is True
@@ -163,6 +177,7 @@ def test_sensor_helper_functions_cover_remaining_paths():
     assert sensor_module._display_value({"val": 2}, "OD_MFRESH_M8088", "RM") == "fan_2"
     assert sensor_module._display_value({"val": 9}, "SL_LK_LS", "BAT") == 9
     assert sensor_module._display_value({"val": 0x12012303}, "SL_LK_YL", "EVTOP") == 0x12012303
+    assert sensor_module._display_value({"val": 0x8A07000A}, "SL_P", "P1") == 0x8A07000A
     assert sensor_module._display_value({"val": 215}) == 21.5
     assert sensor_module._display_float_value({"val": ieee}) == 12.5
     assert sensor_module._float32_from_int(ieee) == 12.5
@@ -179,3 +194,14 @@ def test_sensor_helper_functions_cover_remaining_paths():
     assert sensor_module._doorlock_operation_value_length({"type": 0x4E}) == 8
     assert sensor_module._doorlock_operation_value_length({"type": 0x6E}) == 24
     assert sensor_module._doorlock_operation_value_length({"type": 0x7E}) == 32
+    assert sensor_module._generic_controller_config_attributes({"val": 0x02010005}) == {
+        "software_configured": False,
+        "working_mode": "two_wire_curtain",
+        "working_mode_raw": 2,
+        "inching": False,
+        "ctrl1_enabled": True,
+        "ctrl2_enabled": False,
+        "ctrl3_enabled": False,
+        "auto_close_delay": 5,
+        "auto_close_config": 0x10005,
+    }

@@ -257,6 +257,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                 dispatcher_send(
                     hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
                 )
+            elif device_type in GENERIC_CONTROLLER_TYPES and sub_device_key == "P1":
+                dispatcher_send(
+                    hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                )
             elif (
                 device_type in BINARY_SENSOR_TYPES
                 and sub_device_key in SUPPORTED_SUB_BINARY_SENSORS
@@ -798,6 +802,8 @@ def get_platform_by_device(device_type, sub_device=None):
         and sub_device in GENERIC_CONTROLLER_BINARY_PORTS
     ):
         return Platform.BINARY_SENSOR
+    elif device_type in GENERIC_CONTROLLER_TYPES and sub_device == "P1":
+        return Platform.SENSOR
     elif device_type in WATER_LEAK_SENSOR_TYPES and sub_device == "WA":
         return Platform.BINARY_SENSOR
     elif device_type in WATER_LEAK_SENSOR_TYPES and sub_device == "V":

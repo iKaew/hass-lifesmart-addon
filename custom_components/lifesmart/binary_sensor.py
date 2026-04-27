@@ -386,8 +386,7 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         elif device_type in GENERIC_CONTROLLER_TYPES:
             self._attrs = sub_device_data
             self._device_class = BinarySensorDeviceClass.LOCK
-            # On means open (unlocked), Off means closed (locked)
-            self._state = sub_device_data["val"] == 0
+            self._state = _generic_controller_binary_state(sub_device_data)
         else:
             self._device_class = BinarySensorDeviceClass.SMOKE
             self._state = sub_device_data["val"] != 0
@@ -477,7 +476,7 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         if device_type in GUARD_SENSOR_TYPES and sub_device_key == "G":
             return val == 0
         if device_type in GENERIC_CONTROLLER_TYPES:
-            return val == 0
+            return _generic_controller_binary_state(data)
         if device_type in DEFED_SENSOR_TYPES:
             return data.get("type", 0) % 2 == 1
         if (
@@ -580,3 +579,10 @@ def build_doorlock_alarm_attribute(data):
         "intrusion_alarm": bool(val & (1 << 8)),
         "factory_reset_alarm": bool(val & (1 << 11)),
     }
+
+
+def _generic_controller_binary_state(data):
+    """Return documented general controller input trigger state."""
+    if "type" in data:
+        return data["type"] % 2 == 1
+    return data.get("val", 1) == 0

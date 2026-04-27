@@ -8,6 +8,7 @@ from homeassistant.const import (
     UnitOfFrequency,
     UnitOfTemperature,
 )
+from homeassistant.helpers.entity import EntityCategory
 
 from tests.lifesmart_entity_helpers import (
     make_binary_sensor,
@@ -17,12 +18,49 @@ from tests.lifesmart_entity_helpers import (
 
 
 def test_ha_controller_switches_and_status_inputs():
+    config = make_sensor("SL_JEMA", "P1", {"val": 0x02010005})
+    relay = make_switch("SL_JEMA", "P2", {"type": 1, "val": 1})
     ha_switch = make_switch("SL_JEMA", "P8", {"type": 1, "val": 1})
+    ha_switch_2 = make_switch("SL_JEMA", "P9", {"type": 0, "val": 0})
+    ha_switch_3 = make_switch("SL_JEMA", "P10", {"type": 1, "val": 1})
     assert ha_switch.is_on is True
+    assert ha_switch_2.is_on is False
+    assert ha_switch_3.is_on is True
+    assert relay.is_on is True
+    assert config.entity_category == EntityCategory.DIAGNOSTIC
+    assert config.entity_registry_enabled_default is False
+    assert config.extra_state_attributes["working_mode"] == "two_wire_curtain"
 
     status = make_binary_sensor("SL_JEMA", "P6", {"type": 1, "val": 0})
     assert status.is_on is True
     assert status.device_class == BinarySensorDeviceClass.LOCK
+
+
+def test_general_controller_documented_ports():
+    config = make_sensor("SL_P", "P1", {"val": 0x8A07000A})
+    output = make_switch("SL_P", "P2", {"type": 1, "val": 1})
+    input_status = make_binary_sensor("SL_P", "P5", {"type": 1, "val": 0})
+
+    assert config.state == 0x8A07000A
+    assert config.device_class is None
+    assert config.unit_of_measurement is None
+    assert config.entity_category == EntityCategory.DIAGNOSTIC
+    assert config.entity_registry_enabled_default is False
+    assert config.extra_state_attributes == {
+        "software_configured": True,
+        "working_mode": "three_way_switch_rocker",
+        "working_mode_raw": 10,
+        "inching": False,
+        "ctrl1_enabled": True,
+        "ctrl2_enabled": True,
+        "ctrl3_enabled": True,
+        "auto_close_delay": 10,
+        "auto_close_config": 0x7000A,
+        "raw": 0x8A07000A,
+    }
+    assert output.is_on is True
+    assert input_status.is_on is True
+    assert input_status.device_class == BinarySensorDeviceClass.LOCK
 
 
 def test_485_controller_switch_and_electrical_sensors():

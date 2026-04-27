@@ -101,6 +101,9 @@ def test_guard_motion_water_and_smoke_binary_sensor_initialization():
     door = make_binary_sensor("SL_SC_G", "G", {"val": 0})
     vibration = make_binary_sensor("SL_SC_G", "AXS", {"val": 1})
     occupancy = make_binary_sensor("SL_SC_G", "B", {"val": 1})
+    cube_door = make_binary_sensor("SL_SC_BG", "G", {"val": 0})
+    cube_button = make_binary_sensor("SL_SC_BG", "B", {"val": 1})
+    cube_vibration = make_binary_sensor("SL_SC_BG", "AXS", {"val": 1})
     motion = make_binary_sensor("SL_SC_MHW", "M", {"val": 1})
     cube_motion = make_binary_sensor("SL_SC_BM", "M", {"val": 1})
     radar = make_binary_sensor("SL_P_RM", "P1", {"val": 1})
@@ -113,6 +116,12 @@ def test_guard_motion_water_and_smoke_binary_sensor_initialization():
     assert vibration.is_on is True
     assert occupancy.device_class is None
     assert occupancy.is_on is True
+    assert cube_door.device_class == BinarySensorDeviceClass.DOOR
+    assert cube_door.is_on is True
+    assert cube_button.device_class is None
+    assert cube_button.is_on is True
+    assert cube_vibration.device_class == BinarySensorDeviceClass.VIBRATION
+    assert cube_vibration.is_on is True
     assert motion.device_class == BinarySensorDeviceClass.MOTION
     assert motion.is_on is True
     assert cube_motion.device_class == BinarySensorDeviceClass.MOTION
@@ -212,14 +221,14 @@ def test_update_state_handles_none_regular_updates_and_lock_events():
 
 def test_state_from_data_covers_special_cases():
     guard = make_binary_sensor("SL_SC_G", "G", {"val": 0})
-    controller = make_binary_sensor("SL_JEMA", "P6", {"val": 0})
+    controller = make_binary_sensor("SL_JEMA", "P6", {"type": 1, "val": 0})
     defed = make_binary_sensor("SL_DF_SR", "TR", {"type": 0})
     gas = make_binary_sensor("SL_SC_CH", "P3", {"type": 0, "val": 0})
     doorbell = make_binary_sensor("SL_LK_LS", "EVTBELL", {"type": 0, "val": 0})
     generic = make_binary_sensor("SL_SC_G", "B", {"val": 0})
 
     assert guard._state_from_data({"devtype": "SL_SC_G", "idx": "G", "val": 0}) is True
-    assert controller._state_from_data({"devtype": "SL_JEMA", "idx": "P6", "val": 0}) is True
+    assert controller._state_from_data({"devtype": "SL_JEMA", "idx": "P6", "type": 1, "val": 0}) is True
     assert defed._state_from_data({"devtype": "SL_DF_SR", "idx": "TR", "type": 1}) is True
     assert gas._state_from_data({"devtype": "SL_SC_CH", "idx": "P3", "type": 1}) is True
     assert doorbell._state_from_data({"devtype": "SL_LK_LS", "idx": "EVTBELL", "type": 1}) is True

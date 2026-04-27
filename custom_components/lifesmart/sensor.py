@@ -20,7 +20,7 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 
 # DOMAIN = "sensor"
 # ENTITY_ID_FORMAT = DOMAIN + ".{}"
@@ -41,6 +41,7 @@ from .const import (
     ELECTRICITY_METER_TYPES,
     ENV_SENSOR_TYPES,
     GAS_SENSOR_TYPES,
+    GENERIC_CONTROLLER_TYPES,
     HUB_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     LOCK_TYPES,
@@ -123,6 +124,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             + AIR_PURIFIER_TYPES
             + DLT_METER_TYPES
             + MODBUS_CONTROLLER_TYPES
+            + GENERIC_CONTROLLER_TYPES
         )
 
         if device_type not in supported_sensors:
@@ -140,6 +142,16 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                 "P3",
                 "P4",
             ]:
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif device_type in GENERIC_CONTROLLER_TYPES and sub_device_key == "P1":
                 sensor_devices.append(
                     LifeSmartSensor(
                         ha_device,
@@ -520,6 +532,12 @@ class LifeSmartSensor(SensorEntity):
                 self._device_class = None
                 self._unit = "None"
             self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in GENERIC_CONTROLLER_TYPES and sub_device_key == "P1":
+            self._device_class = None
+            self._unit = None
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+            self._attr_entity_registry_enabled_default = False
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
         else:
             if sub_device_key in ("T", "P1") or (
                 device_type in NATURE_TYPES and sub_device_key == "P4"
@@ -651,6 +669,8 @@ def _display_value(data, device_type=None, sub_device_key=None):
         return data.get("val")
     if device_type in LOCK_TYPES and sub_device_key == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY:
         return data.get("val")
+    if device_type in GENERIC_CONTROLLER_TYPES and sub_device_key == "P1":
+        return data.get("val")
     if "val" in data:
         return data["val"] / 10
     return None
@@ -734,10 +754,44 @@ def _state_attributes(data, device_type=None, sub_device_key=None):
         and sub_device_key == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY
     ):
         attrs.update(_doorlock_operation_attributes(data))
+    elif device_type in GENERIC_CONTROLLER_TYPES and sub_device_key == "P1":
+        attrs.update(_generic_controller_config_attributes(data))
 
     if "val" in data:
         attrs["raw"] = data["val"]
     return attrs
+
+
+GENERIC_CONTROLLER_WORKING_MODES = {
+    0: "free",
+    2: "two_wire_curtain",
+    4: "three_wire_curtain",
+    6: "dc_motor",
+    8: "three_way_switch",
+    10: "three_way_switch_rocker",
+}
+
+
+def _generic_controller_config_attributes(data):
+    """Decode documented SL_P/SL_JEMA P1 configuration fields."""
+    val = data.get("val")
+    if val is None:
+        return {}
+
+    working_mode = (val >> 24) & 0xE
+    return {
+        "software_configured": bool((val >> 31) & 1),
+        "working_mode": GENERIC_CONTROLLER_WORKING_MODES.get(
+            working_mode, f"unknown_{working_mode}"
+        ),
+        "working_mode_raw": working_mode,
+        "inching": bool((val >> 24) & 1),
+        "ctrl1_enabled": bool((val >> 16) & 1),
+        "ctrl2_enabled": bool((val >> 17) & 1),
+        "ctrl3_enabled": bool((val >> 18) & 1),
+        "auto_close_delay": val & 0xFFFF,
+        "auto_close_config": val & 0x7FFFF,
+    }
 
 
 def _doorlock_operation_attributes(data):
