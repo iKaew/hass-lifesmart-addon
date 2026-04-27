@@ -4,17 +4,13 @@
     "step": {
       "user": {
         "title": "LifeSmart Integration Setup",
-        "description": "Enter LifeSmart Platform credential and User details.",
+        "description": "Enter your LifeSmart Platform credentials and user details to connect.",
         "data": {
           "appkey": "App Key",
           "apptoken": "App Token",
           "userpassword": "User Password",
-          "userid": "User Id",
-          "region": "LifeSmart regional server",
-          "exclude": "List of device to be excluded",
-          "exclude_agt": "List of hub to be excluded",
-          "ai_include_agt": "List of hub to be included in Scene",
-          "ai_include_me": "List of device to be included in Scene"
+          "userid": "User ID",
+          "region": "LifeSmart Regional Server"
         }
       }
     },
@@ -31,189 +27,181 @@
         "title": "LifeSmart Options",
         "menu_options": {
           "user": "Edit connection settings",
-          "ac_device": "Use SPOT A/C remote",
+          "ac_device": "Configure SPOT A/C remote",
           "ac_remove": "Remove SPOT A/C remote"
         }
       },
       "user": {
-        "title": "LifeSmart Integration Setup",
-        "description": "Enter LifeSmart Platform credential and User details.",
+        "title": "LifeSmart Connection Settings",
+        "description": "Update your LifeSmart Platform credentials and user details.",
         "data": {
           "appkey": "App Key",
           "apptoken": "App Token",
           "userpassword": "User Password",
-          "userid": "User Id",
-          "region": "LifeSmart regional server",
-          "exclude": "List of device to be excluded",
-          "exclude_agt": "List of hub to be excluded",
-          "ai_include_agt": "List of hub to be included in Scene",
-          "ai_include_me": "List of device to be included in Scene"
+          "userid": "User ID",
+          "region": "LifeSmart Regional Server"
         }
       },
       "ac_device": {
         "title": "Select SPOT Device",
-        "description": "Choose the LifeSmart SPOT device that already has an A/C remote assigned in the LifeSmart app.",
+        "description": "Choose a LifeSmart SPOT device that has an A/C remote assigned in the LifeSmart app.",
         "data": {
-          "device": "SPOT device"
+          "device": "SPOT Device"
         }
       },
       "ac_brand": {
         "title": "Select A/C Brand",
-        "description": "Choose the air conditioner brand for the selected SPOT device.",
+        "description": "Select the air conditioner brand for the chosen SPOT device.",
         "data": {
-          "brand": "A/C brand"
+          "brand": "A/C Brand"
         }
       },
       "ac_remote": {
         "title": "Select Remote Profile",
-        "description": "Choose the remote profile index returned by the LifeSmart A/C API.",
+        "description": "Choose the remote profile index from the LifeSmart A/C API results.",
         "data": {
-          "idx": "Remote profile"
+          "idx": "Remote Profile Index"
         }
       },
       "ac_remove": {
         "title": "Remove SPOT A/C Remote",
-        "description": "Choose the configured SPOT A/C remote you want to remove.",
+        "description": "Select the configured SPOT A/C remote to remove.",
         "data": {
-          "device": "Configured SPOT A/C remote"
+          "device": "Configured SPOT A/C Remote"
         }
       },
       "main_params": {
         "title": "LifeSmart Integration Options",
-        "description": "Enter LifeSmart Platform credential and User details.",
+        "description": "Update LifeSmart Platform credentials and user details.",
         "data": {
           "appkey": "App Key",
           "apptoken": "App Token",
           "userpassword": "User Password",
-          "userid": "User Id",
-          "region": "LifeSmart regional server",
-          "exclude": "List of device to be excluded",
-          "exclude_agt": "List of hub to be excluded",
-          "ai_include_agt": "List of hub to be included in Scene",
-          "ai_include_me": "List of device to be included in Scene"
+          "userid": "User ID",
+          "region": "LifeSmart Regional Server"
         }
       }
     },
     "abort": {
-      "no_spot_devices": "No SPOT devices were found for this account.",
-      "no_ac_config": "No configured SPOT A/C remotes were found."
+      "no_spot_devices": "No SPOT devices found for this account.",
+      "no_ac_config": "No configured SPOT A/C remotes found."
     },
     "error": {
-      "no_ac_remote_assigned": "The selected SPOT device does not currently have an A/C remote assigned in the LifeSmart app.",
-      "no_ac_brands": "No A/C brands were returned by the LifeSmart API.",
-      "no_remote_idxs": "No remote profiles were returned for the selected A/C brand."
+      "no_ac_remote_assigned": "The selected SPOT device has no A/C remote assigned in the LifeSmart app.",
+      "no_ac_brands": "No A/C brands returned by the LifeSmart API.",
+      "no_remote_idxs": "No remote profiles found for the selected A/C brand."
     }
   },
   "services": {
     "send_ir_code": {
-      "name": "Send IR Codes",
-      "description": "Send IR code to remote device",
+      "name": "Send IR Code",
+      "description": "Send a custom IR code to a remote device.",
       "fields": {
         "device_id": {
-          "name": "Device Id",
-          "description": "Device Id (me)."
+          "name": "Device ID",
+          "description": "The device ID (me) of the target device."
         },
         "hub_id": {
-          "name": "AGT",
-          "description": "Hub Id (agt)."
+          "name": "Hub ID",
+          "description": "The hub ID (agt) of the target hub."
         },
         "ir_code": {
           "name": "IR Code",
-          "description": "IR Code data"
+          "description": "The IR code data to send."
         }
       }
     },
     "send_keys": {
-      "name": "Send Keys",
-      "description": "Send IR keys to remote device",
+      "name": "Send IR Keys",
+      "description": "Send IR key commands to a remote device.",
       "fields": {
         "me": {
-          "name": "Me",
-          "description": "Sub device Id."
+          "name": "Sub-Device ID",
+          "description": "The sub-device ID of the target device."
         },
         "agt": {
-          "name": "AGT",
-          "description": "Hub device Id."
+          "name": "Hub ID",
+          "description": "The hub ID of the target hub."
         },
         "ai": {
-          "name": "Remote Id",
-          "description": "Remote device Id."
+          "name": "Remote ID",
+          "description": "The remote device ID."
         },
         "category": {
-          "name": "Category",
-          "description": "Target device category."
+          "name": "Device Category",
+          "description": "The category of the target device (e.g., TV, fan)."
         },
         "brand": {
-          "name": "Brand",
-          "description": "Target device brand."
+          "name": "Device Brand",
+          "description": "The brand of the target device."
         },
         "keys": {
           "name": "Keys",
-          "description": "Command key to be sent."
+          "description": "The command keys to send (comma-separated)."
         }
       }
     },
     "send_ackeys": {
       "name": "Send A/C Keys",
-      "description": "Send IR keys to A/C device",
+      "description": "Send IR commands to control an air conditioner.",
       "fields": {
         "me": {
-          "name": "Me",
-          "description": "Sub device Id."
+          "name": "Sub-Device ID",
+          "description": "The sub-device ID of the A/C device."
         },
         "agt": {
-          "name": "AGT",
-          "description": "Hub device Id."
+          "name": "Hub ID",
+          "description": "The hub ID of the target hub."
         },
         "ai": {
-          "name": "Remote Id",
-          "description": "Remote device Id."
+          "name": "Remote ID",
+          "description": "The remote device ID for the A/C."
         },
         "category": {
-          "name": "Category",
-          "description": "Target device category."
+          "name": "Device Category",
+          "description": "The category of the A/C device."
         },
         "brand": {
-          "name": "Brand",
-          "description": "Target device brand."
+          "name": "Device Brand",
+          "description": "The brand of the A/C device."
         },
         "keys": {
           "name": "Keys",
-          "description": "Command key to be sent."
+          "description": "The command keys to send (comma-separated)."
         },
         "power": {
-          "name": "Power On/Off",
-          "description": "Power on = 1, off = 0"
+          "name": "Power State",
+          "description": "Power on (1) or off (0)."
         },
         "mode": {
-          "name": "Mode",
-          "description": "Mode."
+          "name": "Operating Mode",
+          "description": "The A/C operating mode (e.g., cool, heat)."
         },
         "temp": {
           "name": "Temperature",
-          "description": "Temperature to be set."
+          "description": "The target temperature to set."
         },
         "wind": {
-          "name": "Wind Level",
-          "description": "Wind Level."
+          "name": "Fan Speed",
+          "description": "The fan speed level."
         },
         "swing": {
           "name": "Swing Mode",
-          "description": "Swing mode."
+          "description": "The swing mode setting."
         }
       }
     },
     "scene_set": {
-      "name": "Scene Set",
-      "description": "Set scene to remote device",
+      "name": "Set Scene",
+      "description": "Activate a scene on a remote device.",
       "fields": {
         "agt": {
-          "name": "AGT",
-          "description": "Hub device Id."
+          "name": "Hub ID",
+          "description": "The hub ID of the target hub."
         },
         "id": {
-          "name": "Scene Id",
-          "description": "Remote Scene Id."
+          "name": "Scene ID",
+          "description": "The ID of the scene to activate."
         }
       }
     }

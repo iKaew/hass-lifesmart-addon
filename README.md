@@ -47,15 +47,31 @@ Use manual installation only if you cannot use HACS.
 
 ## Setup
 
-1. Go to `Settings` -> `Devices & Services`.
+1. Go to `Settings` → `Devices & Services`.
 1. Click `Add Integration`.
-1. Search for `LifeSmart`.
-1. Enter your LifeSmart Open Platform `app key`, `app token`, LifeSmart user ID, LifeSmart password, and region.
-1. Submit the form and wait for Home Assistant to discover your devices.
+1. Search for `LifeSmart` and select it.
+1. Enter your LifeSmart Platform credentials:
+   - **App Key**: From your LifeSmart Open Platform application
+   - **App Token**: From your LifeSmart Open Platform application  
+   - **User ID**: Your LifeSmart account user ID (see below)
+   - **User Password**: Your LifeSmart account password
+   - **LifeSmart Regional Server**: Select your regional server
+1. Click `Submit` and wait for device discovery.
 
-The integration is configured through the Home Assistant UI. YAML configuration is not required for normal setup.
+The integration will automatically discover and create entities for all your LifeSmart devices.
 
-## Finding Your LifeSmart User ID
+## User Interface Improvements
+
+The LifeSmart integration features a modern, user-friendly interface with:
+
+- **Clear Field Labels**: Descriptive names like "LifeSmart Regional Server" instead of generic "region"
+- **Helpful Descriptions**: Context for each configuration step
+- **Consistent Terminology**: Standardized "ID" capitalization and professional formatting
+- **Guided Setup**: Step-by-step A/C configuration with clear instructions
+
+All text has been optimized for clarity and ease of use.
+
+### Finding Your LifeSmart User ID
 
 Your user ID is available in the LifeSmart mobile app account/profile area.
 
@@ -86,37 +102,33 @@ Support is based on the attributes returned by the LifeSmart API. Some models cr
 
 ## Screenshots
 
-<img src="./docs/example-configuration.png" alt="LifeSmart integration configuration form" width="360">
-<img src="./docs/example-image.png" alt="LifeSmart device example" width="640">
-<img src="./docs/example-image-4.png" alt="LifeSmart entity example" width="520">
-<img src="./docs/example-image-2.png" alt="LifeSmart entity list example" width="720">
-<img src="./docs/example-image-3.png" alt="LifeSmart controls example" width="720">
+### Configuration Interface
+
+The integration features a clean, user-friendly configuration interface with clear field labels and helpful descriptions:
+
+<img src="./docs/lifesmart-options-menu.png" alt="LifeSmart integration options menu" width="400">
+<img src="./docs/lifesmart-connection-settings.png" alt="LifeSmart connection settings form" width="500">
+
+### Device Examples
+
+<img src="./docs/lifesmart-devices.png" alt="LifeSmart device example" width="640">
 <img src="./docs/example-image-5.png" alt="LifeSmart integration example overview" width="460">
 <img src="./docs/example-image-6.png" alt="SPOT setup example" width="460">
 <img src="./docs/example-image-7.png" alt="SPOT A/C setup example" width="460">
 
-## SPOT A/C Setup
+### SPOT A/C Setup
 
-SPOT A/C control is configured from the integration options flow.
+Easy step-by-step A/C remote configuration:
 
-1. Add and set up the LifeSmart integration normally
-1. Open `Settings -> Devices & Services -> LifeSmart -> Configure`
-1. Choose `Configure SPOT A/C remote`
-1. Select the SPOT device
-1. Optionally search for the brand name
-1. Select the A/C brand
-1. Select the remote profile returned by the LifeSmart API
-1. Save
+<img src="./docs/lifesmart-spot-device-selection.png" alt="SPOT device selection for A/C setup" width="400">
+<img src="./docs/lifesmart-configured-ac-remotes.png" alt="Configured A/C remotes management" width="400">
 
-After saving, the integration reloads and creates a climate entity for that SPOT device.
+- Uses LifeSmart cloud IR profiles for reliable A/C control
+- Restores last Home Assistant state after reloads
+- Supports power on/off, mode selection, temperature, and fan speed
+- Does not show current room temperature (SPOT devices lack built-in sensors)
 
-Current SPOT A/C behavior:
-- Uses LifeSmart cloud IR profiles for the selected A/C brand/profile
-- Restores the last Home Assistant state after reload
-- Does not expose current temperature, because SPOT devices do not have a built-in temperature sensor
-- Supports removing configured A/C remotes from the same options flow
-
-For more details, see [SPOT_SUPPORT.md](./SPOT_SUPPORT.md)
+For detailed SPOT device information, see [SPOT_SUPPORT.md](./SPOT_SUPPORT.md)..
 
 ## Native A/C Control Panels
 

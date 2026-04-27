@@ -151,6 +151,7 @@ def test_sensor_entity_branches_and_properties():
     cube_guard_battery, _ = make_sensor_entity("SL_SC_BG", "V", {"val": 3000, "v": 79})
     cube_motion_battery, _ = make_sensor_entity("SL_SC_BM", "V", {"val": 3000, "v": 82})
     controller_config, _ = make_sensor_entity("SL_P", "P1", {"val": 0x8A07000A})
+    lock_battery, _ = make_sensor_entity("SL_LK_YL", "BAT", {"val": 90})
     lock_operation, _ = make_sensor_entity(
         "SL_LK_YL", "EVTOP", {"type": 0x7E, "val": 0x12012303}
     )
@@ -177,6 +178,10 @@ def test_sensor_entity_branches_and_properties():
     assert cube_motion_battery.device_class == sensor_module.SensorDeviceClass.BATTERY
     assert cube_motion_battery.state == 82
     assert cube_motion_battery.extra_state_attributes == {"raw": 3000}
+    assert lock_battery.device_name == "Battery"
+    assert lock_battery.name == "Battery"
+    assert lock_battery.device_class == sensor_module.SensorDeviceClass.BATTERY
+    assert lock_battery.state == 90
     assert lock_operation.device_name == "Last Operation"
     assert lock_operation.state == "Operation type 18 by user id 291"
     assert lock_operation.unit_of_measurement is None

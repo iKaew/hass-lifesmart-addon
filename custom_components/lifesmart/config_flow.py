@@ -11,10 +11,6 @@ from homeassistant.helpers.selector import selector
 
 from .const import (
     CONF_AC_CONFIG,
-    CONF_AI_INCLUDE_AGTS,
-    CONF_AI_INCLUDE_ITEMS,
-    CONF_EXCLUDE_AGTS,
-    CONF_EXCLUDE_ITEMS,
     CONF_LIFESMART_APPKEY,
     CONF_LIFESMART_APPTOKEN,
     CONF_LIFESMART_USERID,
@@ -38,10 +34,6 @@ DATA_SCHEMA = {
     vol.Required(CONF_LIFESMART_USERID): str,
     vol.Required(CONF_LIFESMART_USERPASSWORD): str,
     vol.Required(CONF_REGION): selector(LIFESMART_REGION_OPTIONS),
-    vol.Optional(CONF_EXCLUDE_ITEMS): str,
-    vol.Optional(CONF_EXCLUDE_AGTS): str,
-    vol.Optional(CONF_AI_INCLUDE_AGTS): str,
-    vol.Optional(CONF_AI_INCLUDE_ITEMS): str,
 }
 
 
@@ -53,10 +45,6 @@ async def validate_input(hass, data):
     user_id = data[CONF_LIFESMART_USERID]
     user_password = data[CONF_LIFESMART_USERPASSWORD]
     region = data[CONF_REGION]
-    # exclude_devices = data[CONF_EXCLUDE_ITEMS]
-    # exclude_hubs = data[CONF_EXCLUDE_AGTS]
-    # ai_include_hubs = data[CONF_AI_INCLUDE_AGTS]
-    # ai_include_items = data[CONF_AI_INCLUDE_ITEMS]
 
     lifesmart_client = LifeSmartClient(
         region,
@@ -153,28 +141,6 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_REGION,
                     default=user_input.get(CONF_REGION, "") if user_input else "",
                 ): selector(LIFESMART_REGION_OPTIONS),
-                vol.Optional(
-                    CONF_EXCLUDE_ITEMS,
-                    default=user_input.get(CONF_EXCLUDE_ITEMS, "")
-                    if user_input
-                    else "",
-                ): str,
-                vol.Optional(
-                    CONF_EXCLUDE_AGTS,
-                    default=user_input.get(CONF_EXCLUDE_AGTS, "") if user_input else "",
-                ): str,
-                vol.Optional(
-                    CONF_AI_INCLUDE_AGTS,
-                    default=user_input.get(CONF_AI_INCLUDE_AGTS, "")
-                    if user_input
-                    else "",
-                ): str,
-                vol.Optional(
-                    CONF_AI_INCLUDE_ITEMS,
-                    default=user_input.get(CONF_AI_INCLUDE_ITEMS, "")
-                    if user_input
-                    else "",
-                ): str,
             }
         )
 
@@ -354,22 +320,6 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_REGION,
                 default=self._get_entry_value(CONF_REGION),
             ): selector(LIFESMART_REGION_OPTIONS),
-            vol.Optional(
-                CONF_EXCLUDE_ITEMS,
-                default=self._get_entry_value(CONF_EXCLUDE_ITEMS, ""),
-            ): str,
-            vol.Optional(
-                CONF_EXCLUDE_AGTS,
-                default=self._get_entry_value(CONF_EXCLUDE_AGTS, ""),
-            ): str,
-            vol.Optional(
-                CONF_AI_INCLUDE_AGTS,
-                default=self._get_entry_value(CONF_AI_INCLUDE_AGTS, ""),
-            ): str,
-            vol.Optional(
-                CONF_AI_INCLUDE_ITEMS,
-                default=self._get_entry_value(CONF_AI_INCLUDE_ITEMS, ""),
-            ): str,
         }
 
         return self.async_show_form(
