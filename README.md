@@ -1,41 +1,31 @@
-
 [![GitHub Release](https://img.shields.io/github/v/release/ikaew/hass-lifesmart-addon?logo=homeassistantcommunitystore)](https://github.com/ikaew/hass-lifesmart-addon/releases/latest)
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ikaew/hass-lifesmart-addon/tests.yml) 
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ikaew/hass-lifesmart-addon/hacs.yaml?label=Validate%20for%20HACS) 
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ikaew/hass-lifesmart-addon/hass.yml?label=Validate%20with%20hassfest)
+![Tests](https://img.shields.io/github/actions/workflow/status/ikaew/hass-lifesmart-addon/tests.yml?label=tests)
+![HACS Validation](https://img.shields.io/github/actions/workflow/status/ikaew/hass-lifesmart-addon/hacs.yaml?label=HACS)
+![Hassfest](https://img.shields.io/github/actions/workflow/status/ikaew/hass-lifesmart-addon/hass.yml?label=hassfest)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon?ref=badge_shield)
 [![codecov](https://codecov.io/github/iKaew/hass-lifesmart-addon/graph/badge.svg?token=RBLBCNEPI2)](https://codecov.io/github/iKaew/hass-lifesmart-addon)
----
 
+# LifeSmart for Home Assistant
 
-Instructions
-==== 
-Lifesmart devices for Home Assistant
+Cloud-based Home Assistant integration for LifeSmart devices. The integration discovers your LifeSmart devices through the LifeSmart Open Platform API, creates Home Assistant entities, and receives ongoing updates through the LifeSmart WebSocket service.
 
-Prerequisites: 
----
-1. Find current LifeSmart region for your country (America, Europe, Asia Pacific, China (old, new , VIP)). [See regional server list here](./docs/api-regions.md)
+There is no direct local communication between Home Assistant and the LifeSmart hub at the moment, so internet access and valid LifeSmart cloud credentials are required.
 
+## Prerequisites
 
-1. New Application from LifeSmart Open Platform to obtain `app key` and `app token`, https://www.ilifesmart.com/open/login (content is in chinese, you may need to change language from the top right menu)
+1. Confirm the LifeSmart API region for your account. See [LifeSmart API regions](./docs/api-regions.md).
+1. Create an application in the [LifeSmart Open Platform](https://www.ilifesmart.com/open/login) to obtain an `app key` and `app token`.
+1. Use the same LifeSmart account that you use in the mobile app. You will enter its user ID and password during Home Assistant setup.
 
-1. Login to application created in previous bullet with LifeSmart user to grant 3rd party application access to get `user token`, please ensure you use the api address with correct region. 
+The LifeSmart Open Platform page may open in Chinese; use the language menu in the top-right corner if needed.
 
-**Please note that, by default application from LifeSmart Open Platform won't return you Lock devices type. You have to contact them to get it granted to your application.**
+Important: LifeSmart Open Platform applications usually do not return door lock devices by default. Contact LifeSmart and ask them to enable lock device access for your application if you need lock support.
 
-How it works:
----
+## Installation
 
-- This add-on required internet access, first when add-on loaded it will call LifeSmart API to get all devices to setup on Home Assistant, After that it will get updated from LifeSmart via websocket. There is no direct communication between HA and local LifeSmart hub at the moment. 
+### HACS
 
-
-How to install:
----
-
-### HACS (Recommended)
-
-
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?category=integration&repository=hass-lifesmart-addon&owner=iKaew)
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?category=integration&repository=hass-lifesmart-addon&owner=iKaew)
 
 OR
 
@@ -45,8 +35,6 @@ OR
 1. Search for `LifeSmart`.
 1. Select the LifeSmart integration and click `Download`.
 1. Restart Home Assistant when HACS asks you to.
-1. Go to `Settings` -> `Devices & Services`.
-1. Click `Add Integration`, search for `LifeSmart`, and complete the setup.
 
 Installing from HACS lets Home Assistant notify you when a new version is available.
 
@@ -56,185 +44,57 @@ Use manual installation only if you cannot use HACS.
 
 1. Copy the `custom_components/lifesmart` directory to `config/custom_components/` in Home Assistant.
 1. Restart Home Assistant.
+
+## Setup
+
 1. Go to `Settings` -> `Devices & Services`.
-1. Click `Add Integration`, search for `LifeSmart`, and complete the setup.
+1. Click `Add Integration`.
+1. Search for `LifeSmart`.
+1. Enter your LifeSmart Open Platform `app key`, `app token`, LifeSmart user ID, LifeSmart password, and region.
+1. Submit the form and wait for Home Assistant to discover your devices.
 
-   Configuration required for this add-on via UI (see example screen below)
-   ```
-   lifesmart:
-     appkey: | your appkey|  
-     apptoken: | your apptoken| 
-     usertoken: | your usertoken|  
-     userid: | your userid|
-     userpassword: | your password that use to login mobile app |
-     url: | your api address|  #e.g. api.apz.ilifesmart.com for asia pacific, api.us.ilifesmart.com for US  
-    ```
+The integration is configured through the Home Assistant UI. YAML configuration is not required for normal setup.
 
-How to find user id from the mobile app
----
-![image](https://github.com/user-attachments/assets/3f5f1fd6-1c38-4fd8-a557-9d5bfa5e4a0f)
+## Finding Your LifeSmart User ID
 
+Your user ID is available in the LifeSmart mobile app account/profile area.
 
-Example
----
-![Alt text](./docs/example-image-5.png)
-![image](https://github.com/user-attachments/assets/7d11a957-987c-4084-806e-9ffd16491c7e)
+<img src="https://github.com/user-attachments/assets/3f5f1fd6-1c38-4fd8-a557-9d5bfa5e4a0f" alt="LifeSmart mobile app user ID screen" width="420">
 
-![Alt text](./docs/example-image.png)
-![Alt text](./docs/example-image-4.png)
-![Alt text](./docs/example-image-2.png)
-![Alt text](./docs/example-image-3.png)
-![Alt text](./docs/example-image-6.png)
-![Alt text](./docs/example-image-7.png)
+## Supported Devices
 
+Support is based on the attributes returned by the LifeSmart API. Some models create more than one Home Assistant entity.
 
-Supported devices:
----
-Since there are a lot of refactored and code changes, some old device removed from supported list for now. 
-1. Switch 
+| Family | Models | Entities / support | Notes |
+| ------ | ------ | ------------------ | ----- |
+| Switches and relay outputs | `OD_WE_OT1`, `SL_MC_ND1`, `SL_MC_ND2`, `SL_MC_ND3`, `SL_OL`, `SL_OL_3C`, `SL_OL_DE`, `SL_OL_UK`, `SL_OL_UL`, `SL_OL_W`, `SL_P_SW`, `SL_S`, `SL_SF_IF1`, `SL_SF_IF2`, `SL_SF_IF3`, `SL_SF_RC`, `SL_SPWM`, `SL_SW_CP1`, `SL_SW_CP2`, `SL_SW_CP3`, `SL_SW_DM1`, `SL_SW_FE1`, `SL_SW_FE2`, `SL_SW_IF1`, `SL_SW_IF2`, `SL_SW_IF3`, `SL_SW_MJ1`, `SL_SW_MJ2`, `SL_SW_MJ3`, `SL_SW_ND1`, `SL_SW_ND2`, `SL_SW_ND3`, `SL_SW_NS1`, `SL_SW_NS2`, `SL_SW_NS3`, `SL_SW_RC`, `SL_SW_RC1`, `SL_SW_RC2`, `SL_SW_RC3`, `V_IND_S` | Switch entities for supported `L1-L3` / `P1-P3` outputs | `SL_SW_MJ1` and `SL_SW_MJ2` have been tested with real devices. |
+| Lights | `SL_OL_W`, `SL_SW_IF1`, `SL_SW_IF2`, `SL_SW_IF3`, `SL_CT_RGBW`, `SL_LI_WW` | RGB/RGBW, brightness, and dimmer entities where attributes are reported | Light support depends on the device exposing the expected light attributes. |
+| Smart plug | `SL_OE_DE` | Switch, energy, and power sensors | Tested with real devices. |
+| Generic controllers | `SL_P`, `SL_JEMA` | `P2-P4` switch outputs, `P5-P7` binary inputs, `P1` diagnostic configuration sensor | `P1` is disabled by default because it exposes configuration bits. `SL_JEMA` also supports independent HA switch outputs `P8-P10`. |
+| Covers and garage doors | `SL_DOOYA`, `SL_DOOYA_V2`, `SL_DOOYA_V3`, `SL_DOOYA_V4`, `SL_SW_WIN`, `SL_CN_IF`, `SL_CN_FE`, `SL_P_V2`, `SL_ETDOOR` | Cover entities | Position support is available on DOOYA variants. Other controllers generally support open/close/stop. See [CURTAIN_SUPPORT.md](./CURTAIN_SUPPORT.md). |
+| Door locks | `SL_LK_LS`, `SL_LK_GTM`, `SL_LK_AG`, `SL_LK_SG`, `SL_LK_YL`, `SL_LK_TY`, `SL_LK_DJ` | Battery sensor, lock/alarm binary sensors, doorbell where reported, operation/history details where reported | `SL_LK_LS` has been tested with real devices. Supported attributes vary by lock model. |
+| Motion and presence sensors | `SL_SC_MHW`, `SL_SC_BM`, `SL_SC_CM`, `SL_P_RM`, `SL_DF_MM` | Motion binary sensors; battery/temperature where reported | `SL_SC_CM` and `SL_P_RM` use model-specific attribute keys. |
+| Door, guard, and vibration sensors | `SL_SC_G`, `SL_SC_BG`, `SL_DF_GG` | Door/opening, button/occupancy, vibration/tamper, battery, temperature where reported | `SL_SC_BG` supports `G`, `V`, `B`, and `AXS`. |
+| Safety sensors | `SL_P_A`, `SL_SC_WA`, `SL_SC_CH`, `SL_SC_CP`, `SL_DF_SR`, `SL_ALM` | Smoke, water leak, gas, siren/alarm binary sensors; battery/sensor values where reported | Gas/noise/alarm devices expose both measurement and alarm attributes when available. |
+| Environmental sensors | `SL_SC_THL`, `SL_SC_BE`, `SL_SC_CQ`, `SL_SC_CA`, `SL_SC_CN` | Temperature, humidity, illuminance, battery, CO2, TVOC, noise, USB/voltage where reported | Attribute coverage follows the LifeSmart device attribute list. |
+| Electricity meters | `ELIQ_EM`, `V_DLT_645_P`, `V_DLT645_P` | Power and/or energy sensors | DLT values are decoded from LifeSmart float values when needed. |
+| 485 controller | `V_485_P` | Relay outputs plus Modbus-style sensors for power, energy, voltage, current, frequency, temperature, humidity, PM, gas, CO2, TVOC, sound, and smoke keys | Supports documented base keys and numbered variants such as `EE1`, `EP2`, `PM10`. |
+| Air purifier | `OD_MFRESH_M8088` | Switch plus mode, temperature, humidity, PM2.5, filter life, and UV sensors | Mode sensor is an enum. |
+| Nature series | `SL_NATURE` | Switch-board variants create `P1-P3` switches; thermostat variants create a climate entity; `P4` temperature is exposed when reported | Variant is detected from the reported attributes. |
+| Native A/C panels | `V_AIR_P`, `V_SZJSXR_P`, `V_T8600_P`, `SL_CP_DN` | Climate entities | These use LifeSmart native `EpSet` control, not SPOT IR profiles. |
+| SPOT and IR remotes | `SL_SPOT`, `MSL_IRCTL`, `OD_WE_IRCTL`, `SL_P_IR`, `SL_P_IR_V2` | Remote entities for IR command storage/sending; optional A/C climate entities; light entities only on SPOT models with light attributes | `SL_P_IR` and `SL_P_IR_V2` do not create light entities. `SL_P_IR_V2` exposes pairing-button `P2` as a binary sensor when reported. |
 
-1. Intelligent door lock information feedback
+## Screenshots
 
-1. Smart Plug
-
-1. Motion sensor, dynamic sensor, door sensor, environmental sensor, formaldehyde/gas sensor
-
-1. Curtain motor (DOOYA and other brands via LifeSmart controller)
-
-1. Lighting: SPOT devices with RGB/RGBW control
-
-1. IR Remote Control: SPOT devices with IR remote learning and control
-
-1. A/C Remote Control: SPOT devices configured as climate entities through the options flow
-
-1. A/C Control Panel: native LifeSmart central air board devices
-
-1. Nature Series: switch panels, temperature sensor, and thermostat panel variants
-
-1. ~~Universal remote control~~
-
-List of supported devices
-
-Switch: 
-| Model  | Remark |
-| ------ | ------ |
-| OD_WE_OT1 | |
-| SL_MC_ND1 | |
-| SL_MC_ND2 | |
-| SL_MC_ND3 | |
-| SL_NATURE | |
-| SL_OL | |
-| SL_OL_3C | |
-| SL_OL_DE | |
-| SL_OL_UK | |
-| SL_OL_UL | |
-| SL_OL_W | |
-| SL_P_SW | |
-| SL_S | |
-| SL_SF_IF1 | |
-| SL_SF_IF2 | |
-| SL_SF_IF3 | |
-| SL_SF_RC | |
-| SL_SPWM | |
-| SL_SW_CP1 | |
-| SL_SW_CP2 | |
-| SL_SW_CP3 | |
-| SL_SW_DM1 | |
-| SL_SW_FE1 | |
-| SL_SW_FE2 | |
-| SL_SW_IF1 | |
-| SL_SW_IF2 | |
-| SL_SW_IF3 | |
-| SL_SW_MJ1 | Tested with real devices |
-| SL_SW_MJ2 | Tested with real devices |
-| SL_SW_MJ3 | |
-| SL_SW_ND1 | |
-| SL_SW_ND2 | |
-| SL_SW_ND3 | |
-| SL_SW_NS3 | |
-| SL_SW_RC | |
-| SL_SW_RC1 | |
-| SL_SW_RC2 | |
-| SL_SW_RC3 | |
-| SL_SW_NS1 | |
-| SL_SW_NS2 | |
-| SL_SW_NS3 | |
-| V_IND_S | |
-
-Door Locks: 
-| Model  | Remark |
-| ------ | ------ |
-| SL_LK_LS | Tested with real devices |
-| SL_LK_GTM | |
-| SL_LK_AG | |
-| SL_LK_SG | |
-| SL_LK_YL | |
-
-Generic Controller: 
-| Model  | Remark |
-| ------ | ------ |
-| SL_P | Tested with real devices |
-
-
-Smart Plug: 
-| Model  | Remark |
-| ------ | ------ |
-| SL_OE_DE | Metering supported , Tested with real devices |
-| SL_OE_3C | Metering supported |
-| SL_OL_W | Metering supported |
-| OD_WE_OT1 | |
-| ~~SL_OL_UL~~ | |
-| ~~SL_OL_UK~~ | |
-| ~~SL_OL_THE~~ | |
-| ~~SL_OL_3C~~ | |
-| ~~SL_O~~L | |
-
-Binary Sensors:
-| Model  | Remark |
-| ------ | ------ |
-| SL_SC_MHW | Motion sensor |
-| SL_SC_BM | CUBE motion sensor |
-| SL_SC_CM | Motion sensor (AAA battery) |
-| SL_SC_G | Guard / door sensor |
-| SL_SC_BG | CUBE guard / door sensor |
-| SL_P_A | Smoke sensor |
-| SL_P | Generic controller binary inputs |
-
-Nature Series:
-| Model  | Remark |
-| ------ | ------ |
-| SL_NATURE | Nature Mini/MiniS and Nature Mini Pro switch panels |
-| SL_NATURE | Nature thermostat panels with current/target temperature, HVAC mode, and fan speed |
-
-Nature Series support is based on the attributes reported by the device. Switch-board variants create switch entities for `P1`, `P2`, and `P3`. Thermostat variants create a climate entity, and devices with a `P4` temperature attribute also expose a temperature sensor.
-
-Curtain Motor / Cover: 
-| Model  | Remark |
-| ------ | ------ |
-| SL_DOOYA | Supports position control (0-100%) |
-| SL_DOOYA_V2 | Quick Link Curtain Motor with position control |
-| SL_DOOYA_V3 | Tubular Motor with position control |
-| SL_DOOYA_V4 | Tubular Motor (lithium battery) with position control |
-| SL_SW_WIN | Curtain control switch (open/close/stop) |
-| SL_CN_IF | BLEND curtain controller (open/close/stop) |
-| SL_CN_FE | Gezhi/Sennathree-key curtain (open/close/stop) |
-| SL_P_V2 | MINS curtain motor controller (open/close/stop) |
-
-For detailed curtain device setup and usage, see [CURTAIN_SUPPORT.md](./CURTAIN_SUPPORT.md)
-
-Lighting / SPOT Devices: 
-| Model  | Remark |
-| ------ | ------ |
-| SL_SPOT | RGB/RGBW light control + IR remote control + optional A/C climate control |
-| MSL_IRCTL | IR remote control + optional A/C climate control |
-| OD_WE_IRCTL | IR remote control + optional A/C climate control |
-
-For SPOT devices, two entities are created:
-- **Light entity**: Controls RGB/RGBW lighting functions
-- **Remote entity**: Handles IR remote control learning and sending
-
-If a SPOT device is configured as an A/C remote, a third entity is also created:
-- **Climate entity**: Controls supported A/C functions through LifeSmart IR profiles
+<img src="./docs/example-configuration.png" alt="LifeSmart integration configuration form" width="360">
+<img src="./docs/example-image-5.png" alt="LifeSmart integration example overview" width="460">
+<img src="https://github.com/user-attachments/assets/7d11a957-987c-4084-806e-9ffd16491c7e" alt="LifeSmart integration example in Home Assistant" width="640">
+<img src="./docs/example-image.png" alt="LifeSmart device example" width="640">
+<img src="./docs/example-image-4.png" alt="LifeSmart entity example" width="520">
+<img src="./docs/example-image-2.png" alt="LifeSmart entity list example" width="720">
+<img src="./docs/example-image-3.png" alt="LifeSmart controls example" width="720">
+<img src="./docs/example-image-6.png" alt="SPOT setup example" width="460">
+<img src="./docs/example-image-7.png" alt="SPOT A/C setup example" width="460">
 
 ## SPOT A/C Setup
 
@@ -268,6 +128,7 @@ Native LifeSmart A/C control panels are discovered automatically as climate enti
 | V_AIR_P | Central air board |
 | V_SZJSXR_P | Uses the V_AIR_P attribute specification |
 | V_T8600_P | Uses the V_AIR_P attribute specification |
+| SL_CP_DN | Thermostat |
 
 Supported controls:
 - Power on/off
@@ -278,8 +139,10 @@ Supported controls:
 
 These devices use the LifeSmart `EpSet` API directly, rather than SPOT IR profiles.
 
-This project is forked/combined from serveral projects below 
----
+## Credits
+
+This project combines and builds on work from:
+
 - https://github.com/skyzhishui/custom_components by @skyzhishui
 - https://github.com/Blankdlh/hass-lifesmart by @Blankdlh
 - https://github.com/likso/hass-lifesmart by @likso

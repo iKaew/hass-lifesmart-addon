@@ -53,6 +53,7 @@ def test_async_setup_entry_creates_supported_binary_sensors_and_skips_excluded()
         make_setup_device("SL_DF_SR", {"SR": {"type": 1}, "TR": {"type": 0}}, device_id="DEF1"),
         make_setup_device("SL_SC_WA", {"WA": {"val": 1}, "V": {"v": 87}}, device_id="LEAK1"),
         make_setup_device("SL_SC_BM", {"M": {"val": 1}, "V": {"v": 82}}, device_id="BM1"),
+        make_setup_device("SL_P_IR_V2", {"P2": {"type": 1, "val": 0}}, device_id="IR1"),
         make_setup_device("SL_SC_CN", {"P3": {"type": 1, "val": 1}}, device_id="NOISE1"),
         make_setup_device(
             "SL_LK_YL",
@@ -85,12 +86,13 @@ def test_async_setup_entry_creates_supported_binary_sensors_and_skips_excluded()
 
     entity_ids = {entity.entity_id for entity in added_entities}
 
-    assert len(added_entities) == 9
+    assert len(added_entities) == 10
     assert "binary_sensor.sl_sc_g_hub1_device1_g" in entity_ids
     assert "binary_sensor.sl_df_sr_hub1_def1_sr" in entity_ids
     assert "binary_sensor.sl_df_sr_hub1_def1_tr" in entity_ids
     assert "binary_sensor.sl_sc_wa_hub1_leak1_wa" in entity_ids
     assert "binary_sensor.sl_sc_bm_hub1_bm1_m" in entity_ids
+    assert "binary_sensor.sl_p_ir_v2_hub1_ir1_p2" in entity_ids
     assert "binary_sensor.sl_sc_cn_hub1_noise1_p3" in entity_ids
     assert "binary_sensor.sl_lk_yl_hub1_lock1_evtlo" in entity_ids
     assert "binary_sensor.sl_lk_yl_hub1_lock1_alm" in entity_ids
@@ -104,6 +106,7 @@ def test_guard_motion_water_and_smoke_binary_sensor_initialization():
     cube_door = make_binary_sensor("SL_SC_BG", "G", {"val": 0})
     cube_button = make_binary_sensor("SL_SC_BG", "B", {"val": 1})
     cube_vibration = make_binary_sensor("SL_SC_BG", "AXS", {"val": 1})
+    ir_pairing = make_binary_sensor("SL_P_IR", "P2", {"type": 1, "val": 0})
     motion = make_binary_sensor("SL_SC_MHW", "M", {"val": 1})
     cube_motion = make_binary_sensor("SL_SC_BM", "M", {"val": 1})
     radar = make_binary_sensor("SL_P_RM", "P1", {"val": 1})
@@ -122,6 +125,9 @@ def test_guard_motion_water_and_smoke_binary_sensor_initialization():
     assert cube_button.is_on is True
     assert cube_vibration.device_class == BinarySensorDeviceClass.VIBRATION
     assert cube_vibration.is_on is True
+    assert ir_pairing.device_class is None
+    assert ir_pairing.is_on is True
+    assert ir_pairing.extra_state_attributes == {"raw": 0}
     assert motion.device_class == BinarySensorDeviceClass.MOTION
     assert motion.is_on is True
     assert cube_motion.device_class == BinarySensorDeviceClass.MOTION
@@ -229,6 +235,7 @@ def test_state_from_data_covers_special_cases():
 
     assert guard._state_from_data({"devtype": "SL_SC_G", "idx": "G", "val": 0}) is True
     assert controller._state_from_data({"devtype": "SL_JEMA", "idx": "P6", "type": 1, "val": 0}) is True
+    assert controller._state_from_data({"devtype": "SL_P_IR", "idx": "P2", "type": 1, "val": 0}) is True
     assert defed._state_from_data({"devtype": "SL_DF_SR", "idx": "TR", "type": 1}) is True
     assert gas._state_from_data({"devtype": "SL_SC_CH", "idx": "P3", "type": 1}) is True
     assert doorbell._state_from_data({"devtype": "SL_LK_LS", "idx": "EVTBELL", "type": 1}) is True

@@ -44,10 +44,10 @@ class FakeStore:
         self.saved.append(data)
 
 
-def make_raw_device(device_id="SPOT1"):
+def make_raw_device(device_id="SPOT1", device_type="SL_SPOT"):
     return {
         "name": "Spot",
-        "devtype": "SL_SPOT",
+        "devtype": device_type,
         "agt": "HUB1",
         "me": device_id,
         "ver": "1.0",
@@ -55,12 +55,20 @@ def make_raw_device(device_id="SPOT1"):
 
 
 def test_remote_async_setup_entry_and_helpers():
-    devices = [make_raw_device("SPOT1"), {"name": "Other", "devtype": "SL_OL", "agt": "HUB1", "me": "OTHER", "ver": "1.0"}]
+    devices = [
+        make_raw_device("SPOT1"),
+        make_raw_device("IR1", "SL_P_IR"),
+        make_raw_device("IR2", "SL_P_IR_V2"),
+        {"name": "Other", "devtype": "SL_OL", "agt": "HUB1", "me": "OTHER", "ver": "1.0"},
+    ]
     hass = FakeHass("entry-1", devices, client=FakeClient())
     added = []
     asyncio.run(remote_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
-    assert len(added) == 1
-    assert added[0].entity_id == "remote.sl_spot_hub1_spot1_remote"
+    entity_ids = {entity.entity_id for entity in added}
+    assert len(added) == 3
+    assert "remote.sl_spot_hub1_spot1_remote" in entity_ids
+    assert "remote.sl_p_ir_hub1_ir1_remote" in entity_ids
+    assert "remote.sl_p_ir_v2_hub1_ir2_remote" in entity_ids
     assert remote_module._ensure_command_list(None) == []
     assert remote_module._ensure_command_list("power") == ["power"]
     assert remote_module._command_device_key(None) == remote_module.DEFAULT_COMMAND_DEVICE

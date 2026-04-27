@@ -84,6 +84,7 @@ def test_light_async_setup_entry_creates_expected_entities():
     devices = [
         make_device("SL_LI_WW", {"P1": {"type": 1, "val": 120}, "P2": {"val": 80}}, device_id="DIM1"),
         make_device("SL_SPOT", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="SPOT1"),
+        make_device("SL_P_IR", {"P2": {"type": 0, "val": 0}}, device_id="IR1"),
         make_device("SL_OL_W", {"RGBW": {"type": 1, "val": 0x11223344}, "bright": {"type": 1, "val": 1}}, device_id="RGB1"),
     ]
     hass = FakeHass("entry-1", devices, client=FakeClient())

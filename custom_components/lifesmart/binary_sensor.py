@@ -38,6 +38,7 @@ from .const import (
     NOISE_SENSOR_TYPES,
     RADAR_MOTION_SENSOR_TYPES,
     SMART_ALARM_TYPES,
+    SPOT_IR_TYPES,
     SUBDEVICE_INDEX_KEY,
     WATER_LEAK_SENSOR_TYPES,
 )
@@ -70,6 +71,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             + GAS_SENSOR_TYPES
             + NOISE_SENSOR_TYPES
             + SMART_ALARM_TYPES
+            + SPOT_IR_TYPES
         )
         if device_type not in supported_binary_sensor_types:
             continue
@@ -91,6 +93,16 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                             client,
                         )
                     )
+            elif device_type in SPOT_IR_TYPES and sub_device_key == "P2":
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
             elif (
                 device_type in LOCK_TYPES
                 and sub_device_key == DIGITAL_DOORLOCK_LOCK_EVENT_KEY
@@ -350,6 +362,10 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         elif device_type in SMART_ALARM_TYPES:
             self._device_class = BinarySensorDeviceClass.SOUND
             self._state = sub_device_data.get("type", 0) % 2 == 1
+        elif device_type in SPOT_IR_TYPES:
+            self._device_class = None
+            self._state = sub_device_data.get("type", 0) % 2 == 1
+            self._attrs = {"raw": sub_device_data.get("val")}
         elif (
             device_type in LOCK_TYPES
             and sub_device_key == DIGITAL_DOORLOCK_LOCK_EVENT_KEY
@@ -477,6 +493,8 @@ class LifeSmartBinarySensor(BinarySensorEntity):
             return val == 0
         if device_type in GENERIC_CONTROLLER_TYPES:
             return _generic_controller_binary_state(data)
+        if device_type in SPOT_IR_TYPES:
+            return data.get("type", 0) % 2 == 1
         if device_type in DEFED_SENSOR_TYPES:
             return data.get("type", 0) % 2 == 1
         if (

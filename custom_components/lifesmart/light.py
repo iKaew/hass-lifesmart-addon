@@ -31,6 +31,7 @@ from .const import (
     HUB_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     MANUFACTURER,
+    SPOT_LIGHT_TYPES,
     SPOT_TYPES,
 )
 
@@ -78,7 +79,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
                     client,
                 )
             )
-        elif device_type in SPOT_TYPES:
+        elif device_type in SPOT_LIGHT_TYPES:
             light_devices.append(  # noqa: PERF401
                 LifeSmartSLSPOTLight(
                     ha_device,

@@ -303,6 +303,9 @@ def test_spot_remote_device():
     assert gen("SL_SPOT", "HUB1", "SPOT1", "remote") == (
         "remote.sl_spot_hub1_spot1_remote"
     )
+    assert gen("SL_P_IR", "HUB1", "IR1", "remote") == (
+        "remote.sl_p_ir_hub1_ir1_remote"
+    )
 
 
 def test_spot_ac_climate_device():

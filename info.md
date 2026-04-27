@@ -31,6 +31,8 @@ SPOT support currently includes:
 - `SL_SPOT`
 - `MSL_IRCTL`
 - `OD_WE_IRCTL`
+- `SL_P_IR`
+- `SL_P_IR_V2`
 
 Native motion sensor support currently includes:
 - `SL_SC_MHW`
