@@ -3,8 +3,14 @@ import importlib
 import json
 
 import pytest
+from homeassistant.components.light import (
+    ATTR_BRIGHTNESS,
+    ATTR_COLOR_TEMP_KELVIN,
+    ATTR_MAX_COLOR_TEMP_KELVIN,
+    ATTR_MIN_COLOR_TEMP_KELVIN,
+)
+from homeassistant.const import CONF_REGION, STATE_OFF, STATE_ON
 
-lifesmart_init = importlib.import_module("custom_components.lifesmart")
 from custom_components.lifesmart.const import (
     CONF_AI_INCLUDE_AGTS,
     CONF_AI_INCLUDE_ITEMS,
@@ -23,14 +29,8 @@ from custom_components.lifesmart.const import (
     SUBDEVICE_INDEX_KEY,
     UPDATE_LISTENER,
 )
-from homeassistant.components.light import (
-    ATTR_BRIGHTNESS,
-    ATTR_COLOR_TEMP_KELVIN,
-    ATTR_MAX_COLOR_TEMP_KELVIN,
-    ATTR_MIN_COLOR_TEMP_KELVIN,
-)
-from homeassistant.const import CONF_REGION
-from homeassistant.const import STATE_OFF, STATE_ON
+
+lifesmart_init = importlib.import_module("custom_components.lifesmart")
 
 
 class FakeConfigEntry:
@@ -193,8 +193,12 @@ def patch_setup_dependencies(monkeypatch, device_registry, entity_registry=None)
     FakeStatesManager.instances.clear()
     entity_registry = entity_registry or FakeEntityRegistry()
     monkeypatch.setattr(lifesmart_init, "LifeSmartClient", FakeLifeSmartClient)
-    monkeypatch.setattr(lifesmart_init.device_registry, "async_get", lambda hass: device_registry)
-    monkeypatch.setattr(lifesmart_init.entity_registry, "async_get", lambda hass: entity_registry)
+    monkeypatch.setattr(
+        lifesmart_init.device_registry, "async_get", lambda hass: device_registry
+    )
+    monkeypatch.setattr(
+        lifesmart_init.entity_registry, "async_get", lambda hass: entity_registry
+    )
     monkeypatch.setattr(lifesmart_init.websocket, "WebSocketApp", FakeWebSocketApp)
     monkeypatch.setattr(lifesmart_init, "LifeSmartStatesManager", FakeStatesManager)
 
@@ -249,7 +253,13 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
 
     assert result is True
     client = FakeLifeSmartClient.instances[0]
-    assert (client.region, client.appkey, client.apptoken, client.userid, client.userpassword) == (
+    assert (
+        client.region,
+        client.appkey,
+        client.apptoken,
+        client.userid,
+        client.userpassword,
+    ) == (
         "opt-region",
         "opt-appkey",
         "data-apptoken",
@@ -259,7 +269,10 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     assert client.login_calls == 1
     assert client.device_calls == 1
     assert hass.data[DOMAIN][config_entry.entry_id]["client"] is client
-    assert hass.data[DOMAIN][config_entry.entry_id]["devices"] == FakeLifeSmartClient.devices_response
+    assert (
+        hass.data[DOMAIN][config_entry.entry_id]["devices"]
+        == FakeLifeSmartClient.devices_response
+    )
     assert hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"] == []
     assert hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"] == []
     assert hass.data[DOMAIN][config_entry.entry_id]["ai_include_hubs"] == []
@@ -291,7 +304,9 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
 def test_cleanup_legacy_doorlock_history_binary_sensor(monkeypatch):
     legacy_entity_id = "binary_sensor.sl_lk_yl_hub_1_lock_1_hislk"
     ent_reg = FakeEntityRegistry(existing={legacy_entity_id})
-    monkeypatch.setattr(lifesmart_init.entity_registry, "async_get", lambda hass: ent_reg)
+    monkeypatch.setattr(
+        lifesmart_init.entity_registry, "async_get", lambda hass: ent_reg
+    )
 
     lifesmart_init._cleanup_legacy_doorlock_history_entities(
         object(),
@@ -337,7 +352,10 @@ def test_async_setup_entry_raises_when_device_fetch_returns_error(monkeypatch):
     config_entry = make_config_entry()
     device_reg = FakeDeviceRegistry()
     FakeLifeSmartClient.login_response = {"code": "success"}
-    FakeLifeSmartClient.devices_response = {"code": 500, "message": "device fetch failed"}
+    FakeLifeSmartClient.devices_response = {
+        "code": 500,
+        "message": "device fetch failed",
+    }
     patch_setup_dependencies(monkeypatch, device_reg)
 
     with pytest.raises(Exception, match="Error connecting to LifeSmart API"):
@@ -393,7 +411,9 @@ def test_on_message_dispatches_switch_updates(monkeypatch):
                     "devtype": device_type,
                     HUB_ID_KEY: "HUB1",
                     DEVICE_ID_KEY: "DEV1",
-                    SUBDEVICE_INDEX_KEY: next(iter(lifesmart_init.SUPPORTED_SUB_SWITCH_TYPES)),
+                    SUBDEVICE_INDEX_KEY: next(
+                        iter(lifesmart_init.SUPPORTED_SUB_SWITCH_TYPES)
+                    ),
                     "type": 1,
                     "val": 1,
                 },
@@ -414,7 +434,9 @@ def test_on_message_dispatches_switch_updates(monkeypatch):
                 "devtype": device_type,
                 HUB_ID_KEY: "HUB1",
                 DEVICE_ID_KEY: "DEV1",
-                SUBDEVICE_INDEX_KEY: next(iter(lifesmart_init.SUPPORTED_SUB_SWITCH_TYPES)),
+                SUBDEVICE_INDEX_KEY: next(
+                    iter(lifesmart_init.SUPPORTED_SUB_SWITCH_TYPES)
+                ),
                 "type": 1,
                 "val": 1,
             },
@@ -440,7 +462,9 @@ def test_on_message_updates_cover_and_light_and_sensor_states(monkeypatch):
 
     cover_entity = lifesmart_init.generate_entity_id(cover_type, "HUB1", "COVER1", "P1")
     light_entity = lifesmart_init.generate_entity_id(light_type, "HUB1", "LIGHT1", "P1")
-    plug_entity = lifesmart_init.generate_entity_id(smart_plug_type, "HUB1", "PLUG1", "P2")
+    plug_entity = lifesmart_init.generate_entity_id(
+        smart_plug_type, "HUB1", "PLUG1", "P2"
+    )
     water_entity = lifesmart_init.generate_entity_id(water_type, "HUB1", "WATER1", "V")
 
     hass.states.set(cover_entity, "closed", {"current_position": 0})
@@ -474,14 +498,14 @@ def test_on_message_updates_cover_and_light_and_sensor_states(monkeypatch):
             "type": 1,
             "val": 123,
         },
-            {
-                "devtype": smart_plug_type,
-                HUB_ID_KEY: "HUB1",
-                DEVICE_ID_KEY: "PLUG1",
-                SUBDEVICE_INDEX_KEY: "P2",
-                "type": 1,
-                "v": 17,
-            },
+        {
+            "devtype": smart_plug_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "PLUG1",
+            SUBDEVICE_INDEX_KEY: "P2",
+            "type": 1,
+            "v": 17,
+        },
         {
             "devtype": water_type,
             HUB_ID_KEY: "HUB1",
@@ -658,7 +682,9 @@ def test_on_message_routes_nature_sensor_update_when_not_thermostat(monkeypatch)
             }
         ],
     )
-    monkeypatch.setattr(lifesmart_init, "is_nature_thermostat", lambda raw_device: False)
+    monkeypatch.setattr(
+        lifesmart_init, "is_nature_thermostat", lambda raw_device: False
+    )
     payload = {
         "devtype": nature_type,
         HUB_ID_KEY: "HUB1",
@@ -750,7 +776,9 @@ def test_on_message_applies_direct_state_updates(monkeypatch):
         ],
     )
     cover_entity = lifesmart_init.generate_entity_id(cover_type, "HUB1", "COVER1", "P1")
-    garage_entity = lifesmart_init.generate_entity_id(garage_type, "HUB1", "GARAGE1", "P2")
+    garage_entity = lifesmart_init.generate_entity_id(
+        garage_type, "HUB1", "GARAGE1", "P2"
+    )
     light_entity = lifesmart_init.generate_entity_id(light_type, "HUB1", "LIGHT1", "P2")
     plug_switch_entity = lifesmart_init.generate_entity_id(
         smart_plug_type, "HUB1", "PLUG1", "P1"
@@ -881,7 +909,11 @@ def test_lifesmart_device_exposes_metadata_and_proxies_client_calls():
     device.entity_id = "binary_sensor.sl_sc_g_hub1_dev1_g"
 
     assert device.object_id == "binary_sensor.sl_sc_g_hub1_dev1_g"
-    assert device.extra_state_attributes == {"agt": "HUB1", "me": "DEV1", "devtype": "SL_SC_G"}
+    assert device.extra_state_attributes == {
+        "agt": "HUB1",
+        "me": "DEV1",
+        "devtype": "SL_SC_G",
+    }
     assert device.name == "Living Room"
     assert device.assumed_state is False
     assert device.should_poll is False
@@ -902,8 +934,14 @@ def test_states_manager_run_start_and_stop(monkeypatch):
             manager._run = False
 
     manager = lifesmart_init.LifeSmartStatesManager(FakeWS())
-    monkeypatch.setattr(lifesmart_init.threading.Thread, "start", lambda self: events.append("thread-start"))
-    monkeypatch.setattr(lifesmart_init.time, "sleep", lambda seconds: events.append(("sleep", seconds)))
+    monkeypatch.setattr(
+        lifesmart_init.threading.Thread,
+        "start",
+        lambda self: events.append("thread-start"),
+    )
+    monkeypatch.setattr(
+        lifesmart_init.time, "sleep", lambda seconds: events.append(("sleep", seconds))
+    )
     monkeypatch.setattr(manager, "join", lambda: events.append("join"))
 
     manager.start_keep_alive()
@@ -934,7 +972,11 @@ def test_get_fan_mode(speed, expected):
 @pytest.mark.parametrize(
     ("device_type", "sub_device", "expected"),
     [
-        ("SL_NATURE", lifesmart_init.NATURE_CLIMATE_KEY, lifesmart_init.Platform.CLIMATE),
+        (
+            "SL_NATURE",
+            lifesmart_init.NATURE_CLIMATE_KEY,
+            lifesmart_init.Platform.CLIMATE,
+        ),
         ("SL_NATURE", "P4", lifesmart_init.Platform.SENSOR),
         ("SL_NATURE", "P1", lifesmart_init.Platform.SWITCH),
         ("SL_SPOT", "climate_ac", lifesmart_init.Platform.CLIMATE),
@@ -983,10 +1025,22 @@ def test_get_platform_by_device(device_type, sub_device, expected):
 @pytest.mark.parametrize(
     ("device_type", "hub_id", "device_id", "idx", "expected"),
     [
-        ("SL_NATURE", "HUB__1", "DEV:1", lifesmart_init.NATURE_CLIMATE_KEY, "climate.sl_nature_hub_1_dev_1_thermostat"),
+        (
+            "SL_NATURE",
+            "HUB__1",
+            "DEV:1",
+            lifesmart_init.NATURE_CLIMATE_KEY,
+            "climate.sl_nature_hub_1_dev_1_thermostat",
+        ),
         ("SL_SPOT", "HUB-1", "DEV@1", "remote", "remote.sl_spot_hub_1_dev_1_remote"),
         ("SL_P_IR", "HUB-1", "DEV@1", "remote", "remote.sl_p_ir_hub_1_dev_1_remote"),
-        ("SL_SPOT", "HUB-1", "DEV@1", "climate_ac", "climate.sl_spot_hub_1_dev_1_climate_ac"),
+        (
+            "SL_SPOT",
+            "HUB-1",
+            "DEV@1",
+            "climate_ac",
+            "climate.sl_spot_hub_1_dev_1_climate_ac",
+        ),
         ("SL_SC_G", "HUB-1", "DEV1", "G", "binary_sensor.sl_sc_g_hub_1_dev1_g"),
         ("SL_SC_BM", "HUB-1", "DEV1", "V", "sensor.sl_sc_bm_hub_1_dev1_v"),
         ("SL_DOOYA", "HUB-1", "DEV1", None, "cover.sl_dooya_hub_1_dev1"),
@@ -995,7 +1049,10 @@ def test_get_platform_by_device(device_type, sub_device, expected):
     ],
 )
 def test_generate_entity_id_module_paths(device_type, hub_id, device_id, idx, expected):
-    assert lifesmart_init.generate_entity_id(device_type, hub_id, device_id, idx) == expected
+    assert (
+        lifesmart_init.generate_entity_id(device_type, hub_id, device_id, idx)
+        == expected
+    )
 
 
 def test_find_device_returns_match_or_none():
@@ -1004,5 +1061,8 @@ def test_find_device_returns_match_or_none():
         {"agt": "HUB2", "me": "B"},
     ]
 
-    assert lifesmart_init._find_device(devices, "HUB2", "B") == {"agt": "HUB2", "me": "B"}
+    assert lifesmart_init._find_device(devices, "HUB2", "B") == {
+        "agt": "HUB2",
+        "me": "B",
+    }
     assert lifesmart_init._find_device(devices, "HUB3", "C") is None

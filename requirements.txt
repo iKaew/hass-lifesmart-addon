@@ -1,6 +1,6 @@
 isal
 homeassistant==2026.4.1
-ruff==0.9.8
+ruff==0.15.12
 zlib-ng
 pytest==9.0.3
 pytest-cov==7.1.0

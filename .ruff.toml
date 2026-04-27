@@ -1,0 +1,3 @@
+line-length = 88
+target-version = "py314"
+exclude = [".git", ".venv", ".ruff_cache", "build", "dist"]

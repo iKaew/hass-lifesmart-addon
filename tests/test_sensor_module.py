@@ -48,7 +48,6 @@ def make_sensor_entity(device_type, sub_device_key, sub_device_data):
 
 
 def test_sensor_async_setup_entry_creates_supported_entities():
-    ieee = int.from_bytes(struct.pack("!f", 12.5), "big", signed=False)
     devices = [
         make_device("SL_SC_CH", {"P1": {"val": 11}, "P2": {"val": 12}}),
         make_device(
