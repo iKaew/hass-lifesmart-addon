@@ -63,6 +63,29 @@ def test_general_controller_documented_ports():
     assert input_status.device_class == BinarySensorDeviceClass.LOCK
 
 
+def test_sl_p_status_inputs_use_val_polarity():
+    for port in ("P5", "P6", "P7"):
+        active = make_binary_sensor("SL_P", port, {"type": 0, "val": 0})
+        inactive = make_binary_sensor("SL_P", port, {"type": 1, "val": 1})
+
+        assert active.is_on is True
+        assert inactive.is_on is False
+        assert active._state_from_data(
+            {"devtype": "SL_P", "idx": port, "type": 0, "val": 0}
+        ) is True
+        assert inactive._state_from_data(
+            {"devtype": "SL_P", "idx": port, "type": 1, "val": 1}
+        ) is False
+
+
+def test_sl_jema_status_inputs_use_type_polarity():
+    active = make_binary_sensor("SL_JEMA", "P5", {"type": 1, "val": 1})
+    inactive = make_binary_sensor("SL_JEMA", "P5", {"type": 0, "val": 0})
+
+    assert active.is_on is True
+    assert inactive.is_on is False
+
+
 def test_485_controller_switch_and_electrical_sensors():
     relay = make_switch("V_485_P", "L1", {"type": 1, "val": 1})
     assert relay.is_on is True

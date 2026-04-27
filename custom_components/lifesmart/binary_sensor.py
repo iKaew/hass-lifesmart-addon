@@ -379,7 +379,9 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         elif device_type in GENERIC_CONTROLLER_TYPES:
             self._attrs = sub_device_data
             self._device_class = BinarySensorDeviceClass.LOCK
-            self._state = _generic_controller_binary_state(sub_device_data)
+            self._state = _generic_controller_binary_state(
+                sub_device_data, device_type
+            )
         else:
             self._device_class = BinarySensorDeviceClass.SMOKE
             self._state = sub_device_data["val"] != 0
@@ -467,7 +469,7 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         if device_type in GUARD_SENSOR_TYPES and sub_device_key == "G":
             return val == 0
         if device_type in GENERIC_CONTROLLER_TYPES:
-            return _generic_controller_binary_state(data)
+            return _generic_controller_binary_state(data, device_type)
         if device_type in SPOT_IR_TYPES:
             return data.get("type", 0) % 2 == 1
         if device_type in DEFED_SENSOR_TYPES:
@@ -574,8 +576,10 @@ def build_doorlock_alarm_attribute(data):
     }
 
 
-def _generic_controller_binary_state(data):
+def _generic_controller_binary_state(data, device_type=None):
     """Return documented general controller input trigger state."""
+    if device_type == "SL_P":
+        return data.get("val", 1) == 0
     if "type" in data:
         return data["type"] % 2 == 1
     return data.get("val", 1) == 0
