@@ -87,12 +87,11 @@ Support is based on the attributes returned by the LifeSmart API. Some models cr
 ## Screenshots
 
 <img src="./docs/example-configuration.png" alt="LifeSmart integration configuration form" width="360">
-<img src="./docs/example-image-5.png" alt="LifeSmart integration example overview" width="460">
-<img src="https://github.com/user-attachments/assets/7d11a957-987c-4084-806e-9ffd16491c7e" alt="LifeSmart integration example in Home Assistant" width="640">
 <img src="./docs/example-image.png" alt="LifeSmart device example" width="640">
 <img src="./docs/example-image-4.png" alt="LifeSmart entity example" width="520">
 <img src="./docs/example-image-2.png" alt="LifeSmart entity list example" width="720">
 <img src="./docs/example-image-3.png" alt="LifeSmart controls example" width="720">
+<img src="./docs/example-image-5.png" alt="LifeSmart integration example overview" width="460">
 <img src="./docs/example-image-6.png" alt="SPOT setup example" width="460">
 <img src="./docs/example-image-7.png" alt="SPOT A/C setup example" width="460">
 
