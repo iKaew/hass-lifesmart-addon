@@ -830,6 +830,8 @@ def get_platform_by_device(device_type, sub_device=None):
         and sub_device == "P2"
     ):
         return Platform.SENSOR
+    elif device_type in OT_SENSOR_TYPES and sub_device in ["Z", "V", "P3", "P4"]:
+        return Platform.SENSOR
     elif device_type in BINARY_SENSOR_TYPES:
         return Platform.BINARY_SENSOR
     elif device_type in COVER_TYPES:

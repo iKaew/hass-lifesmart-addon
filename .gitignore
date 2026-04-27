@@ -13,3 +13,4 @@ config/*
 
 .coverage
 coverage.xml
+docs/*.pdf

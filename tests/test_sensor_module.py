@@ -53,6 +53,7 @@ def test_sensor_async_setup_entry_creates_supported_entities():
         make_device("SL_SC_WA", {"V": {"v": 88}}, device_id="WATER1"),
         make_device("SL_SC_CA", {"P1": {"val": 215}, "P2": {"val": 450}, "P3": {"val": 500}, "P4": {"v": 95}}, device_id="CO21"),
         make_device("SL_SC_THL", {"T": {"val": 215}, "H": {"v": 55}, "Z": {"val": 100}, "V": {"v": 80}}, device_id="ENV1"),
+        make_device("SL_SC_BM", {"M": {"val": 1}, "V": {"val": 3000, "v": 82}}, device_id="BM1"),
         make_device("SL_SC_CQ", {"P1": {"val": 215}, "P4": {"val": 1200}, "P6": {"v": 3.2}}, device_id="TVOC1"),
         make_device("SL_DF_SR", {"T": {"val": 230}, "V": {"v": 81}}, device_id="DEF1"),
         make_device("ELIQ_EM", {"EPA": {"val": 125}}, device_id="METER1"),
@@ -71,6 +72,7 @@ def test_sensor_async_setup_entry_creates_supported_entities():
     assert len(added) >= 24
     assert any(entity.entity_id == "sensor.sl_sc_ch_hub1_dev1_p1" for entity in added)
     assert any(entity.entity_id == "sensor.sl_lk_ls_hub1_lock1_bat" for entity in added)
+    assert any(entity.entity_id == "sensor.sl_sc_bm_hub1_bm1_v" for entity in added)
     assert any(entity.entity_id == "sensor.v_485_p_hub1_mod1_ev" for entity in added)
 
 
@@ -79,6 +81,7 @@ def test_sensor_entity_branches_and_properties():
     smart_plug, _ = make_sensor_entity("SL_OE_DE", "P2", {"v": 1.5})
     co2, _ = make_sensor_entity("SL_SC_CA", "P3", {"val": 500})
     env, _ = make_sensor_entity("SL_SC_THL", "T", {"val": 215})
+    cube_motion_battery, _ = make_sensor_entity("SL_SC_BM", "V", {"val": 3000, "v": 82})
     tvoc, _ = make_sensor_entity("SL_SC_CQ", "P4", {"val": 1200})
     defed, _ = make_sensor_entity("SL_DF_SR", "V", {"v": 81, "val": 3000})
     noise, _ = make_sensor_entity("SL_SC_CN", "P1", {"val": 50, "type": 1})
@@ -92,6 +95,9 @@ def test_sensor_entity_branches_and_properties():
     assert smart_plug.state == 1.5
     assert co2.device_class == sensor_module.SensorDeviceClass.CO2
     assert env.state == 21.5
+    assert cube_motion_battery.device_class == sensor_module.SensorDeviceClass.BATTERY
+    assert cube_motion_battery.state == 82
+    assert cube_motion_battery.extra_state_attributes == {"raw": 3000}
     assert tvoc.state == 1.2
     assert defed.extra_state_attributes == {"raw": 3000}
     assert noise.extra_state_attributes["alarm"] is True

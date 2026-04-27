@@ -52,6 +52,7 @@ def test_async_setup_entry_creates_supported_binary_sensors_and_skips_excluded()
         make_setup_device("SL_SC_G", {"G": {"val": 0}, "ignored": {"val": 0}}),
         make_setup_device("SL_DF_SR", {"SR": {"type": 1}, "TR": {"type": 0}}, device_id="DEF1"),
         make_setup_device("SL_SC_WA", {"WA": {"val": 1}, "V": {"v": 87}}, device_id="LEAK1"),
+        make_setup_device("SL_SC_BM", {"M": {"val": 1}, "V": {"v": 82}}, device_id="BM1"),
         make_setup_device("SL_SC_CN", {"P3": {"type": 1, "val": 1}}, device_id="NOISE1"),
         make_setup_device("SL_LK_LS", {"EVTLO": {"type": 1, "val": 0x1001}}, device_id="LOCK1"),
         make_setup_device("SL_SPOT", {"P1": {"val": 1}}, device_id="SKIPME"),
@@ -76,11 +77,12 @@ def test_async_setup_entry_creates_supported_binary_sensors_and_skips_excluded()
 
     entity_ids = {entity.entity_id for entity in added_entities}
 
-    assert len(added_entities) == 6
+    assert len(added_entities) == 7
     assert "binary_sensor.sl_sc_g_hub1_device1_g" in entity_ids
     assert "binary_sensor.sl_df_sr_hub1_def1_sr" in entity_ids
     assert "binary_sensor.sl_df_sr_hub1_def1_tr" in entity_ids
     assert "binary_sensor.sl_sc_wa_hub1_leak1_wa" in entity_ids
+    assert "binary_sensor.sl_sc_bm_hub1_bm1_m" in entity_ids
     assert "binary_sensor.sl_sc_cn_hub1_noise1_p3" in entity_ids
     assert "binary_sensor.sl_lk_ls_hub1_lock1_evtlo" in entity_ids
 
@@ -90,6 +92,7 @@ def test_guard_motion_water_and_smoke_binary_sensor_initialization():
     vibration = make_binary_sensor("SL_SC_G", "AXS", {"val": 1})
     occupancy = make_binary_sensor("SL_SC_G", "B", {"val": 1})
     motion = make_binary_sensor("SL_SC_MHW", "M", {"val": 1})
+    cube_motion = make_binary_sensor("SL_SC_BM", "M", {"val": 1})
     radar = make_binary_sensor("SL_P_RM", "P1", {"val": 1})
     leak = make_binary_sensor("SL_SC_WA", "WA", {"val": 1})
     smoke_fallback = make_binary_sensor("SL_P_A", "P2", {"val": 1})
@@ -102,6 +105,8 @@ def test_guard_motion_water_and_smoke_binary_sensor_initialization():
     assert occupancy.is_on is True
     assert motion.device_class == BinarySensorDeviceClass.MOTION
     assert motion.is_on is True
+    assert cube_motion.device_class == BinarySensorDeviceClass.MOTION
+    assert cube_motion.is_on is True
     assert radar.device_class == BinarySensorDeviceClass.MOTION
     assert radar.is_on is True
     assert leak.device_class == BinarySensorDeviceClass.MOISTURE
