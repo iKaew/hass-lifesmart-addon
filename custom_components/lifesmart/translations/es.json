@@ -1,0 +1,208 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Configuración de la integración LifeSmart",
+        "description": "Introduce las credenciales de LifeSmart Platform y los datos de usuario para conectarte.",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "Contraseña de usuario",
+          "userid": "Correo electrónico/ID de usuario",
+          "region": "País/región de la cuenta LifeSmart"
+        }
+      }
+    },
+    "abort": {
+      "already_in_progress": "La configuración ya está en curso.",
+      "already_configured": "Este dispositivo ya está configurado."
+    },
+    "error": {}
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones de LifeSmart",
+        "menu_options": {
+          "user": "Editar ajustes de conexión",
+          "ac_device": "Configurar mando de A/C SPOT",
+          "ac_remove": "Eliminar mando de A/C SPOT"
+        }
+      },
+      "user": {
+        "title": "Ajustes de conexión de LifeSmart",
+        "description": "Actualiza las credenciales de LifeSmart Platform y los datos de usuario.",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "Contraseña de usuario",
+          "userid": "Correo electrónico/ID de usuario",
+          "region": "País/región de la cuenta LifeSmart"
+        }
+      },
+      "ac_device": {
+        "title": "Seleccionar dispositivo SPOT",
+        "description": "Elige un dispositivo LifeSmart SPOT que tenga un mando de A/C asignado en la app LifeSmart.",
+        "data": {
+          "device": "Dispositivo SPOT"
+        }
+      },
+      "ac_brand": {
+        "title": "Seleccionar marca de A/C",
+        "description": "Selecciona la marca del aire acondicionado para el dispositivo SPOT elegido.",
+        "data": {
+          "brand": "Marca de A/C"
+        }
+      },
+      "ac_remote": {
+        "title": "Seleccionar perfil de mando",
+        "description": "Elige el índice del perfil de mando desde los resultados de la API de A/C de LifeSmart.",
+        "data": {
+          "idx": "Índice del perfil de mando"
+        }
+      },
+      "ac_remove": {
+        "title": "Eliminar mando de A/C SPOT",
+        "description": "Selecciona el mando de A/C SPOT configurado que quieres eliminar.",
+        "data": {
+          "device": "Mando de A/C SPOT configurado"
+        }
+      },
+      "main_params": {
+        "title": "Opciones de la integración LifeSmart",
+        "description": "Actualiza las credenciales de LifeSmart Platform y los datos de usuario.",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "Contraseña de usuario",
+          "userid": "Correo electrónico/ID de usuario",
+          "region": "País/región de la cuenta LifeSmart"
+        }
+      }
+    },
+    "abort": {
+      "no_spot_devices": "No se encontraron dispositivos SPOT para esta cuenta.",
+      "no_ac_config": "No se encontraron mandos de A/C SPOT configurados."
+    },
+    "error": {
+      "no_ac_remote_assigned": "El dispositivo SPOT seleccionado no tiene ningún mando de A/C asignado en la app LifeSmart.",
+      "no_ac_brands": "La API de LifeSmart no devolvió marcas de A/C.",
+      "no_remote_idxs": "No se encontraron perfiles de mando para la marca de A/C seleccionada."
+    }
+  },
+  "services": {
+    "send_ir_code": {
+      "name": "Enviar código IR",
+      "description": "Envía un código IR personalizado a un dispositivo remoto.",
+      "fields": {
+        "device_id": {
+          "name": "ID del dispositivo",
+          "description": "El ID del dispositivo (me) de destino."
+        },
+        "hub_id": {
+          "name": "ID del hub",
+          "description": "El ID del hub (agt) de destino."
+        },
+        "ir_code": {
+          "name": "Código IR",
+          "description": "Los datos del código IR que se enviarán."
+        }
+      }
+    },
+    "send_keys": {
+      "name": "Enviar teclas IR",
+      "description": "Envía comandos de teclas IR a un dispositivo remoto.",
+      "fields": {
+        "me": {
+          "name": "ID del subdispositivo",
+          "description": "El ID del subdispositivo de destino."
+        },
+        "agt": {
+          "name": "ID del hub",
+          "description": "El ID del hub de destino."
+        },
+        "ai": {
+          "name": "ID del mando",
+          "description": "El ID del dispositivo remoto."
+        },
+        "category": {
+          "name": "Categoría del dispositivo",
+          "description": "La categoría del dispositivo de destino, por ejemplo TV o ventilador."
+        },
+        "brand": {
+          "name": "Marca del dispositivo",
+          "description": "La marca del dispositivo de destino."
+        },
+        "keys": {
+          "name": "Teclas",
+          "description": "Las teclas de comando que se enviarán, separadas por comas."
+        }
+      }
+    },
+    "send_ackeys": {
+      "name": "Enviar teclas de A/C",
+      "description": "Envía comandos IR para controlar un aire acondicionado.",
+      "fields": {
+        "me": {
+          "name": "ID del subdispositivo",
+          "description": "El ID del subdispositivo del equipo de A/C."
+        },
+        "agt": {
+          "name": "ID del hub",
+          "description": "El ID del hub de destino."
+        },
+        "ai": {
+          "name": "ID del mando",
+          "description": "El ID del dispositivo remoto para el A/C."
+        },
+        "category": {
+          "name": "Categoría del dispositivo",
+          "description": "La categoría del equipo de A/C."
+        },
+        "brand": {
+          "name": "Marca del dispositivo",
+          "description": "La marca del equipo de A/C."
+        },
+        "keys": {
+          "name": "Teclas",
+          "description": "Las teclas de comando que se enviarán, separadas por comas."
+        },
+        "power": {
+          "name": "Estado de encendido",
+          "description": "Encendido (1) o apagado (0)."
+        },
+        "mode": {
+          "name": "Modo de funcionamiento",
+          "description": "El modo de funcionamiento del A/C, por ejemplo frío o calor."
+        },
+        "temp": {
+          "name": "Temperatura",
+          "description": "La temperatura objetivo que se establecerá."
+        },
+        "wind": {
+          "name": "Velocidad del ventilador",
+          "description": "El nivel de velocidad del ventilador."
+        },
+        "swing": {
+          "name": "Modo oscilación",
+          "description": "El ajuste del modo de oscilación."
+        }
+      }
+    },
+    "scene_set": {
+      "name": "Establecer escena",
+      "description": "Activa una escena en un dispositivo remoto.",
+      "fields": {
+        "agt": {
+          "name": "ID del hub",
+          "description": "El ID del hub de destino."
+        },
+        "id": {
+          "name": "ID de escena",
+          "description": "El ID de la escena que se activará."
+        }
+      }
+    }
+  }
+}

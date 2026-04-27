@@ -1,0 +1,208 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "LifeSmart 集成设置",
+        "description": "输入 LifeSmart Platform 凭据和用户信息以完成连接。",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "用户密码",
+          "userid": "邮箱/用户 ID",
+          "region": "LifeSmart 账号国家/地区"
+        }
+      }
+    },
+    "abort": {
+      "already_in_progress": "配置已在进行中。",
+      "already_configured": "此设备已配置。"
+    },
+    "error": {}
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "LifeSmart 选项",
+        "menu_options": {
+          "user": "编辑连接设置",
+          "ac_device": "配置 SPOT 空调遥控器",
+          "ac_remove": "移除 SPOT 空调遥控器"
+        }
+      },
+      "user": {
+        "title": "LifeSmart 连接设置",
+        "description": "更新 LifeSmart Platform 凭据和用户信息。",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "用户密码",
+          "userid": "邮箱/用户 ID",
+          "region": "LifeSmart 账号国家/地区"
+        }
+      },
+      "ac_device": {
+        "title": "选择 SPOT 设备",
+        "description": "选择已在 LifeSmart 应用中分配空调遥控器的 LifeSmart SPOT 设备。",
+        "data": {
+          "device": "SPOT 设备"
+        }
+      },
+      "ac_brand": {
+        "title": "选择空调品牌",
+        "description": "为所选 SPOT 设备选择空调品牌。",
+        "data": {
+          "brand": "空调品牌"
+        }
+      },
+      "ac_remote": {
+        "title": "选择遥控器配置",
+        "description": "从 LifeSmart A/C API 结果中选择遥控器配置索引。",
+        "data": {
+          "idx": "遥控器配置索引"
+        }
+      },
+      "ac_remove": {
+        "title": "移除 SPOT 空调遥控器",
+        "description": "选择要移除的已配置 SPOT 空调遥控器。",
+        "data": {
+          "device": "已配置的 SPOT 空调遥控器"
+        }
+      },
+      "main_params": {
+        "title": "LifeSmart 集成选项",
+        "description": "更新 LifeSmart Platform 凭据和用户信息。",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "用户密码",
+          "userid": "邮箱/用户 ID",
+          "region": "LifeSmart 账号国家/地区"
+        }
+      }
+    },
+    "abort": {
+      "no_spot_devices": "未找到此账号的 SPOT 设备。",
+      "no_ac_config": "未找到已配置的 SPOT 空调遥控器。"
+    },
+    "error": {
+      "no_ac_remote_assigned": "所选 SPOT 设备尚未在 LifeSmart 应用中分配空调遥控器。",
+      "no_ac_brands": "LifeSmart API 未返回空调品牌。",
+      "no_remote_idxs": "未找到所选空调品牌的遥控器配置。"
+    }
+  },
+  "services": {
+    "send_ir_code": {
+      "name": "发送 IR 码",
+      "description": "向遥控设备发送自定义 IR 码。",
+      "fields": {
+        "device_id": {
+          "name": "设备 ID",
+          "description": "目标设备的设备 ID (me)。"
+        },
+        "hub_id": {
+          "name": "网关 ID",
+          "description": "目标网关的网关 ID (agt)。"
+        },
+        "ir_code": {
+          "name": "IR 码",
+          "description": "要发送的 IR 码数据。"
+        }
+      }
+    },
+    "send_keys": {
+      "name": "发送 IR 按键",
+      "description": "向遥控设备发送 IR 按键命令。",
+      "fields": {
+        "me": {
+          "name": "子设备 ID",
+          "description": "目标设备的子设备 ID。"
+        },
+        "agt": {
+          "name": "网关 ID",
+          "description": "目标网关的网关 ID。"
+        },
+        "ai": {
+          "name": "遥控器 ID",
+          "description": "遥控设备 ID。"
+        },
+        "category": {
+          "name": "设备类别",
+          "description": "目标设备的类别，例如 TV 或风扇。"
+        },
+        "brand": {
+          "name": "设备品牌",
+          "description": "目标设备的品牌。"
+        },
+        "keys": {
+          "name": "按键",
+          "description": "要发送的按键命令，使用逗号分隔。"
+        }
+      }
+    },
+    "send_ackeys": {
+      "name": "发送空调按键",
+      "description": "发送 IR 命令以控制空调。",
+      "fields": {
+        "me": {
+          "name": "子设备 ID",
+          "description": "空调设备的子设备 ID。"
+        },
+        "agt": {
+          "name": "网关 ID",
+          "description": "目标网关的网关 ID。"
+        },
+        "ai": {
+          "name": "遥控器 ID",
+          "description": "空调用遥控设备 ID。"
+        },
+        "category": {
+          "name": "设备类别",
+          "description": "空调设备的类别。"
+        },
+        "brand": {
+          "name": "设备品牌",
+          "description": "空调设备的品牌。"
+        },
+        "keys": {
+          "name": "按键",
+          "description": "要发送的按键命令，使用逗号分隔。"
+        },
+        "power": {
+          "name": "电源状态",
+          "description": "开启 (1) 或关闭 (0)。"
+        },
+        "mode": {
+          "name": "运行模式",
+          "description": "空调运行模式，例如制冷或制热。"
+        },
+        "temp": {
+          "name": "温度",
+          "description": "要设置的目标温度。"
+        },
+        "wind": {
+          "name": "风速",
+          "description": "风速档位。"
+        },
+        "swing": {
+          "name": "摆风模式",
+          "description": "摆风模式设置。"
+        }
+      }
+    },
+    "scene_set": {
+      "name": "设置场景",
+      "description": "在远程设备上启用场景。",
+      "fields": {
+        "agt": {
+          "name": "网关 ID",
+          "description": "目标网关的网关 ID。"
+        },
+        "id": {
+          "name": "场景 ID",
+          "description": "要启用的场景 ID。"
+        }
+      }
+    }
+  }
+}

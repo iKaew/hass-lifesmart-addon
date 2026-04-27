@@ -1,0 +1,208 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "ตั้งค่าการเชื่อมต่อ LifeSmart",
+        "description": "กรอกข้อมูล LifeSmart Platform และข้อมูลบัญชีผู้ใช้เพื่อเชื่อมต่อ",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "รหัสผ่านผู้ใช้",
+          "userid": "อีเมล/รหัสผู้ใช้",
+          "region": "ประเทศ/ภูมิภาคของบัญชี LifeSmart"
+        }
+      }
+    },
+    "abort": {
+      "already_in_progress": "กำลังตั้งค่าอยู่แล้ว",
+      "already_configured": "อุปกรณ์นี้ถูกตั้งค่าไว้แล้ว"
+    },
+    "error": {}
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "ตัวเลือก LifeSmart",
+        "menu_options": {
+          "user": "แก้ไขการตั้งค่าการเชื่อมต่อ",
+          "ac_device": "ตั้งค่ารีโมทแอร์ SPOT",
+          "ac_remove": "ลบรีโมทแอร์ SPOT"
+        }
+      },
+      "user": {
+        "title": "การตั้งค่าการเชื่อมต่อ LifeSmart",
+        "description": "อัปเดตข้อมูล LifeSmart Platform และข้อมูลบัญชีผู้ใช้",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "รหัสผ่านผู้ใช้",
+          "userid": "อีเมล/รหัสผู้ใช้",
+          "region": "ประเทศ/ภูมิภาคของบัญชี LifeSmart"
+        }
+      },
+      "ac_device": {
+        "title": "เลือกอุปกรณ์ SPOT",
+        "description": "เลือกอุปกรณ์ LifeSmart SPOT ที่มีรีโมทแอร์กำหนดไว้ในแอป LifeSmart",
+        "data": {
+          "device": "อุปกรณ์ SPOT"
+        }
+      },
+      "ac_brand": {
+        "title": "เลือกยี่ห้อแอร์",
+        "description": "เลือกยี่ห้อแอร์สำหรับอุปกรณ์ SPOT ที่เลือก",
+        "data": {
+          "brand": "ยี่ห้อแอร์"
+        }
+      },
+      "ac_remote": {
+        "title": "เลือกโปรไฟล์รีโมท",
+        "description": "เลือกดัชนีโปรไฟล์รีโมทจากผลลัพธ์ LifeSmart A/C API",
+        "data": {
+          "idx": "ดัชนีโปรไฟล์รีโมท"
+        }
+      },
+      "ac_remove": {
+        "title": "ลบรีโมทแอร์ SPOT",
+        "description": "เลือกรีโมทแอร์ SPOT ที่ตั้งค่าไว้เพื่อลบออก",
+        "data": {
+          "device": "รีโมทแอร์ SPOT ที่ตั้งค่าไว้"
+        }
+      },
+      "main_params": {
+        "title": "ตัวเลือกการเชื่อมต่อ LifeSmart",
+        "description": "อัปเดตข้อมูล LifeSmart Platform และข้อมูลบัญชีผู้ใช้",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "รหัสผ่านผู้ใช้",
+          "userid": "อีเมล/รหัสผู้ใช้",
+          "region": "ประเทศ/ภูมิภาคของบัญชี LifeSmart"
+        }
+      }
+    },
+    "abort": {
+      "no_spot_devices": "ไม่พบอุปกรณ์ SPOT สำหรับบัญชีนี้",
+      "no_ac_config": "ไม่พบรีโมทแอร์ SPOT ที่ตั้งค่าไว้"
+    },
+    "error": {
+      "no_ac_remote_assigned": "อุปกรณ์ SPOT ที่เลือกยังไม่มีรีโมทแอร์กำหนดไว้ในแอป LifeSmart",
+      "no_ac_brands": "LifeSmart API ไม่ส่งรายการยี่ห้อแอร์กลับมา",
+      "no_remote_idxs": "ไม่พบโปรไฟล์รีโมทสำหรับยี่ห้อแอร์ที่เลือก"
+    }
+  },
+  "services": {
+    "send_ir_code": {
+      "name": "ส่งรหัส IR",
+      "description": "ส่งรหัส IR แบบกำหนดเองไปยังอุปกรณ์รีโมท",
+      "fields": {
+        "device_id": {
+          "name": "รหัสอุปกรณ์",
+          "description": "รหัสอุปกรณ์ (me) ของอุปกรณ์ปลายทาง"
+        },
+        "hub_id": {
+          "name": "รหัส Hub",
+          "description": "รหัส Hub (agt) ของ Hub ปลายทาง"
+        },
+        "ir_code": {
+          "name": "รหัส IR",
+          "description": "ข้อมูลรหัส IR ที่ต้องการส่ง"
+        }
+      }
+    },
+    "send_keys": {
+      "name": "ส่งปุ่ม IR",
+      "description": "ส่งคำสั่งปุ่ม IR ไปยังอุปกรณ์รีโมท",
+      "fields": {
+        "me": {
+          "name": "รหัสอุปกรณ์ย่อย",
+          "description": "รหัสอุปกรณ์ย่อยของอุปกรณ์ปลายทาง"
+        },
+        "agt": {
+          "name": "รหัส Hub",
+          "description": "รหัส Hub ของ Hub ปลายทาง"
+        },
+        "ai": {
+          "name": "รหัสรีโมท",
+          "description": "รหัสอุปกรณ์รีโมท"
+        },
+        "category": {
+          "name": "หมวดหมู่อุปกรณ์",
+          "description": "หมวดหมู่ของอุปกรณ์ปลายทาง เช่น TV หรือพัดลม"
+        },
+        "brand": {
+          "name": "ยี่ห้ออุปกรณ์",
+          "description": "ยี่ห้อของอุปกรณ์ปลายทาง"
+        },
+        "keys": {
+          "name": "ปุ่ม",
+          "description": "ปุ่มคำสั่งที่ต้องการส่ง คั่นด้วยเครื่องหมายจุลภาค"
+        }
+      }
+    },
+    "send_ackeys": {
+      "name": "ส่งปุ่มแอร์",
+      "description": "ส่งคำสั่ง IR เพื่อควบคุมเครื่องปรับอากาศ",
+      "fields": {
+        "me": {
+          "name": "รหัสอุปกรณ์ย่อย",
+          "description": "รหัสอุปกรณ์ย่อยของอุปกรณ์แอร์"
+        },
+        "agt": {
+          "name": "รหัส Hub",
+          "description": "รหัส Hub ของ Hub ปลายทาง"
+        },
+        "ai": {
+          "name": "รหัสรีโมท",
+          "description": "รหัสอุปกรณ์รีโมทสำหรับแอร์"
+        },
+        "category": {
+          "name": "หมวดหมู่อุปกรณ์",
+          "description": "หมวดหมู่ของอุปกรณ์แอร์"
+        },
+        "brand": {
+          "name": "ยี่ห้ออุปกรณ์",
+          "description": "ยี่ห้อของอุปกรณ์แอร์"
+        },
+        "keys": {
+          "name": "ปุ่ม",
+          "description": "ปุ่มคำสั่งที่ต้องการส่ง คั่นด้วยเครื่องหมายจุลภาค"
+        },
+        "power": {
+          "name": "สถานะเปิด/ปิด",
+          "description": "เปิด (1) หรือปิด (0)"
+        },
+        "mode": {
+          "name": "โหมดการทำงาน",
+          "description": "โหมดการทำงานของแอร์ เช่น เย็น หรือร้อน"
+        },
+        "temp": {
+          "name": "อุณหภูมิ",
+          "description": "อุณหภูมิเป้าหมายที่ต้องการตั้งค่า"
+        },
+        "wind": {
+          "name": "ความเร็วพัดลม",
+          "description": "ระดับความเร็วพัดลม"
+        },
+        "swing": {
+          "name": "โหมดสวิง",
+          "description": "การตั้งค่าโหมดสวิง"
+        }
+      }
+    },
+    "scene_set": {
+      "name": "ตั้งค่าซีน",
+      "description": "เปิดใช้งานซีนบนอุปกรณ์รีโมท",
+      "fields": {
+        "agt": {
+          "name": "รหัส Hub",
+          "description": "รหัส Hub ของ Hub ปลายทาง"
+        },
+        "id": {
+          "name": "รหัสซีน",
+          "description": "รหัสของซีนที่ต้องการเปิดใช้งาน"
+        }
+      }
+    }
+  }
+}
