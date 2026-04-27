@@ -23,6 +23,7 @@ from .const import (
     IR_CATEGORY_AC,
     LIFESMART_REGION_OPTIONS,
     SPOT_TYPES,
+    normalize_lifesmart_region,
 )
 from .lifesmart_client import LifeSmartClient
 
@@ -44,7 +45,7 @@ async def validate_input(hass, data):
     app_token = data[CONF_LIFESMART_APPTOKEN]
     user_id = data[CONF_LIFESMART_USERID]
     user_password = data[CONF_LIFESMART_USERPASSWORD]
-    region = data[CONF_REGION]
+    region = normalize_lifesmart_region(data[CONF_REGION])
 
     lifesmart_client = LifeSmartClient(
         region,
@@ -175,7 +176,7 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
             return self._client
 
         client = LifeSmartClient(
-            self._get_entry_value(CONF_REGION),
+            normalize_lifesmart_region(self._get_entry_value(CONF_REGION)),
             self._get_entry_value(CONF_LIFESMART_APPKEY),
             self._get_entry_value(CONF_LIFESMART_APPTOKEN),
             self._get_entry_value(CONF_LIFESMART_USERID),

@@ -301,6 +301,35 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     assert ws.sent == ['{"id": 1, "method": "WbAuth"}']
 
 
+@pytest.mark.parametrize(
+    ("stored_region", "expected_region"),
+    [
+        ("AME", "us"),
+        ("EUR", "eur"),
+        ("JAP", "jp"),
+        ("APZ", "apz"),
+        ("cn0", "cn0"),
+        ("us", "us"),
+        ("country:th", "apz"),
+    ],
+)
+def test_async_setup_entry_supports_existing_region_values(
+    monkeypatch, stored_region, expected_region
+):
+    """Existing entries may store legacy service codes or direct API regions."""
+    hass = FakeHass()
+    config_entry = make_config_entry(options={CONF_REGION: stored_region})
+    device_reg = FakeDeviceRegistry()
+    FakeLifeSmartClient.login_response = {"code": "success"}
+    FakeLifeSmartClient.devices_response = []
+    patch_setup_dependencies(monkeypatch, device_reg)
+
+    result = asyncio.run(lifesmart_init.async_setup_entry(hass, config_entry))
+
+    assert result is True
+    assert FakeLifeSmartClient.instances[0].region == expected_region
+
+
 def test_cleanup_legacy_doorlock_history_binary_sensor(monkeypatch):
     legacy_entity_id = "binary_sensor.sl_lk_yl_hub_1_lock_1_hislk"
     ent_reg = FakeEntityRegistry(existing={legacy_entity_id})

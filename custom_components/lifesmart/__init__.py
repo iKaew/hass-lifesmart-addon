@@ -90,6 +90,7 @@ from .const import (
     UPDATE_LISTENER,
     WATER_LEAK_SENSOR_TYPES,
     is_nature_thermostat,
+    normalize_lifesmart_region,
 )
 from .lifesmart_client import LifeSmartClient
 
@@ -121,7 +122,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
     user_password = config_entry.options.get(
         CONF_LIFESMART_USERPASSWORD, config_entry.data.get(CONF_LIFESMART_USERPASSWORD)
     )
-    region = config_entry.options.get(CONF_REGION, config_entry.data.get(CONF_REGION))
+    region = normalize_lifesmart_region(
+        config_entry.options.get(CONF_REGION, config_entry.data.get(CONF_REGION))
+    )
     exclude_devices = config_entry.options.get(
         CONF_EXCLUDE_ITEMS, config_entry.data.get(CONF_EXCLUDE_ITEMS)
     )

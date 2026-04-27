@@ -9,8 +9,8 @@
           "appkey": "App Key",
           "apptoken": "App Token",
           "userpassword": "User Password",
-          "userid": "User ID",
-          "region": "LifeSmart Regional Server"
+          "userid": "Email/User ID",
+          "region": "LifeSmart Account Country/Region"
         }
       }
     },
@@ -38,8 +38,8 @@
           "appkey": "App Key",
           "apptoken": "App Token",
           "userpassword": "User Password",
-          "userid": "User ID",
-          "region": "LifeSmart Regional Server"
+          "userid": "Email/User ID",
+          "region": "LifeSmart Account Country/Region"
         }
       },
       "ac_device": {
@@ -77,8 +77,8 @@
           "appkey": "App Key",
           "apptoken": "App Token",
           "userpassword": "User Password",
-          "userid": "User ID",
-          "region": "LifeSmart Regional Server"
+          "userid": "Email/User ID",
+          "region": "LifeSmart Account Country/Region"
         }
       }
     },

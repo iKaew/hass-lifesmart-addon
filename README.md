@@ -13,9 +13,9 @@ There is no direct local communication between Home Assistant and the LifeSmart 
 
 ## Prerequisites
 
-1. Confirm the LifeSmart API region for your account. See [LifeSmart API regions](./docs/api-regions.md).
+1. Confirm your LifeSmart account email/user ID and country/region in the LifeSmart mobile app account/profile screen. See the screenshot below.
 1. Create an application in the [LifeSmart Open Platform](https://www.ilifesmart.com/open/login) to obtain an `app key` and `app token`.
-1. Use the same LifeSmart account that you use in the mobile app. You will enter its user ID and password during Home Assistant setup.
+1. Use the same LifeSmart account that you use in the mobile app. You will enter its email/user ID and password during Home Assistant setup.
 
 The LifeSmart Open Platform page may open in Chinese; use the language menu in the top-right corner if needed.
 
@@ -53,9 +53,9 @@ Use manual installation only if you cannot use HACS.
 1. Enter your LifeSmart Platform credentials:
    - **App Key**: From your LifeSmart Open Platform application
    - **App Token**: From your LifeSmart Open Platform application  
-   - **User ID**: Your LifeSmart account user ID (see below)
+   - **Email/User ID**: Your LifeSmart account email address or user ID (see below)
    - **User Password**: Your LifeSmart account password
-   - **LifeSmart Regional Server**: Select your regional server
+   - **LifeSmart Account Country/Region**: Select the country or region shown in the LifeSmart mobile app account/profile screen (see below)
 1. Click `Submit` and wait for device discovery.
 
 The integration will automatically discover and create entities for all your LifeSmart devices.
@@ -64,18 +64,18 @@ The integration will automatically discover and create entities for all your Lif
 
 The LifeSmart integration features a modern, user-friendly interface with:
 
-- **Clear Field Labels**: Descriptive names like "LifeSmart Regional Server" instead of generic "region"
+- **Clear Field Labels**: Descriptive names like "LifeSmart Account Country/Region" instead of generic "region"
 - **Helpful Descriptions**: Context for each configuration step
 - **Consistent Terminology**: Standardized "ID" capitalization and professional formatting
 - **Guided Setup**: Step-by-step A/C configuration with clear instructions
 
 All text has been optimized for clarity and ease of use.
 
-### Finding Your LifeSmart User ID
+### Finding Your LifeSmart Email/User ID And Country/Region
 
-Your user ID is available in the LifeSmart mobile app account/profile area.
+Your email/user ID and account country/region are available in the LifeSmart mobile app account/profile area.
 
-<img src="https://github.com/user-attachments/assets/3f5f1fd6-1c38-4fd8-a557-9d5bfa5e4a0f" alt="LifeSmart mobile app user ID screen" width="420">
+<img src="./docs/userid-on-mobile.png" alt="LifeSmart mobile app email/user ID and country/region screen" width="420">
 
 ## Supported Devices
 

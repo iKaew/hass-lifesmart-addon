@@ -67,7 +67,7 @@ def make_user_input():
         config_flow_module.CONF_LIFESMART_APPTOKEN: "apptoken",
         config_flow_module.CONF_LIFESMART_USERID: "userid",
         config_flow_module.CONF_LIFESMART_USERPASSWORD: "password",
-        config_flow_module.CONF_REGION: "us",
+        config_flow_module.CONF_REGION: "country:us",
     }
 
 
@@ -92,11 +92,18 @@ def test_validate_input_success_and_failures(monkeypatch):
         login_response={"code": "success"},
         devices_response=[{"agt": "HUB1"}],
     )
-    monkeypatch.setattr(config_flow_module, "LifeSmartClient", lambda *args: fake_client)
+    client_args = []
+
+    def fake_client_factory(*args):
+        client_args.append(args)
+        return fake_client
+
+    monkeypatch.setattr(config_flow_module, "LifeSmartClient", fake_client_factory)
 
     result = asyncio.run(config_flow_module.validate_input(object(), make_user_input()))
 
     assert result == {"title": "User Id userid", "unique_id": "appkey"}
+    assert client_args[0][0] == "us"
     assert fake_client.login_calls == 1
     assert fake_client.device_calls == 1
 
@@ -165,7 +172,13 @@ def test_options_flow_client_helpers_and_normalizers(monkeypatch):
     )
     flow = make_options_flow(entry)
     fake_client = FakeClient()
-    monkeypatch.setattr(config_flow_module, "LifeSmartClient", lambda *args: fake_client)
+    client_args = []
+
+    def fake_client_factory(*args):
+        client_args.append(args)
+        return fake_client
+
+    monkeypatch.setattr(config_flow_module, "LifeSmartClient", fake_client_factory)
 
     client = asyncio.run(flow._get_client())
     cached_client = asyncio.run(flow._get_client())
@@ -173,7 +186,10 @@ def test_options_flow_client_helpers_and_normalizers(monkeypatch):
     assert client is fake_client
     assert cached_client is fake_client
     assert fake_client.login_calls == 1
+    assert client_args[0][0] == "us"
     assert flow._get_entry_value(config_flow_module.CONF_LIFESMART_APPKEY) == "opt-appkey"
+    assert config_flow_module.normalize_lifesmart_region("country:th") == "apz"
+    assert config_flow_module.normalize_lifesmart_region("EUR") == "eur"
     assert flow._normalize_brand_options({"aux": {"name": "Aux"}, "midea": "Midea"}) == {
         "aux": "Aux",
         "midea": "Midea",
