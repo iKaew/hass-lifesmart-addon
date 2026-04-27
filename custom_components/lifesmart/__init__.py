@@ -20,7 +20,7 @@ from homeassistant.components.light import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_REGION, STATE_OFF, STATE_ON, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry
+from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.entity import Entity
 
@@ -177,6 +177,8 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
             manufacturer="LifeSmart",
             model="Hub",
         )
+
+    _cleanup_legacy_doorlock_history_entities(hass, devices)
 
     hass.data[DOMAIN][config_entry.entry_id] = {
         "client": lifesmart_client,
@@ -907,15 +909,41 @@ def get_platform_by_device(device_type, sub_device=None):
         and sub_device == DIGITAL_DOORLOCK_ALARM_EVENT_KEY
         or device_type in LOCK_TYPES
         and sub_device == DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY
-        or device_type in LOCK_TYPES
-        and sub_device == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
     ):
         return Platform.BINARY_SENSOR
+    elif device_type in LOCK_TYPES and sub_device == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY:
+        return Platform.SENSOR
     elif device_type in SMART_PLUG_TYPES and sub_device == "P1":
         return Platform.SWITCH
     elif device_type in SMART_PLUG_TYPES and sub_device in ["P2", "P3"]:
         return Platform.SENSOR
     return ""
+
+
+def _cleanup_legacy_doorlock_history_entities(hass, devices):
+    """Remove old binary_sensor HISLK entries after moving HISLK to sensor."""
+    ent_reg = entity_registry.async_get(hass)
+    for device in devices:
+        if device.get(DEVICE_TYPE_KEY) not in LOCK_TYPES:
+            continue
+        data = device.get("data", {})
+        if DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY not in data:
+            continue
+        legacy_object_id = (
+            device[DEVICE_TYPE_KEY]
+            + "_"
+            + device[HUB_ID_KEY].replace("__", "_")
+            + "_"
+            + device[DEVICE_ID_KEY]
+            + "_"
+            + DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
+        )
+        legacy_entity_id = (Platform.BINARY_SENSOR + "." + legacy_object_id).lower()
+        legacy_entity_id = legacy_entity_id.replace(":", "_").replace("@", "_").replace(
+            "-", "_"
+        )
+        if ent_reg.async_get(legacy_entity_id):
+            ent_reg.async_remove(legacy_entity_id)
 
 
 def generate_entity_id(device_type, hub_id, device_id, idx=None):

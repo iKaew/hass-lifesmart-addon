@@ -103,6 +103,19 @@ class FakeDeviceRegistry:
         self.created.append(kwargs)
 
 
+class FakeEntityRegistry:
+    def __init__(self, existing=None):
+        self.existing = set(existing or [])
+        self.removed = []
+
+    def async_get(self, entity_id):
+        return entity_id if entity_id in self.existing else None
+
+    def async_remove(self, entity_id):
+        self.removed.append(entity_id)
+        self.existing.discard(entity_id)
+
+
 class FakeWebSocketApp:
     instances = []
 
@@ -174,12 +187,14 @@ def make_config_entry(options=None):
     )
 
 
-def patch_setup_dependencies(monkeypatch, device_registry):
+def patch_setup_dependencies(monkeypatch, device_registry, entity_registry=None):
     FakeLifeSmartClient.instances.clear()
     FakeWebSocketApp.instances.clear()
     FakeStatesManager.instances.clear()
+    entity_registry = entity_registry or FakeEntityRegistry()
     monkeypatch.setattr(lifesmart_init, "LifeSmartClient", FakeLifeSmartClient)
     monkeypatch.setattr(lifesmart_init.device_registry, "async_get", lambda hass: device_registry)
+    monkeypatch.setattr(lifesmart_init.entity_registry, "async_get", lambda hass: entity_registry)
     monkeypatch.setattr(lifesmart_init.websocket, "WebSocketApp", FakeWebSocketApp)
     monkeypatch.setattr(lifesmart_init, "LifeSmartStatesManager", FakeStatesManager)
 
@@ -271,6 +286,32 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     assert ws.url == "wss://example.invalid/wsapp/"
     ws.on_open(ws)
     assert ws.sent == ['{"id": 1, "method": "WbAuth"}']
+
+
+def test_cleanup_legacy_doorlock_history_binary_sensor(monkeypatch):
+    legacy_entity_id = "binary_sensor.sl_lk_yl_hub_1_lock_1_hislk"
+    ent_reg = FakeEntityRegistry(existing={legacy_entity_id})
+    monkeypatch.setattr(lifesmart_init.entity_registry, "async_get", lambda hass: ent_reg)
+
+    lifesmart_init._cleanup_legacy_doorlock_history_entities(
+        object(),
+        [
+            {
+                "devtype": "SL_LK_YL",
+                HUB_ID_KEY: "HUB-1",
+                DEVICE_ID_KEY: "LOCK:1",
+                "data": {"HISLK": {"val": 0x1001}},
+            },
+            {
+                "devtype": "SL_LK_YL",
+                HUB_ID_KEY: "HUB-1",
+                DEVICE_ID_KEY: "LOCK:2",
+                "data": {"EVTLO": {"val": 0x1001}},
+            },
+        ],
+    )
+
+    assert ent_reg.removed == [legacy_entity_id]
 
 
 def test_async_setup_entry_raises_when_login_fails(monkeypatch):
@@ -929,7 +970,7 @@ def test_get_fan_mode(speed, expected):
         ("SL_LK_LS", "BAT", lifesmart_init.Platform.SENSOR),
         ("SL_LK_LS", "EVTLO", lifesmart_init.Platform.BINARY_SENSOR),
         ("SL_LK_YL", "EVTOP", lifesmart_init.Platform.SENSOR),
-        ("SL_LK_YL", "HISLK", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_LK_YL", "HISLK", lifesmart_init.Platform.SENSOR),
         ("SL_OE_DE", "P1", lifesmart_init.Platform.SWITCH),
         ("SL_OE_DE", "P2", lifesmart_init.Platform.SENSOR),
         ("UNKNOWN", None, ""),

@@ -60,7 +60,6 @@ def test_async_setup_entry_creates_supported_binary_sensors_and_skips_excluded()
             {
                 "EVTLO": {"type": 1, "val": 0x1001},
                 "ALM": {"val": 0b10001},
-                "HISLK": {"type": 1, "val": 0x200A},
             },
             device_id="LOCK1",
         ),
@@ -86,7 +85,7 @@ def test_async_setup_entry_creates_supported_binary_sensors_and_skips_excluded()
 
     entity_ids = {entity.entity_id for entity in added_entities}
 
-    assert len(added_entities) == 10
+    assert len(added_entities) == 9
     assert "binary_sensor.sl_sc_g_hub1_device1_g" in entity_ids
     assert "binary_sensor.sl_df_sr_hub1_def1_sr" in entity_ids
     assert "binary_sensor.sl_df_sr_hub1_def1_tr" in entity_ids
@@ -96,7 +95,6 @@ def test_async_setup_entry_creates_supported_binary_sensors_and_skips_excluded()
     assert "binary_sensor.sl_sc_cn_hub1_noise1_p3" in entity_ids
     assert "binary_sensor.sl_lk_yl_hub1_lock1_evtlo" in entity_ids
     assert "binary_sensor.sl_lk_yl_hub1_lock1_alm" in entity_ids
-    assert "binary_sensor.sl_lk_yl_hub1_lock1_hislk" in entity_ids
 
 
 def test_guard_motion_water_and_smoke_binary_sensor_initialization():
@@ -144,7 +142,6 @@ def test_lock_binary_sensor_variants_and_attributes():
     lock = make_binary_sensor("SL_LK_LS", "EVTLO", {"type": 1, "val": 0x200A})
     alarm = make_binary_sensor("SL_LK_LS", "ALM", {"val": 3})
     doorbell = make_binary_sensor("SL_LK_LS", "EVTBELL", {"type": 1, "val": 7})
-    history = make_binary_sensor("SL_LK_YL", "HISLK", {"type": 1, "val": 0x300B})
 
     assert lock.name == "Status"
     assert lock.device_class == BinarySensorDeviceClass.LOCK
@@ -175,13 +172,6 @@ def test_lock_binary_sensor_variants_and_attributes():
     assert doorbell.device_class == BinarySensorDeviceClass.SOUND
     assert doorbell.is_on is True
     assert doorbell.extra_state_attributes == {"raw": 7}
-    assert history.name == "Last Unlock"
-    assert history.device_class == BinarySensorDeviceClass.LOCK
-    assert history.is_on is True
-    assert history.extra_state_attributes == {
-        "unlocking_method": "NFC",
-        "unlocking_user": 11,
-    }
 
 
 def test_binary_sensor_name_device_info_unique_id_and_attrs():

@@ -34,7 +34,9 @@ from .const import (
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     DEVICE_VERSION_KEY,
+    DIGITAL_DOORLOCK_ALARM_EVENT_KEY,
     DIGITAL_DOORLOCK_BATTERY_EVENT_KEY,
+    DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY,
     DIGITAL_DOORLOCK_OPERATION_EVENT_KEY,
     DLT_METER_TYPES,
     DOMAIN,
@@ -66,6 +68,20 @@ AIR_PURIFIER_MODES = {
     3: "fan_3",
     4: "max",
     5: "sleep",
+}
+DIGITAL_DOORLOCK_ALARM_DESCRIPTION_EVENT_KEY = "ALM_DESC"
+
+DOORLOCK_ALARM_DESCRIPTIONS = {
+    "error_alarm": "Error alarm",
+    "duress_alarm": "Duress alarm",
+    "lock_pick_alarm": "Lock-pick alarm",
+    "mechanical_key_alarm": "Mechanical key alarm",
+    "low_battery_alarm": "Low battery alarm",
+    "exception_alarm": "Exception alarm",
+    "doorbell": "Doorbell",
+    "fire_alarm": "Fire alarm",
+    "intrusion_alarm": "Intrusion alarm",
+    "factory_reset_alarm": "Factory reset alarm",
 }
 
 MODBUS_SENSOR_KEYS = {
@@ -185,7 +201,33 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                 )
             elif (
                 device_type in LOCK_TYPES
+                and sub_device_key == DIGITAL_DOORLOCK_ALARM_EVENT_KEY
+            ):
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        DIGITAL_DOORLOCK_ALARM_DESCRIPTION_EVENT_KEY,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif (
+                device_type in LOCK_TYPES
                 and sub_device_key == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY
+            ):
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif (
+                device_type in LOCK_TYPES
+                and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
             ):
                 sensor_devices.append(
                     LifeSmartSensor(
@@ -405,6 +447,13 @@ class LifeSmartSensor(SensorEntity):
         self.entity_id = generate_entity_id(
             device_type, hub_id, device_id, sub_device_key
         )
+        if sub_device_key == DIGITAL_DOORLOCK_ALARM_DESCRIPTION_EVENT_KEY:
+            self.entity_id = (
+                "sensor."
+                + f"{device_type}_{hub_id}_{device_id}_{sub_device_key}".lower()
+                .replace(":", "_")
+                .replace("@", "_")
+            )
         self._client = client
         self._attrs = _state_attributes(sub_device_data, device_type, sub_device_key)
 
@@ -563,19 +612,39 @@ class LifeSmartSensor(SensorEntity):
                 self._device_class = "None"
                 self._unit = CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER
             elif sub_device_key == DIGITAL_DOORLOCK_BATTERY_EVENT_KEY:
+                self.device_name = "Battery"
                 self._device_class = SensorDeviceClass.BATTERY
                 self._unit = PERCENTAGE
             elif (
                 device_type in LOCK_TYPES
                 and sub_device_key == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY
             ):
-                self.device_name = "Operation Record"
+                self.device_name = "Last Operation"
+                self._device_class = None
+                self._unit = None
+            elif (
+                device_type in LOCK_TYPES
+                and sub_device_key == DIGITAL_DOORLOCK_ALARM_DESCRIPTION_EVENT_KEY
+            ):
+                self.device_name = "Alarm Description"
+                self._device_class = SensorDeviceClass.ENUM
+                self._unit = None
+            elif (
+                device_type in LOCK_TYPES
+                and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
+            ):
+                self.device_name = "Last Unlock"
                 self._device_class = None
                 self._unit = None
             else:
                 self._unit = "None"
                 self._device_class = "None"
             self._state = _display_value(sub_device_data, device_type, sub_device_key)
+
+    @property
+    def name(self):
+        """Name of the entity."""
+        return self.device_name
 
     @property
     def unit_of_measurement(self):
@@ -614,7 +683,7 @@ class LifeSmartSensor(SensorEntity):
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
-                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self.entity_id}",
+                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self._signal_entity_id}",
                 self._update_value,
             )
         )
@@ -622,15 +691,25 @@ class LifeSmartSensor(SensorEntity):
     async def _update_value(self, data) -> None:
         if data is not None:
             self._state = _display_value(data, self.device_type, self.sub_device_key)
-            self._attrs = _state_attributes(
-                data, self.device_type, self.sub_device_key
-            )
+            self._attrs = _state_attributes(data, self.device_type, self.sub_device_key)
             self.schedule_update_ha_state()
 
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
         return self._attrs
+
+    @property
+    def _signal_entity_id(self):
+        """Return the dispatcher signal entity id for this sensor."""
+        if self.sub_device_key == DIGITAL_DOORLOCK_ALARM_DESCRIPTION_EVENT_KEY:
+            return generate_entity_id(
+                self.device_type,
+                self.hub_id,
+                self.device_id,
+                DIGITAL_DOORLOCK_ALARM_EVENT_KEY,
+            )
+        return self.entity_id
 
 
 def _display_value(data, device_type=None, sub_device_key=None):
@@ -665,10 +744,26 @@ def _display_value(data, device_type=None, sub_device_key=None):
             return AIR_PURIFIER_MODES.get(data.get("val"), f"unknown_{data.get('val')}")
         if sub_device_key in ["PM", "FL", "UV"]:
             return data.get("val")
-    if device_type in LOCK_TYPES and sub_device_key == DIGITAL_DOORLOCK_BATTERY_EVENT_KEY:
+    if (
+        device_type in LOCK_TYPES
+        and sub_device_key == DIGITAL_DOORLOCK_BATTERY_EVENT_KEY
+    ):
         return data.get("val")
-    if device_type in LOCK_TYPES and sub_device_key == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY:
-        return data.get("val")
+    if (
+        device_type in LOCK_TYPES
+        and sub_device_key == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY
+    ):
+        return _doorlock_operation_summary(data)
+    if (
+        device_type in LOCK_TYPES
+        and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
+    ):
+        return _doorlock_history_unlock_summary(data)
+    if (
+        device_type in LOCK_TYPES
+        and sub_device_key == DIGITAL_DOORLOCK_ALARM_DESCRIPTION_EVENT_KEY
+    ):
+        return _doorlock_alarm_description(data)
     if device_type in GENERIC_CONTROLLER_TYPES and sub_device_key == "P1":
         return data.get("val")
     if "val" in data:
@@ -754,12 +849,94 @@ def _state_attributes(data, device_type=None, sub_device_key=None):
         and sub_device_key == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY
     ):
         attrs.update(_doorlock_operation_attributes(data))
+    elif (
+        device_type in LOCK_TYPES
+        and sub_device_key == DIGITAL_DOORLOCK_ALARM_DESCRIPTION_EVENT_KEY
+    ):
+        attrs.update(_doorlock_alarm_attributes(data))
+    elif (
+        device_type in LOCK_TYPES
+        and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
+    ):
+        attrs.update(_doorlock_history_unlock_attributes(data))
     elif device_type in GENERIC_CONTROLLER_TYPES and sub_device_key == "P1":
         attrs.update(_generic_controller_config_attributes(data))
 
     if "val" in data:
         attrs["raw"] = data["val"]
     return attrs
+
+
+def _doorlock_alarm_attributes(data):
+    """Build decoded alarm attributes for digital door lock alarm reports."""
+    val = data.get("val", 0)
+    return {
+        "error_alarm": bool(val & (1 << 0)),
+        "duress_alarm": bool(val & (1 << 1)),
+        "lock_pick_alarm": bool(val & (1 << 2)),
+        "mechanical_key_alarm": bool(val & (1 << 3)),
+        "low_battery_alarm": bool(val & (1 << 4)),
+        "exception_alarm": bool(val & (1 << 5)),
+        "doorbell": bool(val & (1 << 6)),
+        "fire_alarm": bool(val & (1 << 7)),
+        "intrusion_alarm": bool(val & (1 << 8)),
+        "factory_reset_alarm": bool(val & (1 << 11)),
+    }
+
+
+def _doorlock_alarm_description(data):
+    """Return a readable digital door lock alarm description."""
+    active = [
+        description
+        for key, description in DOORLOCK_ALARM_DESCRIPTIONS.items()
+        if _doorlock_alarm_attributes(data)[key]
+    ]
+    return ", ".join(active) if active else "Normal"
+
+
+DOORLOCK_UNLOCKING_METHODS = {
+    1: "Password",
+    2: "Fingerprint",
+    3: "NFC",
+    4: "Mechanical key",
+    5: "Remote unlocking",
+    6: "One-button opening",
+    7: "APP",
+    8: "Bluetooth unlocking",
+    9: "Manual unlock",
+    15: "Error",
+}
+
+
+def _doorlock_history_unlock_attributes(data):
+    """Decode documented digital door lock last unlock fields."""
+    return {
+        "unlocking_method": _doorlock_history_unlock_method(data),
+        "unlocking_user": _doorlock_history_unlock_user(data),
+    }
+
+
+def _doorlock_history_unlock_summary(data):
+    """Return a readable digital door lock last unlock summary."""
+    attrs = _doorlock_history_unlock_attributes(data)
+    return f"Unlock with {attrs['unlocking_method']} by user {attrs['unlocking_user']}"
+
+
+def _doorlock_history_unlock_method(data):
+    """Return the unlock method label from a HISLK value."""
+    return DOORLOCK_UNLOCKING_METHODS.get(
+        _doorlock_history_unlock_method_code(data), "Undefined"
+    )
+
+
+def _doorlock_history_unlock_method_code(data):
+    """Return the unlock method code from a HISLK value."""
+    return (data.get("val", 0) >> 12) & 0xF
+
+
+def _doorlock_history_unlock_user(data):
+    """Return the unlock user id from a HISLK value."""
+    return data.get("val", 0) & 0xFFF
 
 
 GENERIC_CONTROLLER_WORKING_MODES = {
@@ -801,26 +978,45 @@ def _doorlock_operation_attributes(data):
         return {}
 
     record_type = None
-    user_id = None
+    user_id_raw = None
     user_flag = None
     value_length = _doorlock_operation_value_length(data)
     if value_length == 8:
         record_type = val
     elif value_length == 24:
         record_type = (val >> 16) & 0xFF
-        user_id = val & 0xFFFF
+        user_id_raw = val & 0xFFFF
     else:
         record_type = (val >> 24) & 0xFF
-        user_id = (val >> 8) & 0xFFFF
+        user_id_raw = (val >> 8) & 0xFFFF
         user_flag = val & 0xFF
 
     attrs = {"record_type": record_type}
-    if user_id is not None:
-        attrs["user_id"] = user_id
+    if user_id_raw is not None:
+        attrs["user_id_raw"] = user_id_raw
     if user_flag is not None:
         attrs["user_flag"] = user_flag
         attrs["user_role"] = _doorlock_operation_user_role(user_flag)
     return attrs
+
+
+def _doorlock_operation_summary(data):
+    """Return a human-readable digital door lock operation record summary."""
+    attrs = _doorlock_operation_attributes(data)
+    record_type = attrs.get("record_type")
+    if record_type is None:
+        return None
+
+    summary = f"Operation type {record_type}"
+    user_id_raw = attrs.get("user_id_raw")
+    if user_id_raw is not None:
+        return f"{summary} by user id {user_id_raw}"
+    return None
+
+
+def _humanize_token(value):
+    """Convert internal snake_case tokens into human-readable labels."""
+    return str(value).replace("_", " ")
 
 
 def _doorlock_operation_value_length(data):

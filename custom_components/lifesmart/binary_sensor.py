@@ -23,7 +23,6 @@ from .const import (
     DEVICE_TYPE_KEY,
     DIGITAL_DOORLOCK_ALARM_EVENT_KEY,
     DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY,
-    DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY,
     DIGITAL_DOORLOCK_LOCK_EVENT_KEY,
     DOMAIN,
     GAS_SENSOR_TYPES,
@@ -132,19 +131,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             elif (
                 device_type in LOCK_TYPES
                 and sub_device_key == DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY
-            ):  # noqa: SIM114
-                sensor_devices.append(
-                    LifeSmartBinarySensor(
-                        ha_device,
-                        device,
-                        sub_device_key,
-                        sub_device_data,
-                        client,
-                    )
-                )
-            elif (
-                device_type in LOCK_TYPES
-                and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
             ):  # noqa: SIM114
                 sensor_devices.append(
                     LifeSmartBinarySensor(
@@ -390,15 +376,6 @@ class LifeSmartBinarySensor(BinarySensorEntity):
             self._device_class = BinarySensorDeviceClass.SOUND
             self._state = sub_device_data["type"] % 2 == 1
             self._attrs = {"raw": sub_device_data.get("val")}
-        elif (
-            device_type in LOCK_TYPES
-            and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
-        ):
-            self.device_name = "Last Unlock"
-            self._device_class = BinarySensorDeviceClass.LOCK
-            self._state = is_doorlock_unlocked(sub_device_data)
-            self._attrs = build_doorlock_attribute(sub_device_data)
-
         elif device_type in GENERIC_CONTROLLER_TYPES:
             self._attrs = sub_device_data
             self._device_class = BinarySensorDeviceClass.LOCK
@@ -459,8 +436,6 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         if (
             device_type in LOCK_TYPES
             and sub_device_key == DIGITAL_DOORLOCK_LOCK_EVENT_KEY
-            or device_type in LOCK_TYPES
-            and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
         ):
             self._state = is_doorlock_unlocked(data)
             self._attrs = build_doorlock_attribute(data)
