@@ -43,6 +43,14 @@ CON_AI_TYPES = [
 AI_TYPES = ["ai"]
 
 
+def _is_on_type(value) -> bool:
+    """Return True when a LifeSmart type value represents on."""
+    try:
+        return int(str(value), 0) % 2 == 1
+    except (TypeError, ValueError):
+        return False
+
+
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Setup switch entities."""
     devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
@@ -186,10 +194,7 @@ class LifeSmartSwitch(SwitchEntity):
         )
         self._client = client
 
-        if sub_device_data["type"] % 2 == 1:
-            self._state = True
-        else:
-            self._state = False
+        self._state = _is_on_type(sub_device_data.get("type"))
 
         super().__init__()
 
@@ -211,7 +216,7 @@ class LifeSmartSwitch(SwitchEntity):
             name=self.switch_name,
             manufacturer=MANUFACTURER,
             model=self.device_type,
-            sw_version=self.raw_device_data[DEVICE_VERSION_KEY],
+            sw_version=self.raw_device_data.get(DEVICE_VERSION_KEY),
             via_device=(DOMAIN, self.hub_id),
         )
 
@@ -227,10 +232,7 @@ class LifeSmartSwitch(SwitchEntity):
 
     async def _update_state(self, data) -> None:
         if data is not None:
-            if data["type"] % 2 == 1:
-                self._state = True
-            else:
-                self._state = False
+            self._state = _is_on_type(data.get("type"))
             self.schedule_update_ha_state()
 
     def _get_state(self):

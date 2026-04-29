@@ -7,6 +7,7 @@ import struct
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
+    ATTR_EFFECT,
     ATTR_HS_COLOR,
     ATTR_RGB_COLOR,
     ATTR_RGBW_COLOR,
@@ -31,15 +32,12 @@ from .const import (
     HUB_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     MANUFACTURER,
+    QUANTUM_TYPES,
     SPOT_LIGHT_TYPES,
     SPOT_TYPES,
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-QUANTUM_TYPES = [
-    "OD_WE_QUAN",
-]
 
 LIGHT_DIMMER_TYPES = [
     "SL_LI_WW",
@@ -47,6 +45,58 @@ LIGHT_DIMMER_TYPES = [
 
 MAX_MIREDS = int(1000000 / 2700)
 MIN_MIREDS = int(1000000 / 6500)
+
+DYN_EFFECTS = {
+    "Grass": 0x8218CC80,
+    "Sea wave": 0x8318CC80,
+    "Deep-blue mountains": 0x8418CC80,
+    "Flirtatious purple": 0x8518CC80,
+    "Raspberry": 0x8618CC80,
+    "Orange": 0x8718CC80,
+    "Autumn fruit": 0x8818CC80,
+    "Ice cream": 0x8918CC80,
+    "Plateau": 0x8020CC80,
+    "Pizza": 0x8120CC80,
+    "Fruit juice": 0x8A20CC80,
+    "Warm cottage": 0x8B30CC80,
+    "Magic red": 0x9318CC80,
+    "Light spot": 0x9518CC80,
+    "Blue": 0x9718CC80,
+    "First rays of the morning sun": 0x9618CC80,
+    "Hibiscus": 0x9818CC80,
+    "Colorful era": 0x9918CC80,
+    "Sky world": 0xA318CC80,
+    "Charm blue": 0xA718CC80,
+    "Bright red": 0xA918CC80,
+}
+DYN_EFFECT_NAMES_BY_VALUE = {value: name for name, value in DYN_EFFECTS.items()}
+
+
+def _is_on_type(value) -> bool:
+    """Return True when a LifeSmart type value represents on."""
+    try:
+        return int(str(value), 0) % 2 == 1
+    except (TypeError, ValueError):
+        return False
+
+
+def _effect_from_dyn_value(value):
+    """Return a Home Assistant effect name for a LifeSmart DYN value."""
+    try:
+        dyn_value = int(value)
+    except (TypeError, ValueError):
+        return None
+    return DYN_EFFECT_NAMES_BY_VALUE.get(dyn_value, f"DYN 0x{dyn_value:08x}")
+
+
+def _dyn_value_from_effect(effect):
+    """Return a LifeSmart DYN value for a Home Assistant effect name."""
+    if effect in DYN_EFFECTS:
+        return DYN_EFFECTS[effect]
+    try:
+        return int(str(effect), 0)
+    except ValueError:
+        return None
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entities):
@@ -89,6 +139,17 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
                     client,
                 )
             )
+        elif device_type in QUANTUM_TYPES:
+            if "P2" in device[DEVICE_DATA_KEY]:
+                light_devices.append(
+                    LifeSmartLight(
+                        ha_device,
+                        device,
+                        "P2",
+                        device[DEVICE_DATA_KEY]["P2"],
+                        client,
+                    )
+                )
         else:
             for sub_device_key in device[DEVICE_DATA_KEY]:
                 if sub_device_key in [
@@ -131,7 +192,7 @@ class LifeSmartSLSPOTLight(LightEntity):
         self._device_id = raw_device_data[DEVICE_ID_KEY]
         self._hub_id = raw_device_data[HUB_ID_KEY]
         self._sub_device_key = sub_device_key
-        self._sw_version = raw_device_data[DEVICE_VERSION_KEY]
+        self._sw_version = raw_device_data.get(DEVICE_VERSION_KEY)
         self._attributes = {}
 
         self._raw_device_data = raw_device_data
@@ -147,7 +208,7 @@ class LifeSmartSLSPOTLight(LightEntity):
         _LOGGER.info("Light: sub_device_key: %s ", str(sub_device_key))
         _LOGGER.info("Light: sub_device_data: %s ", str(sub_device_data))
 
-        if sub_device_data["type"] % 2 == 1:
+        if _is_on_type(sub_device_data.get("type")):
             self._state = True
             self._brightness = 255
         else:
@@ -191,7 +252,7 @@ class LifeSmartSLSPOTLight(LightEntity):
     async def _update_state(self, data) -> None:
         if data is None:
             return
-        if data["type"] % 2 == 1:
+        if _is_on_type(data.get("type")):
             self._state = True
             self._brightness = 255
         else:
@@ -352,11 +413,36 @@ class LifeSmartLight(LightEntity):
 
         self._brightness = None
         self._color_temp = None
+        self._effect = None
+        self._effect_list = None
+        self._dyn_data = raw_device_data.get(DEVICE_DATA_KEY, {}).get("DYN")
+        if device_type in QUANTUM_TYPES:
+            self._dyn_data = raw_device_data.get(DEVICE_DATA_KEY, {}).get("P3")
         _LOGGER.info("Light: %s added", str(self.entity_id))
         _LOGGER.info("Light: sub_device_key: %s ", str(sub_device_key))
         _LOGGER.info("Light: sub_device_data: %s ", str(sub_device_data))
 
-        if device_type in LIGHT_DIMMER_TYPES:
+        if device_type in QUANTUM_TYPES:
+            self._state = _is_on_type(sub_device_data.get("type"))
+            self._color_mode = ColorMode.RGBW
+            self._supported_color_modes = {ColorMode.RGBW}
+            self._max_mireds = None
+            self._min_mireds = None
+            brightness = raw_device_data.get(DEVICE_DATA_KEY, {}).get("P1", {}).get(
+                "val"
+            )
+            if brightness is not None:
+                self._brightness = round(max(0, min(100, brightness)) * 255 / 100)
+            if self._dyn_data is not None and _is_on_type(self._dyn_data.get("type")):
+                self._effect = _effect_from_dyn_value(self._dyn_data.get("val"))
+
+            value = sub_device_data["val"]
+            rgbhexstr = f"{value:x}"
+            rgbhexstr = rgbhexstr.zfill(8)
+            rgbhex = bytes.fromhex(rgbhexstr)
+            rgbhex = struct.unpack("BBBB", rgbhex)
+            self._rgbw_color = rgbhex[1:] + (rgbhex[0],)
+        elif device_type in LIGHT_DIMMER_TYPES:
             self._color_mode = ColorMode.COLOR_TEMP
             self._supported_color_modes = {ColorMode.COLOR_TEMP}
             self._max_mireds = MAX_MIREDS
@@ -364,7 +450,7 @@ class LifeSmartLight(LightEntity):
             for data_idx in sub_device_data:
                 if data_idx == "P1":
                     # set on/off
-                    if sub_device_data[data_idx]["type"] % 2 == 1:
+                    if _is_on_type(sub_device_data[data_idx].get("type")):
                         self._state = True
                     else:
                         self._state = False
@@ -378,10 +464,7 @@ class LifeSmartLight(LightEntity):
                         + self._min_mireds
                     )
         else:
-            if sub_device_data["type"] % 2 == 1:
-                self._state = True
-            else:
-                self._state = False
+            self._state = _is_on_type(sub_device_data.get("type"))
 
             if sub_device_key == "P1":
                 self._color_mode = ColorMode.COLOR_TEMP
@@ -392,6 +475,12 @@ class LifeSmartLight(LightEntity):
             elif sub_device_key in ["RGBW", "RGB"]:
                 self._color_mode = ColorMode.RGBW
                 self._supported_color_modes = {ColorMode.RGBW}
+                if self._dyn_data is not None:
+                    self._effect_list = list(DYN_EFFECTS)
+                    if _is_on_type(self._dyn_data.get("type")):
+                        self._effect = _effect_from_dyn_value(
+                            self._dyn_data.get("val")
+                        )
             else:
                 self._color_mode = ColorMode.ONOFF
                 self._supported_color_modes = {ColorMode.ONOFF}
@@ -437,7 +526,7 @@ class LifeSmartLight(LightEntity):
             name=self.light_name,
             manufacturer=MANUFACTURER,
             model=self.device_type,
-            sw_version=self.raw_device_data[DEVICE_VERSION_KEY],
+            sw_version=self.raw_device_data.get(DEVICE_VERSION_KEY),
             via_device=(DOMAIN, self.hub_id),
         )
 
@@ -513,9 +602,63 @@ class LifeSmartLight(LightEntity):
         """Return the color mode of the light."""
         return self._supported_color_modes
 
+    @property
+    def effect(self):
+        """Return the current light effect."""
+        return self._effect
+
+    @property
+    def effect_list(self):
+        """Return supported light effects."""
+        return self._effect_list
+
     async def async_turn_on(self, **kwargs):
         """Turn the light on."""
-        if self.device_type in LIGHT_DIMMER_TYPES:
+        if self.device_type in QUANTUM_TYPES:
+            if ATTR_BRIGHTNESS in kwargs:
+                brightness = round(max(0, min(255, kwargs[ATTR_BRIGHTNESS])) * 100 / 255)
+                if (
+                    await self._client.send_epset_async(
+                        "0xcf",
+                        brightness,
+                        "P1",
+                        self.hub_id,
+                        self.device_id,
+                    )
+                    == 0
+                ):
+                    self._brightness = kwargs[ATTR_BRIGHTNESS]
+                    self._state = True
+                    self.async_schedule_update_ha_state()
+            if ATTR_RGBW_COLOR in kwargs:
+                self._rgbw_color = kwargs[ATTR_RGBW_COLOR]
+                rgbhex = (self._rgbw_color[-1],) + self._rgbw_color[:-1]
+                rgbhex = binascii.hexlify(struct.pack("BBBB", *rgbhex)).decode(
+                    "ASCII"
+                )
+                rgbhex = int(rgbhex, 16)
+                if (
+                    await self._client.send_epset_async(
+                        "0xff",
+                        rgbhex,
+                        "P2",
+                        self.hub_id,
+                        self.device_id,
+                    )
+                    == 0
+                ):
+                    self._state = True
+                    self.async_schedule_update_ha_state()
+            if ATTR_BRIGHTNESS not in kwargs and ATTR_RGBW_COLOR not in kwargs:
+                if (
+                    await self._client.turn_on_light_swith_async(
+                        "P1", self.hub_id, self.device_id
+                    )
+                    == 0
+                ):
+                    self._state = True
+                    self.async_schedule_update_ha_state()
+        elif self.device_type in LIGHT_DIMMER_TYPES:
             if ATTR_BRIGHTNESS in kwargs:
                 if (
                     await super().async_lifesmart_epset(
@@ -564,7 +707,31 @@ class LifeSmartLight(LightEntity):
                     self.async_schedule_update_ha_state()
 
             if self.color_mode == ColorMode.RGBW:
-                if ATTR_RGBW_COLOR in kwargs:
+                if ATTR_EFFECT in kwargs and self._dyn_data is not None:
+                    dyn_value = _dyn_value_from_effect(kwargs[ATTR_EFFECT])
+                    if dyn_value is None:
+                        _LOGGER.warning("Unsupported DYN effect: %s", kwargs[ATTR_EFFECT])
+                        return
+
+                    if not self._state:
+                        await self._client.turn_on_light_swith_async(
+                            self.sub_device_key, self.hub_id, self.device_id
+                        )
+
+                    if (
+                        await self._client.send_epset_async(
+                            "0xff",
+                            dyn_value,
+                            "DYN",
+                            self.hub_id,
+                            self.device_id,
+                        )
+                        == 0
+                    ):
+                        self._effect = _effect_from_dyn_value(dyn_value)
+                        self._state = True
+                        self.async_schedule_update_ha_state()
+                elif ATTR_RGBW_COLOR in kwargs:
                     self._rgbw_color = kwargs[ATTR_RGBW_COLOR]
                     # convert rgbw to wrgb tuple
                     rgbhex = (self._rgbw_color[-1],) + self._rgbw_color[:-1]
@@ -572,6 +739,12 @@ class LifeSmartLight(LightEntity):
                         "ASCII"
                     )
                     rgbhex = int(rgbhex, 16)
+
+                    if self._dyn_data is not None:
+                        await self._client.turn_off_light_swith_async(
+                            "DYN", self.hub_id, self.device_id
+                        )
+                        self._effect = None
 
                     if (
                         await self._client.send_epset_async(
@@ -594,9 +767,28 @@ class LifeSmartLight(LightEntity):
                     self._state = True
                     self.async_schedule_update_ha_state()
 
+            if self.color_mode == ColorMode.ONOFF and (
+                await self._client.turn_on_light_swith_async(
+                    self.sub_device_key, self.hub_id, self.device_id
+                )
+                == 0
+            ):
+                self._state = True
+                self.async_schedule_update_ha_state()
+
     async def async_turn_off(self, **kwargs):
         """Turn the light off."""
-        if self.device_type in LIGHT_DIMMER_TYPES:
+        if self.device_type in QUANTUM_TYPES:
+            if (
+                await self._client.turn_off_light_swith_async(
+                    "P1", self.hub_id, self.device_id
+                )
+                == 0
+            ):
+                self._state = False
+                self.async_schedule_update_ha_state()
+
+        elif self.device_type in LIGHT_DIMMER_TYPES:
             if await super().async_lifesmart_epset("0x80", 0, "P1") == 0:
                 self._state = False
                 self.async_schedule_update_ha_state()

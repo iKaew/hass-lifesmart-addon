@@ -907,6 +907,97 @@ def test_on_message_applies_direct_state_updates(monkeypatch):
     assert hass.states.get(gas_entity).state == 7
 
 
+def test_on_message_skips_direct_state_updates_for_missing_entities(monkeypatch):
+    cover_type = next(iter(lifesmart_init.COVER_TYPES))
+    light_type = next(iter(lifesmart_init.LIGHT_DIMMER_TYPES))
+    smart_plug_type = next(iter(lifesmart_init.SMART_PLUG_TYPES))
+    ot_type = next(iter(lifesmart_init.OT_SENSOR_TYPES))
+    gas_type = next(iter(lifesmart_init.GAS_SENSOR_TYPES))
+    water_type = next(iter(lifesmart_init.WATER_LEAK_SENSOR_TYPES))
+    hass, _entry, ws, dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch,
+        devices=[
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "COVER1", "devtype": cover_type},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "LIGHT1", "devtype": light_type},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "PLUG1", "devtype": smart_plug_type},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "OT1", "devtype": ot_type},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "GAS1", "devtype": gas_type},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "WATER1", "devtype": water_type},
+        ],
+    )
+
+    for payload in [
+        {
+            "devtype": cover_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "COVER1",
+            SUBDEVICE_INDEX_KEY: "P1",
+            "type": 3,
+            "val": 45,
+        },
+        {
+            "devtype": light_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "LIGHT1",
+            SUBDEVICE_INDEX_KEY: "P1",
+            "type": "0x81",
+            "val": 120,
+        },
+        {
+            "devtype": light_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "LIGHT1",
+            SUBDEVICE_INDEX_KEY: "P2",
+            "type": 1,
+            "val": 0,
+        },
+        {
+            "devtype": smart_plug_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "PLUG1",
+            SUBDEVICE_INDEX_KEY: "P1",
+            "type": "0x80",
+            "val": 0,
+        },
+        {
+            "devtype": smart_plug_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "PLUG1",
+            SUBDEVICE_INDEX_KEY: "P3",
+            "type": 1,
+            "v": 42,
+        },
+        {
+            "devtype": ot_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "OT1",
+            SUBDEVICE_INDEX_KEY: "Z",
+            "type": 1,
+            "v": 99,
+        },
+        {
+            "devtype": gas_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "GAS1",
+            SUBDEVICE_INDEX_KEY: "G",
+            "type": 1,
+            "val": 7,
+        },
+        {
+            "devtype": water_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "WATER1",
+            SUBDEVICE_INDEX_KEY: "V",
+            "type": 1,
+            "v": 80,
+        },
+    ]:
+        send_ws_device_update(ws, payload)
+
+    assert dispatch_calls == []
+    assert hass.states._states == {}
+
+
 class FakeBaseClient:
     def __init__(self):
         self.epset_calls = []

@@ -4,6 +4,7 @@ import importlib
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
+    ATTR_EFFECT,
     ATTR_HS_COLOR,
     ATTR_RGB_COLOR,
     ATTR_RGBW_COLOR,
@@ -97,6 +98,37 @@ def test_light_async_setup_entry_creates_expected_entities():
     assert any(isinstance(entity, light_module.LifeSmartLight) for entity in added)
 
 
+def test_light_async_setup_entry_creates_reported_strip_and_quantum_lights():
+    devices = [
+        make_device(
+            "SL_CT_RGBW",
+            {"RGBW": {"type": "255", "val": 0x11223344}},
+            device_id="STRIP1",
+        ),
+        make_device(
+            "OD_WE_QUAN",
+            {
+                "P1": {"type": 206, "val": 30, "v": 30},
+                "P2": {"type": 255, "val": 96274064},
+                "P3": {"type": 254, "val": 0},
+            },
+            device_id="QUAN1",
+        ),
+    ]
+    hass = FakeHass("entry-1", devices, client=FakeClient())
+    added = []
+
+    asyncio.run(light_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
+
+    assert len(added) == 2
+    assert any(entity.entity_id == "light.sl_ct_rgbw_hub1_strip1_rgbw" for entity in added)
+    quantum = next(
+        entity for entity in added if entity.entity_id == "light.od_we_quan_hub1_quan1_p2"
+    )
+    assert quantum.is_on is True
+    assert quantum.brightness == 76
+
+
 def test_spot_light_behaviour_and_properties():
     client = FakeClient()
     client.remote_list = {"device-SPOT1": {"category": "tv", "brand": "aux", "idx": "1"}}
@@ -133,6 +165,25 @@ def test_spot_light_behaviour_and_properties():
     ]
     assert client.on_calls == [("RGB", "HUB1", "SPOT1")]
     assert client.off_calls == [("RGB", "HUB1", "SPOT1")]
+    assert updates == ["scheduled"]
+
+
+def test_spot_light_accepts_string_type_and_missing_version():
+    client = FakeClient()
+    raw = make_device("SL_SPOT", {"RGB": {"type": "129", "val": 0x00112233}})
+    raw.pop("ver")
+    entity = light_module.LifeSmartSLSPOTLight(
+        None, raw, "RGB", raw["data"]["RGB"], client
+    )
+    updates = []
+    entity.schedule_update_ha_state = lambda: updates.append("scheduled")
+
+    assert entity.is_on is True
+    assert entity.device_info["sw_version"] is None
+
+    asyncio.run(entity._update_state({"type": "128", "val": 0x00010203}))
+
+    assert entity.is_on is False
     assert updates == ["scheduled"]
 
 
@@ -192,3 +243,72 @@ def test_generic_light_and_dimmer_branches(monkeypatch):
 
     assert client.on_calls[-1] == ("RGBW", "HUB1", "RGBW1")
     assert client.off_calls[-1] == ("RGB", "HUB1", "RGB1")
+
+
+def test_rgbw_light_supports_dyn_effects_and_disables_dyn_for_static_color():
+    client = FakeClient()
+    raw = make_device(
+        "SL_CT_RGBW",
+        {
+            "RGBW": {"type": 0, "val": 0x00000000},
+            "DYN": {"type": 1, "val": light_module.DYN_EFFECTS["Grass"]},
+        },
+        device_id="STRIP1",
+    )
+    light = light_module.LifeSmartLight(
+        FakeBaseDevice(), raw, "RGBW", raw["data"]["RGBW"], client
+    )
+    updates = []
+    light.async_schedule_update_ha_state = lambda: updates.append("scheduled")
+
+    assert light.effect == "Grass"
+    assert "Sea wave" in light.effect_list
+
+    asyncio.run(light.async_turn_on(**{ATTR_EFFECT: "Sea wave"}))
+    asyncio.run(light.async_turn_on(**{ATTR_RGBW_COLOR: (10, 20, 30, 40)}))
+
+    assert light.effect is None
+    assert light.is_on is True
+    assert client.on_calls == [("RGBW", "HUB1", "STRIP1")]
+    assert client.off_calls == [("DYN", "HUB1", "STRIP1")]
+    assert client.epset_calls == [
+        ("0xff", light_module.DYN_EFFECTS["Sea wave"], "DYN", "HUB1", "STRIP1"),
+        ("0xff", 0x280A141E, "RGBW", "HUB1", "STRIP1"),
+    ]
+    assert updates == ["scheduled", "scheduled"]
+
+
+def test_quantum_onoff_light_turns_on_and_off():
+    client = FakeClient()
+    raw = make_device(
+        "OD_WE_QUAN",
+        {
+            "P1": {"type": 206, "val": 30, "v": 30},
+            "P2": {"type": 255, "val": 96274064},
+            "P3": {"type": 254, "val": 0},
+        },
+        device_id="QUAN1",
+    )
+    entity = light_module.LifeSmartLight(
+        FakeBaseDevice(), raw, "P2", raw["data"]["P2"], client
+    )
+    updates = []
+    entity.async_schedule_update_ha_state = lambda: updates.append("scheduled")
+
+    assert entity.color_mode == ColorMode.RGBW
+    assert entity.rgbw_color == (189, 6, 144, 5)
+    assert entity.brightness == 76
+
+    asyncio.run(entity.async_turn_on())
+    asyncio.run(entity.async_turn_on(**{ATTR_BRIGHTNESS: 128}))
+    asyncio.run(entity.async_turn_on(**{ATTR_RGBW_COLOR: (10, 20, 30, 40)}))
+    asyncio.run(entity.async_turn_off())
+
+    assert entity.is_on is False
+    assert client.on_calls == [("P1", "HUB1", "QUAN1")]
+    assert client.off_calls == [("P1", "HUB1", "QUAN1")]
+    assert client.epset_calls == [
+        ("0xcf", 50, "P1", "HUB1", "QUAN1"),
+        ("0xff", 0x280A141E, "P2", "HUB1", "QUAN1"),
+    ]
+    assert updates == ["scheduled", "scheduled", "scheduled", "scheduled"]

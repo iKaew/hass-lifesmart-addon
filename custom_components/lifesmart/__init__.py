@@ -107,6 +107,24 @@ SEND_IR_CODE_SCHEMA = vol.Schema(
 _LOGGER = logging.getLogger(__name__)
 
 
+def _state_for_direct_update(hass, entity_id):
+    """Return an existing HA state object for direct websocket updates."""
+    state = hass.states.get(entity_id)
+    if state is None:
+        _LOGGER.debug(
+            "Skipping websocket direct state update for missing entity: %s", entity_id
+        )
+    return state
+
+
+def _is_on_type(value) -> bool:
+    """Return True when a LifeSmart type value represents on."""
+    try:
+        return int(str(value), 0) % 2 == 1
+    except (TypeError, ValueError):
+        return False
+
+
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # noqa: C901
     """Initialize a setup of the lifesamrt addon."""
     hass.data.setdefault(DOMAIN, {})
@@ -284,7 +302,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                         hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
                     )
                 elif sub_device_key == "V":
-                    attrs = hass.states.get(entity_id).attributes
+                    entity_state = _state_for_direct_update(hass, entity_id)
+                    if entity_state is None:
+                        return
+                    attrs = entity_state.attributes
                     hass.states.set(entity_id, data["v"], attrs)
             elif (
                 device_type in RADAR_MOTION_SENSOR_TYPES
@@ -418,13 +439,16 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                 or device_type in GARAGE_DOOR_TYPES
                 and sub_device_key == "P2"
             ):
-                attrs = dict(hass.states.get(entity_id).attributes)
+                entity_state = _state_for_direct_update(hass, entity_id)
+                if entity_state is None:
+                    return
+                attrs = dict(entity_state.attributes)
                 nval = data["val"]
                 ntype = data["type"]
                 attrs["current_position"] = nval & 0x7F
                 # _LOGGER.debug("websocket_cover_attrs: %s",str(attrs))
                 nstat = None
-                if ntype % 2 == 0:
+                if not _is_on_type(ntype):
                     if nval > 0:
                         nstat = "open"
                     else:
@@ -439,21 +463,27 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                     hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
                 )
             elif device_type in GAS_SENSOR_TYPES and data["val"] > 0:
-                attrs = hass.states.get(entity_id).attributes
+                entity_state = _state_for_direct_update(hass, entity_id)
+                if entity_state is None:
+                    return
+                attrs = entity_state.attributes
                 hass.states.set(entity_id, data["val"], attrs)
             elif device_type in SPOT_TYPES or device_type in LIGHT_SWITCH_TYPES:
                 dispatcher_send(
                     hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
                 )
             elif device_type in LIGHT_DIMMER_TYPES:
-                attrs = dict(hass.states.get(entity_id).attributes)
-                state = hass.states.get(entity_id).state
+                entity_state = _state_for_direct_update(hass, entity_id)
+                if entity_state is None:
+                    return
+                attrs = dict(entity_state.attributes)
+                state = entity_state.state
                 _LOGGER.debug("websocket_light_msg: %s ", str(msg))
                 _LOGGER.debug("websocket_light_attrs: %s", str(attrs))
                 value = data["val"]
                 idx = sub_device_key
                 if idx in ["P1"]:
-                    if data["type"] % 2 == 1:
+                    if _is_on_type(data["type"]):
                         attrs[ATTR_BRIGHTNESS] = value
                         hass.states.set(entity_id, STATE_ON, attrs)
                     else:
@@ -494,17 +524,26 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                 "P3",
                 "P4",
             ]:
-                attrs = hass.states.get(entity_id).attributes
+                entity_state = _state_for_direct_update(hass, entity_id)
+                if entity_state is None:
+                    return
+                attrs = entity_state.attributes
                 hass.states.set(entity_id, data["v"], attrs)
             elif device_type in SMART_PLUG_TYPES:
                 if sub_device_key == "P1":
-                    attrs = hass.states.get(entity_id).attributes
-                    if data["type"] % 2 == 1:
+                    entity_state = _state_for_direct_update(hass, entity_id)
+                    if entity_state is None:
+                        return
+                    attrs = entity_state.attributes
+                    if _is_on_type(data["type"]):
                         hass.states.set(entity_id, STATE_ON, attrs)
                     else:
                         hass.states.set(entity_id, STATE_OFF, attrs)
                 elif sub_device_key in ["P2", "P3"]:
-                    attrs = hass.states.get(entity_id).attributes
+                    entity_state = _state_for_direct_update(hass, entity_id)
+                    if entity_state is None:
+                        return
+                    attrs = entity_state.attributes
                     hass.states.set(entity_id, data["v"], attrs)
             else:
                 _LOGGER.debug("Event is not supported")

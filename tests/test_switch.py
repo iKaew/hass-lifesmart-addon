@@ -90,6 +90,25 @@ def test_async_setup_entry_creates_supported_switch_entities(monkeypatch):
     assert any(entity.entity_id == "switch.sl_nature_hub1_nat1_p1" for entity in added)
 
 
+def test_async_setup_entry_creates_reported_switch_and_outlet_entities():
+    devices = [
+        make_device("SL_SF_IF1", {"L1": {"type": "129", "val": 1}}, device_id="SW1"),
+        make_device("SL_SF_IF2", {"L1": {"type": "128", "val": 0}, "L2": {"type": "129", "val": 1}}, device_id="SW2"),
+        make_device("SL_SF_IF3", {"L3": {"type": "129", "val": 1}}, device_id="SW3"),
+        make_device("SL_OL_3C", {"O": {"type": "128", "val": 0}}, device_id="OUTLET1"),
+    ]
+    hass = FakeHass("entry-1", devices, client=FakeClient())
+    added = []
+
+    asyncio.run(switch_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
+
+    assert len(added) == 5
+    assert any(entity.entity_id == "switch.sl_sf_if1_hub1_sw1_l1" for entity in added)
+    assert any(entity.entity_id == "switch.sl_sf_if2_hub1_sw2_l2" for entity in added)
+    assert any(entity.entity_id == "switch.sl_sf_if3_hub1_sw3_l3" for entity in added)
+    assert any(entity.entity_id == "switch.sl_ol_3c_hub1_outlet1_o" for entity in added)
+
+
 def test_switch_entity_properties_updates_and_turn_on_off():
     client = FakeClient(on_results=[0, 1], off_results=[0, 1])
     entity, updates = make_switch_entity(client=client)
@@ -110,6 +129,35 @@ def test_switch_entity_properties_updates_and_turn_on_off():
     assert client.on_calls == [("P1", "HUB1", "DEV1"), ("P1", "HUB1", "DEV1")]
     assert client.off_calls == [("P1", "HUB1", "DEV1"), ("P1", "HUB1", "DEV1")]
     assert updates == ["scheduled", "async", "async"]
+
+
+def test_switch_accepts_string_type_and_missing_version():
+    raw = make_device("SL_SF_IF1", {"L1": {"type": "129", "val": 1}})
+    raw.pop("ver")
+    entity = switch_module.LifeSmartSwitch(
+        None, raw, "L1", raw["data"]["L1"], FakeClient()
+    )
+    updates = []
+    entity.schedule_update_ha_state = lambda: updates.append("scheduled")
+
+    assert entity.is_on is True
+    assert entity.device_info["sw_version"] is None
+
+    asyncio.run(entity._update_state({"type": "128"}))
+
+    assert entity.is_on is False
+    assert updates == ["scheduled"]
+
+
+def test_switch_accepts_hex_string_type_from_real_log():
+    entity, updates = make_switch_entity(sub_device_data={"type": "0x80", "val": 0})
+
+    assert entity.is_on is False
+
+    asyncio.run(entity._update_state({"type": "0x81"}))
+
+    assert entity.is_on is True
+    assert updates == ["scheduled"]
 
 
 def test_switch_async_added_to_hass_registers_dispatcher(monkeypatch):
