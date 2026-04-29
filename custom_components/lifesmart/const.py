@@ -75,6 +75,7 @@ SUPPORTED_SUB_SWITCH_TYPES = [
     "P1",
     "P2",
     "P3",
+    "O",
 ]
 
 SUPPORTED_SUB_BINARY_SENSORS = [
@@ -95,6 +96,7 @@ LIGHT_SWITCH_TYPES = [
     "SL_SW_IF2",
     "SL_SW_IF3",
     "SL_CT_RGBW",
+    "OD_WE_QUAN",
 ]
 LIGHT_DIMMER_TYPES = [
     "SL_LI_WW",
