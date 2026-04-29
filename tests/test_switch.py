@@ -160,6 +160,11 @@ def test_switch_accepts_hex_string_type_from_real_log():
     assert updates == ["scheduled"]
 
 
+def test_switch_type_helper_handles_invalid_values():
+    assert switch_module._is_on_type(None) is False
+    assert switch_module._is_on_type("not-a-number") is False
+
+
 def test_switch_async_added_to_hass_registers_dispatcher(monkeypatch):
     entity, _updates = make_switch_entity()
     entity.hass = object()

@@ -187,6 +187,14 @@ def test_spot_light_accepts_string_type_and_missing_version():
     assert updates == ["scheduled"]
 
 
+def test_light_helpers_handle_invalid_and_raw_dyn_values():
+    assert light_module._is_on_type(object()) is False
+    assert light_module._effect_from_dyn_value(None) is None
+    assert light_module._effect_from_dyn_value(0xDEADBEEF) == "DYN 0xdeadbeef"
+    assert light_module._dyn_value_from_effect("0x8318cc80") == light_module.DYN_EFFECTS["Sea wave"]
+    assert light_module._dyn_value_from_effect("missing-effect") is None
+
+
 def test_generic_light_and_dimmer_branches(monkeypatch):
     client = FakeClient()
 
@@ -218,6 +226,10 @@ def test_generic_light_and_dimmer_branches(monkeypatch):
     spot_like = light_module.LifeSmartLight(FakeBaseDevice(), spot_like_raw, "RGBW", spot_like_raw["data"]["RGBW"], client)
     spot_like.async_schedule_update_ha_state = lambda: None
 
+    onoff_raw = make_device("SL_OL_W", {"bright": {"type": 0, "val": 0}}, device_id="ONOFF1")
+    onoff = light_module.LifeSmartLight(FakeBaseDevice(), onoff_raw, "bright", onoff_raw["data"]["bright"], client)
+    onoff.async_schedule_update_ha_state = lambda: None
+
     asyncio.run(dimmer.async_turn_on(**{ATTR_BRIGHTNESS: 150, ATTR_COLOR_TEMP_KELVIN: 4000}))
     asyncio.run(dimmer.async_turn_off())
     asyncio.run(hs_light.async_turn_on(**{ATTR_HS_COLOR: (120, 50)}))
@@ -227,6 +239,7 @@ def test_generic_light_and_dimmer_branches(monkeypatch):
     asyncio.run(spot_like.async_turn_off(**{ATTR_RGBW_COLOR: (1, 2, 3, 4)}))
     asyncio.run(spot_like.async_turn_off())
     asyncio.run(rgb.async_turn_off())
+    asyncio.run(onoff.async_turn_on())
 
     assert dimmer.is_on is False
     assert dimmer.color_mode == ColorMode.COLOR_TEMP
@@ -241,7 +254,8 @@ def test_generic_light_and_dimmer_branches(monkeypatch):
         ("0x80", 0, "RGB", "HUB1", "RGB1"),
     ] if False else client.epset_calls[-2:]
 
-    assert client.on_calls[-1] == ("RGBW", "HUB1", "RGBW1")
+    assert ("RGBW", "HUB1", "RGBW1") in client.on_calls
+    assert client.on_calls[-1] == ("bright", "HUB1", "ONOFF1")
     assert client.off_calls[-1] == ("RGB", "HUB1", "RGB1")
 
 
@@ -265,6 +279,7 @@ def test_rgbw_light_supports_dyn_effects_and_disables_dyn_for_static_color():
     assert "Sea wave" in light.effect_list
 
     asyncio.run(light.async_turn_on(**{ATTR_EFFECT: "Sea wave"}))
+    asyncio.run(light.async_turn_on(**{ATTR_EFFECT: "missing-effect"}))
     asyncio.run(light.async_turn_on(**{ATTR_RGBW_COLOR: (10, 20, 30, 40)}))
 
     assert light.effect is None
@@ -285,7 +300,7 @@ def test_quantum_onoff_light_turns_on_and_off():
         {
             "P1": {"type": 206, "val": 30, "v": 30},
             "P2": {"type": 255, "val": 96274064},
-            "P3": {"type": 254, "val": 0},
+            "P3": {"type": 255, "val": light_module.DYN_EFFECTS["Grass"]},
         },
         device_id="QUAN1",
     )
@@ -298,6 +313,7 @@ def test_quantum_onoff_light_turns_on_and_off():
     assert entity.color_mode == ColorMode.RGBW
     assert entity.rgbw_color == (189, 6, 144, 5)
     assert entity.brightness == 76
+    assert entity.effect == "Grass"
 
     asyncio.run(entity.async_turn_on())
     asyncio.run(entity.async_turn_on(**{ATTR_BRIGHTNESS: 128}))

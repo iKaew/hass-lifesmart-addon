@@ -45,6 +45,11 @@ class FakeConfigEntry:
         return "listener-token"
 
 
+def test_lifesmart_type_helper_handles_invalid_values():
+    assert lifesmart_init._is_on_type(None) is False
+    assert lifesmart_init._is_on_type("not-a-number") is False
+
+
 class FakeConfigEntriesManager:
     def __init__(self):
         self.forward_calls = []
