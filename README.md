@@ -75,7 +75,7 @@ All text has been optimized for clarity and ease of use.
 
 Your email/user ID and account country/region are available in the LifeSmart mobile app account/profile area.
 
-<img src="./docs/userid-on-mobile.png" alt="LifeSmart mobile app email/user ID and country/region screen" width="420">
+<img src="https://raw.githubusercontent.com/iKaew/hass-lifesmart-addon/master/docs/userid-on-mobile.png" alt="LifeSmart mobile app email/user ID and country/region screen" width="420">
 
 ## Supported Devices
 
@@ -106,22 +106,22 @@ Support is based on the attributes returned by the LifeSmart API. Some models cr
 
 The integration features a clean, user-friendly configuration interface with clear field labels and helpful descriptions:
 
-<img src="./docs/lifesmart-options-menu.png" alt="LifeSmart integration options menu" width="400">
-<img src="./docs/lifesmart-connection-settings.png" alt="LifeSmart connection settings form" width="500">
+<img src="https://raw.githubusercontent.com/iKaew/hass-lifesmart-addon/master/docs/lifesmart-options-menu.png" alt="LifeSmart integration options menu" width="400">
+<img src="https://raw.githubusercontent.com/iKaew/hass-lifesmart-addon/master/docs/lifesmart-connection-settings.png" alt="LifeSmart connection settings form" width="500">
 
 ### Device Examples
 
-<img src="./docs/lifesmart-devices.png" alt="LifeSmart device example" width="640">
-<img src="./docs/example-image-5.png" alt="LifeSmart integration example overview" width="460">
-<img src="./docs/example-image-6.png" alt="SPOT setup example" width="460">
-<img src="./docs/example-image-7.png" alt="SPOT A/C setup example" width="460">
+<img src="https://raw.githubusercontent.com/iKaew/hass-lifesmart-addon/master/docs/lifesmart-devices.png" alt="LifeSmart device example" width="640">
+<img src="https://raw.githubusercontent.com/iKaew/hass-lifesmart-addon/master/docs/example-image-5.png" alt="LifeSmart integration example overview" width="460">
+<img src="https://raw.githubusercontent.com/iKaew/hass-lifesmart-addon/master/docs/example-image-6.png" alt="SPOT setup example" width="460">
+<img src="https://raw.githubusercontent.com/iKaew/hass-lifesmart-addon/master/docs/example-image-7.png" alt="SPOT A/C setup example" width="460">
 
 ### SPOT A/C Setup
 
 Easy step-by-step A/C remote configuration:
 
-<img src="./docs/lifesmart-spot-device-selection.png" alt="SPOT device selection for A/C setup" width="400">
-<img src="./docs/lifesmart-configured-ac-remotes.png" alt="Configured A/C remotes management" width="400">
+<img src="https://raw.githubusercontent.com/iKaew/hass-lifesmart-addon/master/docs/lifesmart-spot-device-selection.png" alt="SPOT device selection for A/C setup" width="400">
+<img src="https://raw.githubusercontent.com/iKaew/hass-lifesmart-addon/master/docs/lifesmart-configured-ac-remotes.png" alt="Configured A/C remotes management" width="400">
 
 - Uses LifeSmart cloud IR profiles for reliable A/C control
 - Restores last Home Assistant state after reloads
