@@ -80,10 +80,23 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Relevant log output
+      label: Debug log
       description: |
-        Paste Home Assistant logs here.
-        Please remove app token, user token, password, and any personal identifiers.
+        Please help collect a debug log from your environment:
+
+        1. Go to Settings -> Devices & services -> Integrations.
+        2. Find the LifeSmart integration.
+        3. Click the three-dot menu for the integration.
+        4. Select Enable debug logging.
+        5. Reproduce the issue, or reload the LifeSmart integration if the issue happens during setup/reload.
+        6. After the issue happens, go back to the same three-dot menu.
+        7. Select Disable debug logging.
+
+        Home Assistant should automatically download a debug log file.
+
+        Before submitting it here, quickly review the file and remove any sensitive data, such as tokens, usernames, passwords, device IDs, IP addresses, or location-related data.
+
+        Once cleaned, attach the debug log file or paste the relevant log output here.
       render: shell
 
   - type: textarea
