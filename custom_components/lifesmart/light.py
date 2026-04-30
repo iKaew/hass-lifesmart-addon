@@ -129,7 +129,28 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
                     client,
                 )
             )
-        elif device_type in SPOT_LIGHT_TYPES:
+        elif device_type == "MSL_IRCTL":
+            if "RGBW" in device[DEVICE_DATA_KEY]:
+                light_devices.append(
+                    LifeSmartLight(
+                        ha_device,
+                        device,
+                        "RGBW",
+                        device[DEVICE_DATA_KEY]["RGBW"],
+                        client,
+                    )
+                )
+            elif "RGB" in device[DEVICE_DATA_KEY]:
+                light_devices.append(
+                    LifeSmartSLSPOTLight(
+                        ha_device,
+                        device,
+                        "RGB",
+                        device[DEVICE_DATA_KEY]["RGB"],
+                        client,
+                    )
+                )
+        elif device_type in SPOT_LIGHT_TYPES and "RGB" in device[DEVICE_DATA_KEY]:
             light_devices.append(  # noqa: PERF401
                 LifeSmartSLSPOTLight(
                     ha_device,
