@@ -196,6 +196,29 @@ def test_spot_light_accepts_string_type_and_missing_version():
     assert updates == ["scheduled"]
 
 
+def test_spot_light_remote_metadata_allows_missing_idx():
+    client = FakeClient()
+    client.remote_list = {
+        "device-SPOT1": {
+            "category": "tv",
+            "brand": "custom",
+        }
+    }
+    client.remote = {"device-SPOT1": {"power": "ABC"}}
+    raw = make_device("SL_SPOT", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="SPOT1")
+    entity = light_module.LifeSmartSLSPOTLight(None, raw, "RGB", raw["data"]["RGB"], client)
+    entity.hass = object()
+    entity.async_on_remove = lambda remover: None
+    light_module.async_dispatcher_connect = lambda hass, signal, callback: "remove-token"
+
+    asyncio.run(entity.async_added_to_hass())
+
+    remote = entity.extra_state_attributes["remotelist"]["device-SPOT1"]
+    assert remote["category"] == "tv"
+    assert remote["brand"] == "custom"
+    assert "idx" not in remote
+
+
 def test_light_helpers_handle_invalid_and_raw_dyn_values():
     assert light_module._is_on_type(object()) is False
     assert light_module._effect_from_dyn_value(None) is None

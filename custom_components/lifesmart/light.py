@@ -300,9 +300,11 @@ class LifeSmartSLSPOTLight(LightEntity):
         for device_id in rmlist:
             if self._device_id in device_id:
                 rms = await self._client.get_ir_remote_async(self._hub_id, device_id)
-                rms["category"] = rmlist[device_id]["category"]
-                rms["brand"] = rmlist[device_id]["brand"]
-                rms["idx"] = rmlist[device_id]["idx"]
+                if not isinstance(rms, dict):
+                    rms = {"codes": rms}
+                for key in ("category", "brand", "idx"):
+                    if key in rmlist[device_id]:
+                        rms[key] = rmlist[device_id][key]
                 rmdata[device_id] = rms
         _LOGGER.debug("Remote List: %s", str(rmdata))
         self._attributes["remotelist"] = rmdata
