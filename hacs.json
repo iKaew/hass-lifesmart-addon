@@ -1,6 +1,5 @@
 {
   "name": "LifeSmart",
-  "domains": ["lifesmart"],
   "homeassistant": "2026.4.1",
   "render_readme": true
 }
