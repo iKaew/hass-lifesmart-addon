@@ -129,7 +129,28 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
                     client,
                 )
             )
-        elif device_type in SPOT_LIGHT_TYPES:
+        elif device_type == "MSL_IRCTL":
+            if "RGBW" in device[DEVICE_DATA_KEY]:
+                light_devices.append(
+                    LifeSmartLight(
+                        ha_device,
+                        device,
+                        "RGBW",
+                        device[DEVICE_DATA_KEY]["RGBW"],
+                        client,
+                    )
+                )
+            elif "RGB" in device[DEVICE_DATA_KEY]:
+                light_devices.append(
+                    LifeSmartSLSPOTLight(
+                        ha_device,
+                        device,
+                        "RGB",
+                        device[DEVICE_DATA_KEY]["RGB"],
+                        client,
+                    )
+                )
+        elif device_type in SPOT_LIGHT_TYPES and "RGB" in device[DEVICE_DATA_KEY]:
             light_devices.append(  # noqa: PERF401
                 LifeSmartSLSPOTLight(
                     ha_device,
@@ -279,9 +300,11 @@ class LifeSmartSLSPOTLight(LightEntity):
         for device_id in rmlist:
             if self._device_id in device_id:
                 rms = await self._client.get_ir_remote_async(self._hub_id, device_id)
-                rms["category"] = rmlist[device_id]["category"]
-                rms["brand"] = rmlist[device_id]["brand"]
-                rms["idx"] = rmlist[device_id]["idx"]
+                if not isinstance(rms, dict):
+                    rms = {"codes": rms}
+                for key in ("category", "brand", "idx"):
+                    if key in rmlist[device_id]:
+                        rms[key] = rmlist[device_id][key]
                 rmdata[device_id] = rms
         _LOGGER.debug("Remote List: %s", str(rmdata))
         self._attributes["remotelist"] = rmdata

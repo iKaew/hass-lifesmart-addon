@@ -85,6 +85,7 @@ def test_light_async_setup_entry_creates_expected_entities():
     devices = [
         make_device("SL_LI_WW", {"P1": {"type": 1, "val": 120}, "P2": {"val": 80}}, device_id="DIM1"),
         make_device("SL_SPOT", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="SPOT1"),
+        make_device("MSL_IRCTL", {"RGBW": {"type": 1, "val": 0x11223344}}, device_id="MSL1"),
         make_device("SL_P_IR", {"P2": {"type": 0, "val": 0}}, device_id="IR1"),
         make_device("SL_OL_W", {"RGBW": {"type": 1, "val": 0x11223344}, "bright": {"type": 1, "val": 1}}, device_id="RGB1"),
     ]
@@ -93,9 +94,17 @@ def test_light_async_setup_entry_creates_expected_entities():
 
     asyncio.run(light_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
 
-    assert len(added) == 4
+    assert len(added) == 5
     assert any(isinstance(entity, light_module.LifeSmartSLSPOTLight) for entity in added)
     assert any(isinstance(entity, light_module.LifeSmartLight) for entity in added)
+    msl = next(
+        entity
+        for entity in added
+        if isinstance(entity, light_module.LifeSmartLight)
+        and entity.device_type == "MSL_IRCTL"
+    )
+    assert msl.entity_id == "light.msl_irctl_hub1_msl1_rgbw"
+    assert msl.color_mode == ColorMode.RGBW
 
 
 def test_light_async_setup_entry_creates_reported_strip_and_quantum_lights():
@@ -185,6 +194,29 @@ def test_spot_light_accepts_string_type_and_missing_version():
 
     assert entity.is_on is False
     assert updates == ["scheduled"]
+
+
+def test_spot_light_remote_metadata_allows_missing_idx():
+    client = FakeClient()
+    client.remote_list = {
+        "device-SPOT1": {
+            "category": "tv",
+            "brand": "custom",
+        }
+    }
+    client.remote = {"device-SPOT1": {"power": "ABC"}}
+    raw = make_device("SL_SPOT", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="SPOT1")
+    entity = light_module.LifeSmartSLSPOTLight(None, raw, "RGB", raw["data"]["RGB"], client)
+    entity.hass = object()
+    entity.async_on_remove = lambda remover: None
+    light_module.async_dispatcher_connect = lambda hass, signal, callback: "remove-token"
+
+    asyncio.run(entity.async_added_to_hass())
+
+    remote = entity.extra_state_attributes["remotelist"]["device-SPOT1"]
+    assert remote["category"] == "tv"
+    assert remote["brand"] == "custom"
+    assert "idx" not in remote
 
 
 def test_light_helpers_handle_invalid_and_raw_dyn_values():
