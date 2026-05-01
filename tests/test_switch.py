@@ -109,6 +109,42 @@ def test_async_setup_entry_creates_reported_switch_and_outlet_entities():
     assert any(entity.entity_id == "switch.sl_ol_3c_hub1_outlet1_o" for entity in added)
 
 
+def test_virtual_switch_creates_all_reported_p_ports():
+    devices = [
+        make_device(
+            "V_IND_S",
+            {
+                "P1": {"type": 128, "val": 0, "name": "Up"},
+                "P2": {"type": 128, "val": 0, "name": "Down"},
+                "P3": {"type": "0x80", "val": 0, "name": "Stop"},
+                "P4": {"type": 128, "val": 0, "name": "Power"},
+                "P5": {"type": 128, "val": 0, "name": "Light"},
+                "P6": {"type": 128, "val": 0, "name": "Sterilize"},
+                "P7": {"type": 128, "val": 0, "name": "Fan dry"},
+                "P8": {"type": 128, "val": 0, "name": "Dry"},
+                "B": {"type": 0, "val": 0},
+            },
+            device_id="VIRT1",
+        )
+    ]
+    hass = FakeHass("entry-1", devices, client=FakeClient())
+    added = []
+
+    asyncio.run(switch_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
+
+    assert [entity.sub_device_key for entity in added] == [
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5",
+        "P6",
+        "P7",
+        "P8",
+    ]
+    assert added[-1].entity_id == "switch.v_ind_s_hub1_virt1_p8"
+
+
 def test_switch_entity_properties_updates_and_turn_on_off():
     client = FakeClient(on_results=[0, 1], off_results=[0, 1])
     entity, updates = make_switch_entity(client=client)
@@ -163,6 +199,8 @@ def test_switch_accepts_hex_string_type_from_real_log():
 def test_switch_type_helper_handles_invalid_values():
     assert switch_module._is_on_type(None) is False
     assert switch_module._is_on_type("not-a-number") is False
+    assert switch_module._is_virtual_switch_port("P8") is True
+    assert switch_module._is_virtual_switch_port("B") is False
 
 
 def test_switch_async_added_to_hass_registers_dispatcher(monkeypatch):

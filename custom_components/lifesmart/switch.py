@@ -41,6 +41,7 @@ CON_AI_TYPES = [
     CON_AI_TYPE_GROUP,
 ]
 AI_TYPES = ["ai"]
+VIRTUAL_SWITCH_TYPE = "V_IND_S"
 
 
 def _is_on_type(value) -> bool:
@@ -49,6 +50,15 @@ def _is_on_type(value) -> bool:
         return int(str(value), 0) % 2 == 1
     except (TypeError, ValueError):
         return False
+
+
+def _is_virtual_switch_port(sub_device_key) -> bool:
+    """Return True for V_IND_S virtual switch P-number ports."""
+    return (
+        isinstance(sub_device_key, str)
+        and sub_device_key.startswith("P")
+        and sub_device_key[1:].isdigit()
+    )
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -140,6 +150,18 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
                 for sub_device_key in device[DEVICE_DATA_KEY]:
                     if sub_device_key in NATURE_SWITCH_PORTS:
+                        switch_devices.append(
+                            LifeSmartSwitch(
+                                ha_device,
+                                device,
+                                sub_device_key,
+                                device[DEVICE_DATA_KEY][sub_device_key],
+                                client,
+                            )
+                        )
+            elif device_type == VIRTUAL_SWITCH_TYPE:
+                for sub_device_key in device[DEVICE_DATA_KEY]:
+                    if _is_virtual_switch_port(sub_device_key):
                         switch_devices.append(
                             LifeSmartSwitch(
                                 ha_device,
