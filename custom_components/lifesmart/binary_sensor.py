@@ -560,7 +560,7 @@ def build_doorlock_attribute(data):
 
 def build_doorlock_alarm_attribute(data):
     """Build decoded alarm attributes for digital door lock alarm reports."""
-    val = data.get("val", 0)
+    val = data.get("val", data.get("v", 0))
     return {
         "raw": val,
         "error_alarm": bool(val & (1 << 0)),
@@ -572,6 +572,7 @@ def build_doorlock_alarm_attribute(data):
         "doorbell": bool(val & (1 << 6)),
         "fire_alarm": bool(val & (1 << 7)),
         "intrusion_alarm": bool(val & (1 << 8)),
+        "keep_open": bool(val & (1 << 10)),
         "factory_reset_alarm": bool(val & (1 << 11)),
     }
 

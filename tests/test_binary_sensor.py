@@ -165,6 +165,7 @@ def test_lock_binary_sensor_variants_and_attributes():
         "doorbell": False,
         "fire_alarm": False,
         "intrusion_alarm": False,
+        "keep_open": False,
         "factory_reset_alarm": False,
     }
 
@@ -266,3 +267,6 @@ def test_doorlock_helper_functions_cover_known_and_unknown_methods():
         "unlocking_method": "Bluetooth unlocking",
         "unlocking_user": 11,
     }
+    assert binary_sensor_module.build_doorlock_alarm_attribute({"v": 1024})[
+        "keep_open"
+    ] is True
