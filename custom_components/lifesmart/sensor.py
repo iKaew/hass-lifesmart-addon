@@ -81,6 +81,7 @@ DOORLOCK_ALARM_DESCRIPTIONS = {
     "doorbell": "Doorbell",
     "fire_alarm": "Fire alarm",
     "intrusion_alarm": "Intrusion alarm",
+    "keep_open": "Keep Open",
     "factory_reset_alarm": "Factory reset alarm",
 }
 
@@ -714,6 +715,11 @@ class LifeSmartSensor(SensorEntity):
 
 def _display_value(data, device_type=None, sub_device_key=None):
     """Return the display value, falling back to raw tenths for temperature."""
+    if (
+        device_type in LOCK_TYPES
+        and sub_device_key == DIGITAL_DOORLOCK_ALARM_DESCRIPTION_EVENT_KEY
+    ):
+        return _doorlock_alarm_description(data)
     if "v" in data:
         return data["v"]
     if (
@@ -759,11 +765,6 @@ def _display_value(data, device_type=None, sub_device_key=None):
         and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
     ):
         return _doorlock_history_unlock_summary(data)
-    if (
-        device_type in LOCK_TYPES
-        and sub_device_key == DIGITAL_DOORLOCK_ALARM_DESCRIPTION_EVENT_KEY
-    ):
-        return _doorlock_alarm_description(data)
     if device_type in GENERIC_CONTROLLER_TYPES and sub_device_key == "P1":
         return data.get("val")
     if "val" in data:
@@ -869,7 +870,7 @@ def _state_attributes(data, device_type=None, sub_device_key=None):
 
 def _doorlock_alarm_attributes(data):
     """Build decoded alarm attributes for digital door lock alarm reports."""
-    val = data.get("val", 0)
+    val = _doorlock_alarm_value(data)
     return {
         "error_alarm": bool(val & (1 << 0)),
         "duress_alarm": bool(val & (1 << 1)),
@@ -880,6 +881,7 @@ def _doorlock_alarm_attributes(data):
         "doorbell": bool(val & (1 << 6)),
         "fire_alarm": bool(val & (1 << 7)),
         "intrusion_alarm": bool(val & (1 << 8)),
+        "keep_open": bool(val & (1 << 10)),
         "factory_reset_alarm": bool(val & (1 << 11)),
     }
 
@@ -892,6 +894,11 @@ def _doorlock_alarm_description(data):
         if _doorlock_alarm_attributes(data)[key]
     ]
     return ", ".join(active) if active else "Normal"
+
+
+def _doorlock_alarm_value(data):
+    """Return the raw digital door lock alarm bitfield."""
+    return data.get("val", data.get("v", 0))
 
 
 DOORLOCK_UNLOCKING_METHODS = {

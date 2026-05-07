@@ -206,6 +206,7 @@ def test_sensor_entity_branches_and_properties():
         "doorbell": False,
         "fire_alarm": False,
         "intrusion_alarm": False,
+        "keep_open": False,
         "factory_reset_alarm": False,
         "raw": 17,
     }
@@ -280,6 +281,10 @@ def test_sensor_helper_functions_cover_remaining_paths():
         sensor_module._display_value({"val": 0b10001}, "SL_LK_YL", "ALM_DESC")
         == "Error alarm, Low battery alarm"
     )
+    assert (
+        sensor_module._display_value({"val": 1024, "v": 1024}, "SL_LK_YL", "ALM_DESC")
+        == "Keep Open"
+    )
     assert sensor_module._display_value({"val": 0}, "SL_LK_YL", "ALM_DESC") == "Normal"
     assert (
         sensor_module._display_value({"val": 0x1001}, "SL_LK_YL", "HISLK")
@@ -315,6 +320,7 @@ def test_sensor_helper_functions_cover_remaining_paths():
         "doorbell": False,
         "fire_alarm": False,
         "intrusion_alarm": False,
+        "keep_open": False,
         "factory_reset_alarm": False,
         "raw": 17,
     }
