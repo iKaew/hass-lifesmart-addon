@@ -290,6 +290,10 @@ def test_sensor_helper_functions_cover_remaining_paths():
         sensor_module._display_value({"val": 0x1001}, "SL_LK_YL", "HISLK")
         == "Unlock with Password by user 1"
     )
+    assert (
+        sensor_module._display_value({"val": 4098, "v": 4098}, "SL_LK_YL", "HISLK")
+        == "Unlock with Password by user 2"
+    )
     assert sensor_module._display_value({"val": 0x8A07000A}, "SL_P", "P1") == 0x8A07000A
     assert sensor_module._display_value({"val": 215}) == 21.5
     assert sensor_module._display_float_value({"val": ieee}) == 12.5
@@ -328,6 +332,15 @@ def test_sensor_helper_functions_cover_remaining_paths():
         "unlocking_method": "Bluetooth unlocking",
         "unlocking_user": 11,
         "raw": 0x800B,
+    }
+    assert sensor_module._state_attributes({"val": 4098}, "SL_LK_YL", "HISLK") == {
+        "unlocking_method": "Password",
+        "unlocking_user": 2,
+        "raw": 4098,
+    }
+    assert sensor_module._doorlock_history_unlock_attributes({"v": 4098}) == {
+        "unlocking_method": "Password",
+        "unlocking_user": 2,
     }
     assert sensor_module._doorlock_operation_user_role(0) == "deleted_user"
     assert sensor_module._doorlock_operation_user_role(1) == "common_user"

@@ -720,6 +720,11 @@ def _display_value(data, device_type=None, sub_device_key=None):
         and sub_device_key == DIGITAL_DOORLOCK_ALARM_DESCRIPTION_EVENT_KEY
     ):
         return _doorlock_alarm_description(data)
+    if (
+        device_type in LOCK_TYPES
+        and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
+    ):
+        return _doorlock_history_unlock_summary(data)
     if "v" in data:
         return data["v"]
     if (
@@ -760,11 +765,6 @@ def _display_value(data, device_type=None, sub_device_key=None):
         and sub_device_key == DIGITAL_DOORLOCK_OPERATION_EVENT_KEY
     ):
         return _doorlock_operation_summary(data)
-    if (
-        device_type in LOCK_TYPES
-        and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
-    ):
-        return _doorlock_history_unlock_summary(data)
     if device_type in GENERIC_CONTROLLER_TYPES and sub_device_key == "P1":
         return data.get("val")
     if "val" in data:
@@ -938,12 +938,17 @@ def _doorlock_history_unlock_method(data):
 
 def _doorlock_history_unlock_method_code(data):
     """Return the unlock method code from a HISLK value."""
-    return (data.get("val", 0) >> 12) & 0xF
+    return (_doorlock_history_unlock_value(data) >> 12) & 0xF
 
 
 def _doorlock_history_unlock_user(data):
     """Return the unlock user id from a HISLK value."""
-    return data.get("val", 0) & 0xFFF
+    return _doorlock_history_unlock_value(data) & 0xFFF
+
+
+def _doorlock_history_unlock_value(data):
+    """Return the raw digital door lock last-unlock value."""
+    return data.get("val", data.get("v", 0))
 
 
 GENERIC_CONTROLLER_WORKING_MODES = {
