@@ -117,6 +117,31 @@ def _state_for_direct_update(hass, entity_id):
     return state
 
 
+def _dispatch_doorlock_update(
+    hass, device_type, hub_id, device_id, sub_device_key, entity_id, data
+):
+    """Dispatch digital door lock updates to all entities affected by the event."""
+    dispatcher_send(hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data)
+
+    related_sub_device = None
+    if sub_device_key == DIGITAL_DOORLOCK_LOCK_EVENT_KEY:
+        related_sub_device = DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
+    elif sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY:
+        related_sub_device = DIGITAL_DOORLOCK_LOCK_EVENT_KEY
+
+    if related_sub_device is None:
+        return
+
+    related_entity_id = generate_entity_id(
+        device_type, hub_id, device_id, related_sub_device
+    )
+    related_data = dict(data)
+    related_data[SUBDEVICE_INDEX_KEY] = related_sub_device
+    dispatcher_send(
+        hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{related_entity_id}", related_data
+    )
+
+
 def _is_on_type(value) -> bool:
     """Return True when a LifeSmart type value represents on."""
     try:
@@ -515,8 +540,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                     DIGITAL_DOORLOCK_OPERATION_EVENT_KEY,
                     DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY,
                 ]:
-                    dispatcher_send(
-                        hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                    _dispatch_doorlock_update(
+                        hass,
+                        device_type,
+                        hub_id,
+                        device_id,
+                        sub_device_key,
+                        entity_id,
+                        data,
                     )
             elif device_type in OT_SENSOR_TYPES and sub_device_key in [
                 "Z",

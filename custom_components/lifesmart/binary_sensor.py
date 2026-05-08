@@ -510,7 +510,7 @@ def extract_doorlock_unlocking_method(data):
                 15: Error)
     """
 
-    unlock_method_code = data["val"] >> 12
+    unlock_method_code = _doorlock_unlock_value(data) >> 12
     match unlock_method_code:
         case 1:
             return "Password"
@@ -538,12 +538,17 @@ def extract_doorlock_unlocking_method(data):
 
 def is_doorlock_unlocked(data):
     """Check if the door is in unlocking state."""
-    return data["type"] % 2 == 1
+    if "type" in data:
+        try:
+            return int(str(data["type"]), 0) % 2 == 1
+        except (TypeError, ValueError):
+            return False
+    return _doorlock_unlock_value(data) != 0
 
 
 def get_doorlock_unlocking_user(data):
     """Get user id of who trying to unlock."""
-    val = data["val"]
+    val = _doorlock_unlock_value(data)
     unlocking_user = val & 0xFFF
     return unlocking_user
 
@@ -556,6 +561,11 @@ def build_doorlock_attribute(data):
         "unlocking_method": extract_doorlock_unlocking_method(data),
         "unlocking_user": unlocking_user_id,
     }
+
+
+def _doorlock_unlock_value(data):
+    """Return the raw digital door lock unlock value."""
+    return data.get("val", data.get("v", 0))
 
 
 def build_doorlock_alarm_attribute(data):

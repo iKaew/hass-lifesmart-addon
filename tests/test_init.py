@@ -698,9 +698,24 @@ def test_on_message_dispatches_supported_device_update_families(
     expected_entity_id = lifesmart_init.generate_entity_id(
         device_type, "HUB1", "DEV1", sub_device_key
     )
-    assert dispatch_calls == [
+    expected_dispatch_calls = [
         (f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{expected_entity_id}", payload)
     ]
+    related_sub_device_key = None
+    if sub_device_key == "EVTLO":
+        related_sub_device_key = "HISLK"
+    elif sub_device_key == "HISLK":
+        related_sub_device_key = "EVTLO"
+    if related_sub_device_key is not None:
+        related_entity_id = lifesmart_init.generate_entity_id(
+            device_type, "HUB1", "DEV1", related_sub_device_key
+        )
+        related_payload = dict(payload)
+        related_payload[SUBDEVICE_INDEX_KEY] = related_sub_device_key
+        expected_dispatch_calls.append(
+            (f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{related_entity_id}", related_payload)
+        )
+    assert dispatch_calls == expected_dispatch_calls
     assert hass.states._states == {}
 
 
