@@ -205,15 +205,16 @@ def test_update_state_handles_none_regular_updates_and_lock_events():
     asyncio.run(sensor._update_state(None))
     asyncio.run(sensor._update_state({"devtype": "SL_SC_G", "idx": "G", "val": 1}))
     asyncio.run(lock._update_state({"devtype": "SL_LK_LS", "idx": "EVTLO", "type": 1, "val": 0x7005}))
+    asyncio.run(lock._update_state({"devtype": "SL_LK_LS", "idx": "EVTLO", "v": 0x1002}))
 
     assert sensor.is_on is False
     assert update_calls == ["guard"]
     assert lock.is_on is True
     assert lock.extra_state_attributes == {
-        "unlocking_method": "APP",
-        "unlocking_user": 5,
+        "unlocking_method": "Password",
+        "unlocking_user": 2,
     }
-    assert lock_calls == ["lock"]
+    assert lock_calls == ["lock", "lock"]
 
 
 def test_state_from_data_covers_special_cases():
@@ -262,7 +263,10 @@ def test_doorlock_helper_functions_cover_known_and_unknown_methods():
     assert binary_sensor_module.extract_doorlock_unlocking_method({"val": 0xF001}) == "Error"
     assert binary_sensor_module.extract_doorlock_unlocking_method({"val": 0x0001}) == "Undefined"
     assert binary_sensor_module.is_doorlock_unlocked({"type": 1}) is True
+    assert binary_sensor_module.is_doorlock_unlocked({"type": "0x80"}) is False
+    assert binary_sensor_module.is_doorlock_unlocked({"v": 0x1002}) is True
     assert binary_sensor_module.get_doorlock_unlocking_user({"val": 0x700A}) == 10
+    assert binary_sensor_module.get_doorlock_unlocking_user({"v": 0x1002}) == 2
     assert binary_sensor_module.build_doorlock_attribute({"val": 0x800B}) == {
         "unlocking_method": "Bluetooth unlocking",
         "unlocking_user": 11,
