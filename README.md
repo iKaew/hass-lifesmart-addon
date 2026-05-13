@@ -60,17 +60,6 @@ Use manual installation only if you cannot use HACS.
 
 The integration will automatically discover and create entities for all your LifeSmart devices.
 
-## User Interface Improvements
-
-The LifeSmart integration features a modern, user-friendly interface with:
-
-- **Clear Field Labels**: Descriptive names like "LifeSmart Account Country/Region" instead of generic "region"
-- **Helpful Descriptions**: Context for each configuration step
-- **Consistent Terminology**: Standardized "ID" capitalization and professional formatting
-- **Guided Setup**: Step-by-step A/C configuration with clear instructions
-
-All text has been optimized for clarity and ease of use.
-
 ### Finding Your LifeSmart Email/User ID And Country/Region
 
 Your email/user ID and account country/region are available in the LifeSmart mobile app account/profile area.
@@ -99,6 +88,34 @@ Support is based on the attributes returned by the LifeSmart API. Some models cr
 | Nature series | `SL_NATURE` | Switch-board variants create `P1-P3` switches; thermostat variants create a climate entity; `P4` temperature is exposed when reported | Variant is detected from the reported attributes. |
 | Native A/C panels | `V_AIR_P`, `V_SZJSXR_P`, `V_T8600_P`, `SL_CP_DN` | Climate entities | These use LifeSmart native `EpSet` control, not SPOT IR profiles. |
 | SPOT and IR remotes | `SL_SPOT`, `MSL_IRCTL`, `OD_WE_IRCTL`, `SL_P_IR`, `SL_P_IR_V2` | Remote entities for IR command storage/sending; optional A/C climate entities; light entities only on SPOT models with light attributes | `SL_P_IR` and `SL_P_IR_V2` do not create light entities. `SL_P_IR_V2` exposes pairing-button `P2` as a binary sensor when reported. |
+
+## FAQ
+
+<details>
+<summary>Why can't I see my door lock?</summary>
+
+LifeSmart door lock devices require additional LifeSmart Open Platform permissions before they are returned by the API. If your other LifeSmart devices appear but your door lock is missing, contact the LifeSmart team and ask them to enable the `DoorLock` / `DoorLockCtl` permissions for your Open Platform application.
+
+You can email `service@ilifesmart.com` with your Open Platform application details. After LifeSmart approves the request, your app permission list on the ilifesmart website should include the additional lock permissions, and the integration should be able to discover your lock devices after setup or reload.
+
+<img src="https://github.com/user-attachments/assets/9bf9345d-986c-4176-b730-0ec47dfbe8ca" alt="LifeSmart Open Platform lock permissions" width="482">
+
+If the lock still does not appear after LifeSmart grants the permissions, collect a debug log so the issue can be checked.
+
+</details>
+
+<details>
+<summary>How do I collect debug logs for LifeSmart?</summary>
+
+1. Go to `Settings` -> `Devices & services` -> `Integrations`.
+1. Find the LifeSmart integration.
+1. Click the three-dot menu for the integration.
+1. Select `Enable debug logging`.
+1. Reproduce the issue, or reload the LifeSmart integration if the issue happens during setup or reload.
+1. Go back to the same three-dot menu.
+1. Select `Disable debug logging`.
+
+</details>
 
 ## Screenshots
 
