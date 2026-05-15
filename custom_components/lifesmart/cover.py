@@ -9,7 +9,7 @@ from homeassistant.components.cover import (
     CoverEntityFeature,
 )
 
-from . import LifeSmartDevice
+from . import LifeSmartDevice, generate_entity_id
 from .const import (
     COVER_TYPES,
     DEVICE_DATA_KEY,
@@ -164,9 +164,7 @@ class LifeSmartCover(CoverEntity):
         device_id = raw_device_data[DEVICE_ID_KEY]
 
         # Generate entity ID
-        self.entity_id = (
-            "cover." + (device_type + "_" + hub_id + "_" + device_id).lower()
-        )
+        self.entity_id = generate_entity_id(device_type, hub_id, device_id)
 
         # Initialize position based on device type
         if device_config.get("type") == "position":

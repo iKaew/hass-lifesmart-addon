@@ -1,5 +1,6 @@
 import ast
 import importlib.util
+import re
 import types
 import sys
 from pathlib import Path
@@ -47,12 +48,14 @@ def load_generate_entity_id():
     code = ""
     for node in module_ast.body:
         if isinstance(node, ast.FunctionDef) and node.name in {
+            "_sanitize_entity_id_part",
             "get_platform_by_device",
             "generate_entity_id",
         }:
             code += ast.get_source_segment(src, node) + "\n"
     namespace = const_mod.__dict__.copy()
     namespace["Platform"] = Platform
+    namespace["re"] = re
     exec(code, namespace)
     return namespace["generate_entity_id"]
 
@@ -312,4 +315,11 @@ def test_spot_ac_climate_device():
     gen = load_generate_entity_id()
     assert gen("SL_SPOT", "HUB1", "SPOT1", "climate_ac") == (
         "climate.sl_spot_hub1_spot1_climate_ac"
+    )
+
+
+def test_entity_id_sanitizes_all_object_id_parts():
+    gen = load_generate_entity_id()
+    assert gen("SL_LK_LS", "AZIAAMIWDWEAAAS-UAZ__W", "407D", "ALM_DESC") == (
+        "sensor.sl_lk_ls_aziaamiwdweaaas_uaz_w_407d_alm_desc"
     )

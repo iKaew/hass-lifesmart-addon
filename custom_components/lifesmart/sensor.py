@@ -448,13 +448,6 @@ class LifeSmartSensor(SensorEntity):
         self.entity_id = generate_entity_id(
             device_type, hub_id, device_id, sub_device_key
         )
-        if sub_device_key == DIGITAL_DOORLOCK_ALARM_DESCRIPTION_EVENT_KEY:
-            self.entity_id = (
-                "sensor."
-                + f"{device_type}_{hub_id}_{device_id}_{sub_device_key}".lower()
-                .replace(":", "_")
-                .replace("@", "_")
-            )
         self._client = client
         self._attrs = _state_attributes(sub_device_data, device_type, sub_device_key)
 

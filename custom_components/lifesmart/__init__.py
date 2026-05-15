@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import re
 import sys
 import threading
 import time
@@ -986,6 +987,8 @@ def get_platform_by_device(device_type, sub_device=None):
         return Platform.BINARY_SENSOR
     elif device_type in LOCK_TYPES and sub_device == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY:
         return Platform.SENSOR
+    elif device_type in LOCK_TYPES and sub_device == "ALM_DESC":
+        return Platform.SENSOR
     elif device_type in SMART_PLUG_TYPES and sub_device == "P1":
         return Platform.SWITCH
     elif device_type in SMART_PLUG_TYPES and sub_device in ["P2", "P3"]:
@@ -1019,28 +1022,37 @@ def _cleanup_legacy_doorlock_history_entities(hass, devices):
             ent_reg.async_remove(legacy_entity_id)
 
 
+def _sanitize_entity_id_part(value):
+    """Return a Home Assistant entity id-safe object id part."""
+    return re.sub(r"_+", "_", re.sub(r"[^0-9a-zA-Z_]+", "_", str(value))).strip(
+        "_"
+    )
+
+
 def generate_entity_id(device_type, hub_id, device_id, idx=None):
     """Generate unique id for entity in HA."""
-    hub_id = hub_id.replace("__", "_").replace("-", "_")
+    device_type = _sanitize_entity_id_part(device_type)
+    hub_id = _sanitize_entity_id_part(hub_id)
+    device_id = _sanitize_entity_id_part(device_id)
     if idx:
-        sub_device = idx
+        sub_device = _sanitize_entity_id_part(idx)
     else:
         sub_device = None
 
     if device_type in NATURE_TYPES and sub_device == NATURE_CLIMATE_KEY:
         return Platform.CLIMATE + (
             "." + device_type + "_" + hub_id + "_" + device_id + "_thermostat"
-        ).lower().replace(":", "_").replace("@", "_")
+        ).lower()
 
     if device_type in SPOT_TYPES and sub_device == "remote":
         return Platform.REMOTE + (
             "." + device_type + "_" + hub_id + "_" + device_id + "_remote"
-        ).lower().replace(":", "_").replace("@", "_")
+        ).lower()
 
     if device_type in SPOT_TYPES and sub_device == "climate_ac":
         return Platform.CLIMATE + (
             "." + device_type + "_" + hub_id + "_" + device_id + "_climate_ac"
-        ).lower().replace(":", "_").replace("@", "_")
+        ).lower()
 
     if device_type in [  # noqa: RET503
         *SUPPORTED_SWTICH_TYPES,
@@ -1099,7 +1111,7 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
     elif device_type in CLIMATE_TYPES:
         return Platform.CLIMATE + (
             "." + device_type + "_" + hub_id + "_" + device_id
-        ).lower().replace(":", "_").replace("@", "_")
+        ).lower()
 
 
 def _find_device(devices, hub_id, device_id):
