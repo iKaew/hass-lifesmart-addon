@@ -83,19 +83,37 @@ def make_device(device_type, data, device_id="DEV1", hub_id="HUB1"):
 
 def test_light_async_setup_entry_creates_expected_entities():
     devices = [
-        make_device("SL_LI_WW", {"P1": {"type": 1, "val": 120}, "P2": {"val": 80}}, device_id="DIM1"),
-        make_device("SL_SPOT", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="SPOT1"),
-        make_device("MSL_IRCTL", {"RGBW": {"type": 1, "val": 0x11223344}}, device_id="MSL1"),
+        make_device(
+            "SL_LI_WW",
+            {"P1": {"type": 1, "val": 120}, "P2": {"val": 80}},
+            device_id="DIM1",
+        ),
+        make_device(
+            "SL_SPOT", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="SPOT1"
+        ),
+        make_device(
+            "MSL_IRCTL", {"RGBW": {"type": 1, "val": 0x11223344}}, device_id="MSL1"
+        ),
         make_device("SL_P_IR", {"P2": {"type": 0, "val": 0}}, device_id="IR1"),
-        make_device("SL_OL_W", {"RGBW": {"type": 1, "val": 0x11223344}, "bright": {"type": 1, "val": 1}}, device_id="RGB1"),
+        make_device(
+            "SL_OL_W",
+            {"RGBW": {"type": 1, "val": 0x11223344}, "bright": {"type": 1, "val": 1}},
+            device_id="RGB1",
+        ),
     ]
     hass = FakeHass("entry-1", devices, client=FakeClient())
     added = []
 
-    asyncio.run(light_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
+    asyncio.run(
+        light_module.async_setup_entry(
+            hass, FakeConfigEntry(), lambda entities: added.extend(entities)
+        )
+    )
 
     assert len(added) == 5
-    assert any(isinstance(entity, light_module.LifeSmartSLSPOTLight) for entity in added)
+    assert any(
+        isinstance(entity, light_module.LifeSmartSLSPOTLight) for entity in added
+    )
     assert any(isinstance(entity, light_module.LifeSmartLight) for entity in added)
     msl = next(
         entity
@@ -127,12 +145,20 @@ def test_light_async_setup_entry_creates_reported_strip_and_quantum_lights():
     hass = FakeHass("entry-1", devices, client=FakeClient())
     added = []
 
-    asyncio.run(light_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
+    asyncio.run(
+        light_module.async_setup_entry(
+            hass, FakeConfigEntry(), lambda entities: added.extend(entities)
+        )
+    )
 
     assert len(added) == 2
-    assert any(entity.entity_id == "light.sl_ct_rgbw_hub1_strip1_rgbw" for entity in added)
+    assert any(
+        entity.entity_id == "light.sl_ct_rgbw_hub1_strip1_rgbw" for entity in added
+    )
     quantum = next(
-        entity for entity in added if entity.entity_id == "light.od_we_quan_hub1_quan1_p2"
+        entity
+        for entity in added
+        if entity.entity_id == "light.od_we_quan_hub1_quan1_p2"
     )
     assert quantum.is_on is True
     assert quantum.brightness == 76
@@ -140,15 +166,23 @@ def test_light_async_setup_entry_creates_reported_strip_and_quantum_lights():
 
 def test_spot_light_behaviour_and_properties():
     client = FakeClient()
-    client.remote_list = {"device-SPOT1": {"category": "tv", "brand": "aux", "idx": "1"}}
+    client.remote_list = {
+        "device-SPOT1": {"category": "tv", "brand": "aux", "idx": "1"}
+    }
     client.remote = {"device-SPOT1": {"power": "ABC"}}
-    raw = make_device("SL_SPOT", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="SPOT1")
-    entity = light_module.LifeSmartSLSPOTLight(None, raw, "RGB", raw["data"]["RGB"], client)
+    raw = make_device(
+        "SL_SPOT", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="SPOT1"
+    )
+    entity = light_module.LifeSmartSLSPOTLight(
+        None, raw, "RGB", raw["data"]["RGB"], client
+    )
     entity.hass = object()
     updates = []
     entity.schedule_update_ha_state = lambda: updates.append("scheduled")
     entity.async_on_remove = lambda remover: None
-    light_module.async_dispatcher_connect = lambda hass, signal, callback: "remove-token"
+    light_module.async_dispatcher_connect = lambda hass, signal, callback: (
+        "remove-token"
+    )
 
     assert entity.is_on is True
     assert entity.rgb_color == (17, 34, 51)
@@ -166,7 +200,9 @@ def test_spot_light_behaviour_and_properties():
     asyncio.run(entity.async_turn_off())
 
     assert entity.unique_id == entity._entity_id
-    assert entity.extra_state_attributes["remotelist"]["device-SPOT1"]["category"] == "tv"
+    assert (
+        entity.extra_state_attributes["remotelist"]["device-SPOT1"]["category"] == "tv"
+    )
     assert client.epset_calls[:3] == [
         ("0xff", 0x000A141E, "RGB", "HUB1", "SPOT1"),
         ("0xff", 0x000A141E, "RGB", "HUB1", "SPOT1"),
@@ -205,11 +241,17 @@ def test_spot_light_remote_metadata_allows_missing_idx():
         }
     }
     client.remote = {"device-SPOT1": {"power": "ABC"}}
-    raw = make_device("SL_SPOT", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="SPOT1")
-    entity = light_module.LifeSmartSLSPOTLight(None, raw, "RGB", raw["data"]["RGB"], client)
+    raw = make_device(
+        "SL_SPOT", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="SPOT1"
+    )
+    entity = light_module.LifeSmartSLSPOTLight(
+        None, raw, "RGB", raw["data"]["RGB"], client
+    )
     entity.hass = object()
     entity.async_on_remove = lambda remover: None
-    light_module.async_dispatcher_connect = lambda hass, signal, callback: "remove-token"
+    light_module.async_dispatcher_connect = lambda hass, signal, callback: (
+        "remove-token"
+    )
 
     asyncio.run(entity.async_added_to_hass())
 
@@ -223,7 +265,10 @@ def test_light_helpers_handle_invalid_and_raw_dyn_values():
     assert light_module._is_on_type(object()) is False
     assert light_module._effect_from_dyn_value(None) is None
     assert light_module._effect_from_dyn_value(0xDEADBEEF) == "DYN 0xdeadbeef"
-    assert light_module._dyn_value_from_effect("0x8318cc80") == light_module.DYN_EFFECTS["Sea wave"]
+    assert (
+        light_module._dyn_value_from_effect("0x8318cc80")
+        == light_module.DYN_EFFECTS["Sea wave"]
+    )
     assert light_module._dyn_value_from_effect("missing-effect") is None
 
 
@@ -233,36 +278,64 @@ def test_generic_light_and_dimmer_branches(monkeypatch):
     async def fake_epset(self, type, val, idx):
         return await self._device.async_lifesmart_epset(type, val, idx)
 
-    monkeypatch.setattr(light_module.LightEntity, "async_lifesmart_epset", fake_epset, raising=False)
+    monkeypatch.setattr(
+        light_module.LightEntity, "async_lifesmart_epset", fake_epset, raising=False
+    )
 
     dimmer_device = FakeBaseDevice()
-    dimmer_raw = make_device("SL_LI_WW", {"P1": {"type": 1, "val": 120}, "P2": {"val": 80}}, device_id="DIM1")
-    dimmer = light_module.LifeSmartLight(dimmer_device, dimmer_raw, "P1P2", dimmer_raw["data"], client)
+    dimmer_raw = make_device(
+        "SL_LI_WW", {"P1": {"type": 1, "val": 120}, "P2": {"val": 80}}, device_id="DIM1"
+    )
+    dimmer = light_module.LifeSmartLight(
+        dimmer_device, dimmer_raw, "P1P2", dimmer_raw["data"], client
+    )
     dimmer.async_schedule_update_ha_state = lambda: None
 
-    hs_raw = make_device("SL_OL_W", {"HS": {"type": 1, "val": 0x00FF0000}}, device_id="HS1")
-    hs_light = light_module.LifeSmartLight(FakeBaseDevice(), hs_raw, "HS", hs_raw["data"]["HS"], client)
+    hs_raw = make_device(
+        "SL_OL_W", {"HS": {"type": 1, "val": 0x00FF0000}}, device_id="HS1"
+    )
+    hs_light = light_module.LifeSmartLight(
+        FakeBaseDevice(), hs_raw, "HS", hs_raw["data"]["HS"], client
+    )
     hs_light._idx = "HS"
     hs_light.async_schedule_update_ha_state = lambda: None
 
-    rgbw_raw = make_device("SL_OL_W", {"RGBW": {"type": 1, "val": 0x11223344}}, device_id="RGBW1")
-    rgbw = light_module.LifeSmartLight(FakeBaseDevice(), rgbw_raw, "RGBW", rgbw_raw["data"]["RGBW"], client)
+    rgbw_raw = make_device(
+        "SL_OL_W", {"RGBW": {"type": 1, "val": 0x11223344}}, device_id="RGBW1"
+    )
+    rgbw = light_module.LifeSmartLight(
+        FakeBaseDevice(), rgbw_raw, "RGBW", rgbw_raw["data"]["RGBW"], client
+    )
     rgbw.async_schedule_update_ha_state = lambda: None
 
-    rgb_raw = make_device("SL_OL_W", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="RGB1")
-    rgb = light_module.LifeSmartLight(FakeBaseDevice(), rgb_raw, "RGB", rgb_raw["data"]["RGB"], client)
+    rgb_raw = make_device(
+        "SL_OL_W", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="RGB1"
+    )
+    rgb = light_module.LifeSmartLight(
+        FakeBaseDevice(), rgb_raw, "RGB", rgb_raw["data"]["RGB"], client
+    )
     rgb._idx = "RGB"
     rgb.async_schedule_update_ha_state = lambda: None
 
-    spot_like_raw = make_device("SL_SPOT", {"RGBW": {"type": 1, "val": 0x11223344}}, device_id="SPOT2")
-    spot_like = light_module.LifeSmartLight(FakeBaseDevice(), spot_like_raw, "RGBW", spot_like_raw["data"]["RGBW"], client)
+    spot_like_raw = make_device(
+        "SL_SPOT", {"RGBW": {"type": 1, "val": 0x11223344}}, device_id="SPOT2"
+    )
+    spot_like = light_module.LifeSmartLight(
+        FakeBaseDevice(), spot_like_raw, "RGBW", spot_like_raw["data"]["RGBW"], client
+    )
     spot_like.async_schedule_update_ha_state = lambda: None
 
-    onoff_raw = make_device("SL_OL_W", {"bright": {"type": 0, "val": 0}}, device_id="ONOFF1")
-    onoff = light_module.LifeSmartLight(FakeBaseDevice(), onoff_raw, "bright", onoff_raw["data"]["bright"], client)
+    onoff_raw = make_device(
+        "SL_OL_W", {"bright": {"type": 0, "val": 0}}, device_id="ONOFF1"
+    )
+    onoff = light_module.LifeSmartLight(
+        FakeBaseDevice(), onoff_raw, "bright", onoff_raw["data"]["bright"], client
+    )
     onoff.async_schedule_update_ha_state = lambda: None
 
-    asyncio.run(dimmer.async_turn_on(**{ATTR_BRIGHTNESS: 150, ATTR_COLOR_TEMP_KELVIN: 4000}))
+    asyncio.run(
+        dimmer.async_turn_on(**{ATTR_BRIGHTNESS: 150, ATTR_COLOR_TEMP_KELVIN: 4000})
+    )
     asyncio.run(dimmer.async_turn_off())
     asyncio.run(hs_light.async_turn_on(**{ATTR_HS_COLOR: (120, 50)}))
     asyncio.run(rgb.async_turn_on(**{ATTR_RGB_COLOR: (1, 2, 3)}))
@@ -281,10 +354,15 @@ def test_generic_light_and_dimmer_branches(monkeypatch):
     assert rgb.color_mode == ColorMode.RGBW
     assert rgbw.rgbw_color == (10, 20, 30, 40)
     assert rgb.unique_id == rgb.entity_id
-    assert client.epset_calls[-2:] == [
-        ("0xfe", 0x04010203, "RGBW", "HUB1", "SPOT2"),
-        ("0x80", 0, "RGB", "HUB1", "RGB1"),
-    ] if False else client.epset_calls[-2:]
+    assert (
+        client.epset_calls[-2:]
+        == [
+            ("0xfe", 0x04010203, "RGBW", "HUB1", "SPOT2"),
+            ("0x80", 0, "RGB", "HUB1", "RGB1"),
+        ]
+        if False
+        else client.epset_calls[-2:]
+    )
 
     assert ("RGBW", "HUB1", "RGBW1") in client.on_calls
     assert client.on_calls[-1] == ("bright", "HUB1", "ONOFF1")
@@ -310,6 +388,33 @@ def test_sl_li_ww_power_uses_wrapped_lifesmart_device():
     assert base_device.calls == [("0x80", 0, "P1"), ("0x81", 1, "P1")]
     assert client.epset_calls == []
     assert updates == ["scheduled", "scheduled"]
+    assert entity.min_mireds == light_module.MIN_MIREDS
+
+
+def test_sl_li_ww_initial_off_state():
+    client = FakeClient()
+    raw = make_device(
+        "SL_LI_WW",
+        {"P1": {"type": 0, "val": 0}, "P2": {"val": 80}},
+        device_id="DIM0",
+    )
+    entity = light_module.LifeSmartLight(
+        FakeBaseDevice(), raw, "P1P2", raw["data"], client
+    )
+
+    assert entity.is_on is False
+
+
+def test_lifesmart_light_async_added_to_hass_returns_when_not_spot():
+    client = FakeClient()
+    raw = make_device(
+        "SL_OL_W", {"RGBW": {"type": 1, "val": 0x11223344}}, device_id="NONSPOT"
+    )
+    entity = light_module.LifeSmartLight(
+        FakeBaseDevice(), raw, "RGBW", raw["data"]["RGBW"], client
+    )
+
+    asyncio.run(entity.async_added_to_hass())
 
 
 def test_rgbw_light_supports_dyn_effects_and_disables_dyn_for_static_color():
@@ -381,3 +486,188 @@ def test_quantum_onoff_light_turns_on_and_off():
         ("0xff", 0x280A141E, "P2", "HUB1", "QUAN1"),
     ]
     assert updates == ["scheduled", "scheduled", "scheduled", "scheduled"]
+
+
+def test_light_async_setup_entry_excludes_blacklisted_devices():
+    devices = [
+        make_device(
+            "SL_CT_RGBW",
+            {"RGBW": {"type": "255", "val": 0x11223344}},
+            device_id="STRIP1",
+        ),
+        make_device(
+            "SL_CT_RGBW",
+            {"RGBW": {"type": "255", "val": 0x11223344}},
+            device_id="IGNORE1",
+        ),
+    ]
+    hass = FakeHass("entry-1", devices, client=FakeClient())
+    hass.data[light_module.DOMAIN]["entry-1"]["exclude_devices"] = ["IGNORE1"]
+    added = []
+
+    asyncio.run(
+        light_module.async_setup_entry(
+            hass, FakeConfigEntry(), lambda entities: added.extend(entities)
+        )
+    )
+
+    assert len(added) == 1
+    assert added[0].entity_id == "light.sl_ct_rgbw_hub1_strip1_rgbw"
+
+
+def test_light_async_setup_entry_handles_msl_irctl_rgb():
+    devices = [
+        make_device(
+            "MSL_IRCTL",
+            {"RGB": {"type": 1, "val": 0x00112233}},
+            device_id="MSL2",
+        )
+    ]
+    hass = FakeHass("entry-1", devices, client=FakeClient())
+    added = []
+
+    asyncio.run(
+        light_module.async_setup_entry(
+            hass, FakeConfigEntry(), lambda entities: added.extend(entities)
+        )
+    )
+
+    assert len(added) == 1
+    assert isinstance(added[0], light_module.LifeSmartSLSPOTLight)
+    assert added[0].unique_id == "light.msl_irctl_hub1_msl2_rgb"
+
+
+def test_spot_light_off_state_and_update_state_true_branch(monkeypatch):
+    client = FakeClient()
+    client.remote_list = {
+        "device-SPOT1": {"category": "tv", "brand": "aux", "idx": "1"}
+    }
+    client.remote = {"device-SPOT1": "ABC"}
+    raw = make_device(
+        "SL_SPOT", {"RGB": {"type": 0, "val": 0x00112233}}, device_id="SPOT1"
+    )
+    entity = light_module.LifeSmartSLSPOTLight(
+        None, raw, "RGB", raw["data"]["RGB"], client
+    )
+    assert entity.is_on is False
+    assert entity.color_temp is None
+    assert entity.max_mireds is None
+    assert entity.min_mireds is None
+
+    updates = []
+    entity.schedule_update_ha_state = lambda: updates.append("scheduled")
+    asyncio.run(entity._update_state({"type": 1, "val": 0x00010203}))
+    assert entity.is_on is True
+    assert entity.brightness == 255
+    assert updates == ["scheduled"]
+
+    entity.hass = object()
+    entity.async_on_remove = lambda remover: None
+    monkeypatch.setattr(
+        light_module,
+        "async_dispatcher_connect",
+        lambda hass, signal, callback: "remove-token",
+    )
+    asyncio.run(entity.async_added_to_hass())
+
+    assert entity.extra_state_attributes["remotelist"]["device-SPOT1"]["codes"] == "ABC"
+
+
+def test_spot_light_update_state_returns_when_data_is_none():
+    client = FakeClient()
+    raw = make_device(
+        "SL_SPOT", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="SPOT1"
+    )
+    entity = light_module.LifeSmartSLSPOTLight(
+        None, raw, "RGB", raw["data"]["RGB"], client
+    )
+    updates = []
+    entity.schedule_update_ha_state = lambda: updates.append("scheduled")
+
+    asyncio.run(entity._update_state(None))
+    assert updates == []
+
+
+def test_lifesmart_light_hs_zero_and_rgb_0_branches():
+    client = FakeClient()
+
+    zero_hs_raw = make_device("SL_OL_W", {"HS": {"type": 1, "val": 0}}, device_id="HS0")
+    zero_hs = light_module.LifeSmartLight(
+        FakeBaseDevice(), zero_hs_raw, "HS", zero_hs_raw["data"]["HS"], client
+    )
+    assert zero_hs.color_mode == ColorMode.HS
+    assert zero_hs.hs_color is None
+
+    rgb0_zero_raw = make_device(
+        "SL_OL_W", {"RGB_0": {"type": 1, "val": 0}}, device_id="RGB01"
+    )
+    rgb0_zero = light_module.LifeSmartLight(
+        FakeBaseDevice(), rgb0_zero_raw, "RGB_0", rgb0_zero_raw["data"]["RGB_0"], client
+    )
+    assert rgb0_zero.rgb_color is None
+
+    rgb0_nonzero_raw = make_device(
+        "SL_OL_W", {"RGB_0": {"type": 1, "val": 0x00112233}}, device_id="RGB02"
+    )
+    rgb0_nonzero = light_module.LifeSmartLight(
+        FakeBaseDevice(),
+        rgb0_nonzero_raw,
+        "RGB_0",
+        rgb0_nonzero_raw["data"]["RGB_0"],
+        client,
+    )
+    assert rgb0_nonzero.rgb_color == (17, 34, 51)
+
+
+def test_lifesmart_light_p1_color_temp_properties_and_device_info():
+    client = FakeClient()
+    raw = make_device("SL_OL_W", {"P1": {"type": 1, "val": 42}}, device_id="P11")
+    entity = light_module.LifeSmartLight(
+        FakeBaseDevice(), raw, "P1", raw["data"]["P1"], client
+    )
+
+    assert entity.color_mode == ColorMode.COLOR_TEMP
+    assert entity.supported_color_modes == {ColorMode.COLOR_TEMP}
+    assert entity.color_temp is None
+    assert entity.device_info["name"] == "Light"
+
+
+def test_lifesmart_light_spot_async_added_to_hass_populates_remote_list():
+    client = FakeClient()
+    client.remote_list = {
+        "OTHER": {"category": "tv", "brand": "aux", "idx": "1"},
+        "SPOT1": {"category": "tv", "brand": "aux", "idx": "1"},
+    }
+    client.remote = {"SPOT1": {"power": "ABC"}}
+    raw = make_device(
+        "SL_SPOT", {"RGBW": {"type": 1, "val": 0x11223344}}, device_id="SPOT1"
+    )
+    entity = light_module.LifeSmartLight(
+        FakeBaseDevice(), raw, "RGBW", raw["data"]["RGBW"], client
+    )
+    entity.hass = object()
+
+    asyncio.run(entity.async_added_to_hass())
+
+    assert entity.device_type == "SL_SPOT"
+    assert entity.rgbw_color == (34, 51, 68, 17)
+    assert entity.color_temp is None
+    assert entity.supported_color_modes == {ColorMode.RGBW}
+
+
+def test_lifesmart_light_rgb_color_mode_turn_on_calls_base_epset():
+    client = FakeClient()
+    raw = make_device(
+        "SL_OL_W", {"RGB": {"type": 1, "val": 0x00112233}}, device_id="RGB1"
+    )
+    entity = light_module.LifeSmartLight(
+        FakeBaseDevice(), raw, "RGB", raw["data"]["RGB"], client
+    )
+    entity._color_mode = ColorMode.RGB
+    entity._idx = "RGB"
+    entity.async_schedule_update_ha_state = lambda: None
+
+    asyncio.run(entity.async_turn_on(**{ATTR_RGB_COLOR: (10, 20, 30)}))
+
+    assert entity.is_on is True
+    assert entity._device.calls == [("0xff", 0x000A141E, "RGB")]
