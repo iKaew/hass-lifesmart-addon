@@ -291,6 +291,27 @@ def test_generic_light_and_dimmer_branches(monkeypatch):
     assert client.off_calls[-1] == ("RGB", "HUB1", "RGB1")
 
 
+def test_sl_li_ww_power_uses_wrapped_lifesmart_device():
+    client = FakeClient()
+    base_device = FakeBaseDevice()
+    raw = make_device(
+        "SL_LI_WW",
+        {"P1": {"type": 1, "val": 120}, "P2": {"val": 80}},
+        device_id="DIM1",
+    )
+    entity = light_module.LifeSmartLight(base_device, raw, "P1P2", raw["data"], client)
+    updates = []
+    entity.async_schedule_update_ha_state = lambda: updates.append("scheduled")
+
+    asyncio.run(entity.async_turn_off())
+    asyncio.run(entity.async_turn_on())
+
+    assert entity.is_on is True
+    assert base_device.calls == [("0x80", 0, "P1"), ("0x81", 1, "P1")]
+    assert client.epset_calls == []
+    assert updates == ["scheduled", "scheduled"]
+
+
 def test_rgbw_light_supports_dyn_effects_and_disables_dyn_for_static_color():
     client = FakeClient()
     raw = make_device(
