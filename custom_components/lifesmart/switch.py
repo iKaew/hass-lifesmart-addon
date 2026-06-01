@@ -48,7 +48,7 @@ def _is_on_type(value) -> bool:
     """Return True when a LifeSmart type value represents on."""
     try:
         return int(str(value), 0) % 2 == 1
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return False
 
 
@@ -121,8 +121,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             elif device_type in MODBUS_CONTROLLER_TYPES:
                 for sub_device_key in device[DEVICE_DATA_KEY]:
                     if sub_device_key == "O" or (
-                        sub_device_key.startswith("L")
-                        and sub_device_key[1:].isdigit()
+                        sub_device_key.startswith("L") and sub_device_key[1:].isdigit()
                     ):
                         switch_devices.append(
                             LifeSmartSwitch(
@@ -342,7 +341,7 @@ class LifeSmartSceneSwitch(LifeSmartDevice, SwitchEntity):
 
     async def async_turn_on(self, **kwargs):
         """Set scene."""
-        if await super().async_lifesmart_sceneset(self, None, None) == 0:
+        if await super().async_lifesmart_sceneset(None, None) == 0:
             self._state = True
             self.async_schedule_update_ha_state()
 
