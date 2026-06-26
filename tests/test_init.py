@@ -654,6 +654,8 @@ def test_on_message_routes_nature_thermostat_and_ignores_non_io(monkeypatch):
         ("SL_SC_CN", "P3"),
         ("SL_SC_CH", "P2"),
         ("SL_ALM", "P1"),
+        ("SL_CAM", "M"),
+        ("SL_CAM", "V"),
         ("ELIQ_EM", "EPA"),
         ("V_DLT_645_P", "EE"),
         ("V_485_P", "CO2PPM"),
@@ -716,6 +718,38 @@ def test_on_message_dispatches_supported_device_update_families(
             (f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{related_entity_id}", related_payload)
         )
     assert dispatch_calls == expected_dispatch_calls
+    assert hass.states._states == {}
+
+
+def test_on_message_dispatches_camera_status_bits(monkeypatch):
+    hass, _entry, ws, dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch,
+        devices=[
+            {
+                HUB_ID_KEY: "HUB1",
+                DEVICE_ID_KEY: "CAM1",
+                "devtype": "SL_CAM",
+            }
+        ],
+    )
+    payload = {
+        "devtype": "SL_CAM",
+        HUB_ID_KEY: "HUB1",
+        DEVICE_ID_KEY: "CAM1",
+        SUBDEVICE_INDEX_KEY: "CFST",
+        "val": 0b101,
+    }
+
+    send_ws_device_update(ws, payload)
+
+    expected_entity_ids = [
+        lifesmart_init.generate_entity_id("SL_CAM", "HUB1", "CAM1", status_key)
+        for status_key in lifesmart_init.SMART_CAMERA_STATUS_BINARY_KEYS
+    ]
+    assert dispatch_calls == [
+        (f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", payload)
+        for entity_id in expected_entity_ids
+    ]
     assert hass.states._states == {}
 
 
@@ -1141,6 +1175,11 @@ def test_get_fan_mode(speed, expected):
         ("SL_P_IR", "P2", lifesmart_init.Platform.BINARY_SENSOR),
         ("SL_SC_CH", "P3", lifesmart_init.Platform.BINARY_SENSOR),
         ("SL_ALM", "P1", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_CAM", "M", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_CAM", "V", lifesmart_init.Platform.SENSOR),
+        ("SL_CAM", "CFST_EXTERNAL_POWER", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_CAM", "CFST_ROTARY_PTZ", lifesmart_init.Platform.BINARY_SENSOR),
+        ("SL_CAM", "CFST_ROTATING", lifesmart_init.Platform.BINARY_SENSOR),
         ("SL_SC_CM", "P3", lifesmart_init.Platform.SENSOR),
         ("SL_SC_BM", "M", lifesmart_init.Platform.BINARY_SENSOR),
         ("SL_SC_BM", "V", lifesmart_init.Platform.SENSOR),
@@ -1184,6 +1223,14 @@ def test_get_platform_by_device(device_type, sub_device, expected):
         ),
         ("SL_SC_G", "HUB-1", "DEV1", "G", "binary_sensor.sl_sc_g_hub_1_dev1_g"),
         ("SL_SC_BM", "HUB-1", "DEV1", "V", "sensor.sl_sc_bm_hub_1_dev1_v"),
+        ("SL_CAM", "HUB-1", "CAM1", "M", "binary_sensor.sl_cam_hub_1_cam1_m"),
+        (
+            "SL_CAM",
+            "HUB-1",
+            "CAM1",
+            "CFST_EXTERNAL_POWER",
+            "binary_sensor.sl_cam_hub_1_cam1_cfst_external_power",
+        ),
         ("SL_DOOYA", "HUB-1", "DEV1", None, "cover.sl_dooya_hub_1_dev1"),
         ("SL_LI_WW", "HUB-1", "DEV1", None, "light.sl_li_ww_hub_1_dev1_p1p2"),
         ("V_AIR_P", "HUB-1", "DEV:1", None, "climate.v_air_p_hub_1_dev_1"),

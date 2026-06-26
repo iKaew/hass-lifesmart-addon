@@ -79,6 +79,9 @@ from .const import (
     RADAR_MOTION_SENSOR_TYPES,
     SMART_PLUG_TYPES,
     SMART_ALARM_TYPES,
+    SMART_CAMERA_STATUS_BINARY_KEYS,
+    SMART_CAMERA_STATUS_EVENT_KEY,
+    SMART_CAMERA_TYPES,
     SMOKE_SENSOR_TYPES,
     SPOT_IR_TYPES,
     SPOT_TYPES,
@@ -315,6 +318,21 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                 dispatcher_send(
                     hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
                 )
+            elif device_type in SMART_CAMERA_TYPES:
+                if sub_device_key in ["M", "V"]:
+                    dispatcher_send(
+                        hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
+                    )
+                elif sub_device_key == SMART_CAMERA_STATUS_EVENT_KEY:
+                    for status_key in SMART_CAMERA_STATUS_BINARY_KEYS:
+                        status_entity_id = generate_entity_id(
+                            device_type, hub_id, device_id, status_key
+                        )
+                        dispatcher_send(
+                            hass,
+                            f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{status_entity_id}",
+                            data,
+                        )
             elif (
                 device_type in BINARY_SENSOR_TYPES
                 and sub_device_key in SUPPORTED_SUB_BINARY_SENSORS
@@ -916,6 +934,13 @@ def get_platform_by_device(device_type, sub_device=None):
         return Platform.BINARY_SENSOR
     elif device_type in SMART_ALARM_TYPES and sub_device in ["P1", "P2"]:
         return Platform.BINARY_SENSOR
+    elif device_type in SMART_CAMERA_TYPES and sub_device in [
+        "M",
+        *SMART_CAMERA_STATUS_BINARY_KEYS,
+    ]:
+        return Platform.BINARY_SENSOR
+    elif device_type in SMART_CAMERA_TYPES and sub_device == "V":
+        return Platform.SENSOR
     elif (
         device_type == "SL_SC_CM"
         and sub_device == "P3"
@@ -1076,6 +1101,7 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
         *SMOKE_SENSOR_TYPES,
         *NOISE_SENSOR_TYPES,
         *SMART_ALARM_TYPES,
+        *SMART_CAMERA_TYPES,
     ]:
         if sub_device:
             return (

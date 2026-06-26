@@ -37,12 +37,36 @@ from .const import (
     NOISE_SENSOR_TYPES,
     RADAR_MOTION_SENSOR_TYPES,
     SMART_ALARM_TYPES,
+    SMART_CAMERA_STATUS_BINARY_KEYS,
+    SMART_CAMERA_STATUS_EVENT_KEY,
+    SMART_CAMERA_STATUS_EXTERNAL_POWER_KEY,
+    SMART_CAMERA_STATUS_ROTARY_PTZ_KEY,
+    SMART_CAMERA_STATUS_ROTATING_KEY,
+    SMART_CAMERA_TYPES,
     SPOT_IR_TYPES,
     SUBDEVICE_INDEX_KEY,
     WATER_LEAK_SENSOR_TYPES,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+SMART_CAMERA_STATUS_BIT_CONFIG = {
+    SMART_CAMERA_STATUS_EXTERNAL_POWER_KEY: {
+        "bit": 0,
+        "name": "External Power",
+        "device_class": BinarySensorDeviceClass.POWER,
+    },
+    SMART_CAMERA_STATUS_ROTARY_PTZ_KEY: {
+        "bit": 1,
+        "name": "Rotary PTZ",
+        "device_class": None,
+    },
+    SMART_CAMERA_STATUS_ROTATING_KEY: {
+        "bit": 2,
+        "name": "Rotating",
+        "device_class": BinarySensorDeviceClass.MOVING,
+    },
+}
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -70,6 +94,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             + GAS_SENSOR_TYPES
             + NOISE_SENSOR_TYPES
             + SMART_ALARM_TYPES
+            + SMART_CAMERA_TYPES
             + SPOT_IR_TYPES
         )
         if device_type not in supported_binary_sensor_types:
@@ -259,6 +284,30 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         client,
                     )
                 )
+            elif device_type in SMART_CAMERA_TYPES and sub_device_key == "M":
+                sensor_devices.append(
+                    LifeSmartBinarySensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
+            elif (
+                device_type in SMART_CAMERA_TYPES
+                and sub_device_key == SMART_CAMERA_STATUS_EVENT_KEY
+            ):
+                for status_key in SMART_CAMERA_STATUS_BINARY_KEYS:
+                    sensor_devices.append(
+                        LifeSmartBinarySensor(
+                            ha_device,
+                            device,
+                            status_key,
+                            sub_device_data,
+                            client,
+                        )
+                    )
     async_add_entities(sensor_devices)
 
 
@@ -348,6 +397,16 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         elif device_type in SMART_ALARM_TYPES:
             self._device_class = BinarySensorDeviceClass.SOUND
             self._state = sub_device_data.get("type", 0) % 2 == 1
+        elif device_type in SMART_CAMERA_TYPES:
+            if sub_device_key == "M":
+                self._device_class = BinarySensorDeviceClass.MOTION
+                self._state = sub_device_data.get("val", 0) != 0
+            else:
+                config = SMART_CAMERA_STATUS_BIT_CONFIG[sub_device_key]
+                self.device_name = config["name"]
+                self._device_class = config["device_class"]
+                self._state = _camera_status_bit_state(sub_device_data, sub_device_key)
+                self._attrs = {"raw": sub_device_data.get("val")}
         elif device_type in SPOT_IR_TYPES:
             self._device_class = None
             self._state = sub_device_data.get("type", 0) % 2 == 1
@@ -423,7 +482,7 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
-                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self.entity_id}",
+                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self._signal_entity_id}",
                 self._update_state,
             )
         )
@@ -480,6 +539,10 @@ class LifeSmartBinarySensor(BinarySensorEntity):
             or device_type in SMART_ALARM_TYPES
         ):
             return data.get("type", 0) % 2 == 1
+        if device_type in SMART_CAMERA_TYPES:
+            if self.sub_device_key == "M":
+                return val != 0
+            return _camera_status_bit_state(data, self.sub_device_key)
         if (
             device_type in LOCK_TYPES
             and sub_device_key == DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY
@@ -491,6 +554,17 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         ):
             return val > 0
         return val != 0
+
+    @property
+    def _signal_entity_id(self):
+        """Return the dispatcher signal entity id for this binary sensor."""
+        return self.entity_id
+
+
+def _camera_status_bit_state(data, sub_device_key):
+    """Return one decoded LifeSmart camera status bit."""
+    config = SMART_CAMERA_STATUS_BIT_CONFIG[sub_device_key]
+    return bool(data.get("val", 0) & (1 << config["bit"]))
 
 
 def extract_doorlock_unlocking_method(data):

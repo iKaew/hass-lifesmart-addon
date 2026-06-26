@@ -53,6 +53,11 @@ def test_async_setup_entry_creates_supported_binary_sensors_and_skips_excluded()
         make_setup_device("SL_DF_SR", {"SR": {"type": 1}, "TR": {"type": 0}}, device_id="DEF1"),
         make_setup_device("SL_SC_WA", {"WA": {"val": 1}, "V": {"v": 87}}, device_id="LEAK1"),
         make_setup_device("SL_SC_BM", {"M": {"val": 1}, "V": {"v": 82}}, device_id="BM1"),
+        make_setup_device(
+            "SL_CAM",
+            {"M": {"val": 1}, "V": {"v": 82}, "CFST": {"val": 0b101}},
+            device_id="CAM1",
+        ),
         make_setup_device("SL_P_IR_V2", {"P2": {"type": 1, "val": 0}}, device_id="IR1"),
         make_setup_device("SL_SC_CN", {"P3": {"type": 1, "val": 1}}, device_id="NOISE1"),
         make_setup_device(
@@ -85,12 +90,16 @@ def test_async_setup_entry_creates_supported_binary_sensors_and_skips_excluded()
 
     entity_ids = {entity.entity_id for entity in added_entities}
 
-    assert len(added_entities) == 9
+    assert len(added_entities) == 13
     assert "binary_sensor.sl_sc_g_hub1_device1_g" in entity_ids
     assert "binary_sensor.sl_df_sr_hub1_def1_sr" in entity_ids
     assert "binary_sensor.sl_df_sr_hub1_def1_tr" in entity_ids
     assert "binary_sensor.sl_sc_wa_hub1_leak1_wa" in entity_ids
     assert "binary_sensor.sl_sc_bm_hub1_bm1_m" in entity_ids
+    assert "binary_sensor.sl_cam_hub1_cam1_m" in entity_ids
+    assert "binary_sensor.sl_cam_hub1_cam1_cfst_external_power" in entity_ids
+    assert "binary_sensor.sl_cam_hub1_cam1_cfst_rotary_ptz" in entity_ids
+    assert "binary_sensor.sl_cam_hub1_cam1_cfst_rotating" in entity_ids
     assert "binary_sensor.sl_p_ir_v2_hub1_ir1_p2" in entity_ids
     assert "binary_sensor.sl_sc_cn_hub1_noise1_p3" in entity_ids
     assert "binary_sensor.sl_lk_yl_hub1_lock1_evtlo" in entity_ids
@@ -108,6 +117,12 @@ def test_guard_motion_water_and_smoke_binary_sensor_initialization():
     motion = make_binary_sensor("SL_SC_MHW", "M", {"val": 1})
     cube_motion = make_binary_sensor("SL_SC_BM", "M", {"val": 1})
     radar = make_binary_sensor("SL_P_RM", "P1", {"val": 1})
+    camera_motion = make_binary_sensor("SL_CAM", "M", {"val": 1})
+    camera_external_power = make_binary_sensor(
+        "SL_CAM", "CFST_EXTERNAL_POWER", {"val": 0b101}
+    )
+    camera_rotary_ptz = make_binary_sensor("SL_CAM", "CFST_ROTARY_PTZ", {"val": 0b101})
+    camera_rotating = make_binary_sensor("SL_CAM", "CFST_ROTATING", {"val": 0b101})
     leak = make_binary_sensor("SL_SC_WA", "WA", {"val": 1})
     smoke_fallback = make_binary_sensor("SL_P_A", "P2", {"val": 1})
 
@@ -132,6 +147,18 @@ def test_guard_motion_water_and_smoke_binary_sensor_initialization():
     assert cube_motion.is_on is True
     assert radar.device_class == BinarySensorDeviceClass.MOTION
     assert radar.is_on is True
+    assert camera_motion.device_class == BinarySensorDeviceClass.MOTION
+    assert camera_motion.is_on is True
+    assert camera_external_power.name == "External Power"
+    assert camera_external_power.device_class == BinarySensorDeviceClass.POWER
+    assert camera_external_power.is_on is True
+    assert camera_external_power.extra_state_attributes == {"raw": 5}
+    assert camera_rotary_ptz.name == "Rotary PTZ"
+    assert camera_rotary_ptz.device_class is None
+    assert camera_rotary_ptz.is_on is False
+    assert camera_rotating.name == "Rotating"
+    assert camera_rotating.device_class == BinarySensorDeviceClass.MOVING
+    assert camera_rotating.is_on is True
     assert leak.device_class == BinarySensorDeviceClass.MOISTURE
     assert leak.is_on is True
     assert smoke_fallback.device_class == BinarySensorDeviceClass.SMOKE
@@ -217,11 +244,32 @@ def test_update_state_handles_none_regular_updates_and_lock_events():
     assert lock_calls == ["lock", "lock"]
 
 
+def test_camera_status_binary_sensors_update_from_cfst_event():
+    external_power = make_binary_sensor("SL_CAM", "CFST_EXTERNAL_POWER", {"val": 0})
+    rotary_ptz = make_binary_sensor("SL_CAM", "CFST_ROTARY_PTZ", {"val": 0})
+    rotating = make_binary_sensor("SL_CAM", "CFST_ROTATING", {"val": 0})
+    update_calls = []
+    for sensor in [external_power, rotary_ptz, rotating]:
+        sensor.schedule_update_ha_state = lambda: update_calls.append("updated")
+
+    payload = {"devtype": "SL_CAM", "idx": "CFST", "val": 0b101}
+    asyncio.run(external_power._update_state(payload))
+    asyncio.run(rotary_ptz._update_state(payload))
+    asyncio.run(rotating._update_state(payload))
+
+    assert external_power.is_on is True
+    assert rotary_ptz.is_on is False
+    assert rotating.is_on is True
+    assert update_calls == ["updated", "updated", "updated"]
+
+
 def test_state_from_data_covers_special_cases():
     guard = make_binary_sensor("SL_SC_G", "G", {"val": 0})
     controller = make_binary_sensor("SL_JEMA", "P6", {"type": 1, "val": 0})
     defed = make_binary_sensor("SL_DF_SR", "TR", {"type": 0})
     gas = make_binary_sensor("SL_SC_CH", "P3", {"type": 0, "val": 0})
+    camera = make_binary_sensor("SL_CAM", "M", {"val": 0})
+    camera_rotating = make_binary_sensor("SL_CAM", "CFST_ROTATING", {"val": 0})
     doorbell = make_binary_sensor("SL_LK_LS", "EVTBELL", {"type": 0, "val": 0})
     generic = make_binary_sensor("SL_SC_G", "B", {"val": 0})
 
@@ -230,6 +278,15 @@ def test_state_from_data_covers_special_cases():
     assert controller._state_from_data({"devtype": "SL_P_IR", "idx": "P2", "type": 1, "val": 0}) is True
     assert defed._state_from_data({"devtype": "SL_DF_SR", "idx": "TR", "type": 1}) is True
     assert gas._state_from_data({"devtype": "SL_SC_CH", "idx": "P3", "type": 1}) is True
+    assert camera._state_from_data({"devtype": "SL_CAM", "idx": "M", "val": 1}) is True
+    assert (
+        camera_rotating._state_from_data({"devtype": "SL_CAM", "idx": "CFST", "val": 4})
+        is True
+    )
+    assert (
+        camera_rotating._state_from_data({"devtype": "SL_CAM", "idx": "CFST", "val": 1})
+        is False
+    )
     assert doorbell._state_from_data({"devtype": "SL_LK_LS", "idx": "EVTBELL", "type": 1}) is True
     assert generic._state_from_data({"devtype": "SL_SC_G", "idx": "B", "val": 2}) is True
 
