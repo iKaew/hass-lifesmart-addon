@@ -113,6 +113,20 @@ def test_radar_motion_sensor_device():
     )
 
 
+def test_smart_camera_motion_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_CAM", "HUB1", "CAM1", "M") == (
+        "binary_sensor.sl_cam_hub1_cam1_m"
+    )
+
+
+def test_smart_camera_status_bit_device():
+    gen = load_generate_entity_id()
+    assert gen("SL_CAM", "HUB1", "CAM1", "CFST_ROTATING") == (
+        "binary_sensor.sl_cam_hub1_cam1_cfst_rotating"
+    )
+
+
 def test_defed_door_sensor_device():
     gen = load_generate_entity_id()
     assert gen("SL_DF_GG", "HUB1", "DOOR1", "GA") == (

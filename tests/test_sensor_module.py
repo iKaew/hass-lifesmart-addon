@@ -113,6 +113,11 @@ def test_sensor_async_setup_entry_creates_supported_entities():
             {"P1": {"val": 50}, "P2": {"val": 20}, "P4": {"val": 30}},
             device_id="NOISE1",
         ),
+        make_device(
+            "SL_CAM",
+            {"V": {"val": 3.7, "v": 78}, "CFST": {"val": 0b111}},
+            device_id="CAM1",
+        ),
         make_device("SL_SC_CM", {"P3": {"v": 87}}, device_id="CM1"),
         make_device("SL_P_A", {"P2": {"v": 92}}, device_id="SMOKE1"),
     ]
@@ -141,6 +146,7 @@ def test_sensor_async_setup_entry_creates_supported_entities():
     assert any(entity.entity_id == "sensor.sl_sc_bg_hub1_guard1_v" for entity in added)
     assert any(entity.entity_id == "sensor.sl_sc_bm_hub1_bm1_v" for entity in added)
     assert any(entity.entity_id == "sensor.v_485_p_hub1_mod1_ev" for entity in added)
+    assert any(entity.entity_id == "sensor.sl_cam_hub1_cam1_v" for entity in added)
 
 
 def test_sensor_entity_branches_and_properties():
@@ -165,6 +171,7 @@ def test_sensor_entity_branches_and_properties():
     dlt, _ = make_sensor_entity("V_DLT_645_P", "EP", {"v": 2})
     modbus, _ = make_sensor_entity("V_485_P", "CO2PPM", {"v": 400})
     purifier, _ = make_sensor_entity("OD_MFRESH_M8088", "RM", {"val": 2})
+    camera_battery, _ = make_sensor_entity("SL_CAM", "V", {"val": 3.7, "v": 78})
     default_temp, _ = make_sensor_entity("SL_NATURE", "P4", {"val": 230})
 
     assert gas.device_class == sensor_module.SensorDeviceClass.GAS
@@ -232,6 +239,10 @@ def test_sensor_entity_branches_and_properties():
     assert modbus.device_class == sensor_module.SensorDeviceClass.CO2
     assert purifier.state == "fan_2"
     assert purifier._attr_options == list(sensor_module.AIR_PURIFIER_MODES.values())
+    assert camera_battery.device_name == "Battery"
+    assert camera_battery.device_class == sensor_module.SensorDeviceClass.BATTERY
+    assert camera_battery.state == 78
+    assert camera_battery.extra_state_attributes == {"voltage": 3.7, "raw": 3.7}
     assert default_temp.state == 23
     assert gas.unique_id == gas.entity_id
     assert gas.device_info["model"] == "SL_SC_CH"

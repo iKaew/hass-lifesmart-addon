@@ -54,6 +54,7 @@ from .const import (
     NOISE_SENSOR_TYPES,
     OT_SENSOR_TYPES,
     SMART_PLUG_TYPES,
+    SMART_CAMERA_TYPES,
     SMOKE_SENSOR_TYPES,
     TVOC_CO2_SENSOR_TYPES,
     WATER_LEAK_SENSOR_TYPES,
@@ -137,6 +138,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             + MOTION_SENSOR_TYPES
             + SMOKE_SENSOR_TYPES
             + NOISE_SENSOR_TYPES
+            + SMART_CAMERA_TYPES
             + ELECTRICITY_METER_TYPES
             + AIR_PURIFIER_TYPES
             + DLT_METER_TYPES
@@ -389,6 +391,16 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         client,
                     )
                 )
+            elif device_type in SMART_CAMERA_TYPES and sub_device_key == "V":
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device,
+                        device,
+                        sub_device_key,
+                        sub_device_data,
+                        client,
+                    )
+                )
             elif device_type == "SL_SC_CM" and sub_device_key == "P3":
                 sensor_devices.append(
                     LifeSmartSensor(
@@ -530,6 +542,11 @@ class LifeSmartSensor(SensorEntity):
             else:
                 self._device_class = None
                 self._unit = "None"
+            self._state = _display_value(sub_device_data, device_type, sub_device_key)
+        elif device_type in SMART_CAMERA_TYPES:
+            self.device_name = "Battery"
+            self._device_class = SensorDeviceClass.BATTERY
+            self._unit = PERCENTAGE
             self._state = _display_value(sub_device_data, device_type, sub_device_key)
         elif device_type == "SL_SC_CM" and sub_device_key == "P3":
             self._device_class = SensorDeviceClass.BATTERY
@@ -855,6 +872,8 @@ def _state_attributes(data, device_type=None, sub_device_key=None):
         attrs.update(_doorlock_history_unlock_attributes(data))
     elif device_type in GENERIC_CONTROLLER_TYPES and sub_device_key == "P1":
         attrs.update(_generic_controller_config_attributes(data))
+    elif device_type in SMART_CAMERA_TYPES and sub_device_key == "V":
+        attrs["voltage"] = data.get("val")
 
     if "val" in data:
         attrs["raw"] = data["val"]
