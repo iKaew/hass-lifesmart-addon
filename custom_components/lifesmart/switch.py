@@ -133,16 +133,20 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                             )
                         )
             elif device_type in SMART_PLUG_TYPES:
-                sub_device_key = "P1"
-                switch_devices.append(
-                    LifeSmartSwitch(
-                        ha_device,
-                        device,
-                        sub_device_key,
-                        device[DEVICE_DATA_KEY][sub_device_key],
-                        client,
-                    )
-                )
+                for sub_device_key in device[DEVICE_DATA_KEY]:
+                    if (
+                        sub_device_key.startswith("O")
+                        or sub_device_key == "P1"
+                       ):
+                        switch_devices.append(
+                            LifeSmartSwitch(
+                                ha_device,
+                                device,
+                                sub_device_key,
+                                device[DEVICE_DATA_KEY][sub_device_key],
+                                client,
+                            )
+                        )
             elif device_type in NATURE_TYPES:
                 if not is_nature_switch(device):
                     continue

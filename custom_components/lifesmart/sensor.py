@@ -241,7 +241,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         client,
                     )
                 )
-            elif device_type in SMART_PLUG_TYPES and sub_device_key in ["P2", "P3"]:
+            elif device_type in SMART_PLUG_TYPES and sub_device_key in ["P2", "P3", "EE1"]:
                 sensor_devices.append(
                     LifeSmartSensor(
                         ha_device,
@@ -479,6 +479,10 @@ class LifeSmartSensor(SensorEntity):
             self._device_class = SensorDeviceClass.POWER
             self._unit = UnitOfPower.WATT
             self._state = sub_device_data["v"]
+        elif sub_device_key == "EE1":
+            self._device_class = SensorDeviceClass.ENERGY
+            self._unit = UnitOfEnergy.KILO_WATT_HOUR
+            self._state = sub_device_data.get("val")
         elif device_type in CO2_SENSOR_TYPES:
             if sub_device_key == "P1":
                 self._device_class = SensorDeviceClass.TEMPERATURE
