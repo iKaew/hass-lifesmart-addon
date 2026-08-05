@@ -1,12 +1,10 @@
 """lifesmart by @ikaew."""
 
-import asyncio
 import json
 import logging
 import re
 import sys
 import threading
-import time
 from typing import cast
 
 import voluptuous as vol
@@ -254,7 +252,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         UPDATE_LISTENER: update_listener,
     }
 
-    async def data_update_handler(msg):  # noqa: C901
+    def data_update_handler(msg):  # noqa: C901
         data = msg["msg"]
         device_type = data[DEVICE_TYPE_KEY]
         hub_id = data[HUB_ID_KEY]
@@ -643,7 +641,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
             return
         if msg["type"] != "io":
             return
-        asyncio.run(data_update_handler(msg))
+        data_update_handler(msg)
 
     def on_error(ws, error):
         _LOGGER.error("Websocket_error: %s", str(error))
@@ -755,8 +753,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         on_error=on_error,
         on_close=on_close,
     )
-    hass.data[DOMAIN][LIFESMART_STATE_MANAGER] = LifeSmartStatesManager(ws=ws)
-    hass.data[DOMAIN][LIFESMART_STATE_MANAGER].start_keep_alive()
+    state_manager = LifeSmartStatesManager(ws=ws)
+    hass.data[DOMAIN][config_entry.entry_id][LIFESMART_STATE_MANAGER] = state_manager
+    state_manager.start_keep_alive()
 
     await hass.config_entries.async_forward_entry_setups(
         config_entry, SUPPORTED_PLATFORMS
@@ -770,7 +769,24 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry, SUPPORTED_PLATFORMS
     )
 
-    return unload_ok
+    if not unload_ok:
+        return False
+
+    domain_data = hass.data.get(DOMAIN, {})
+    entry_data = domain_data.pop(entry.entry_id, {})
+    state_manager = entry_data.get(LIFESMART_STATE_MANAGER)
+    if state_manager is not None:
+        await hass.async_add_executor_job(state_manager.stop_keep_alive)
+
+    update_listener = entry_data.get(UPDATE_LISTENER)
+    if callable(update_listener):
+        update_listener()
+
+    if not domain_data:
+        for service in ("send_ir_code", "send_keys", "send_ackeys", "scene_set"):
+            hass.services.async_remove(DOMAIN, service)
+
+    return True
 
 
 async def _async_update_listener(hass: HomeAssistant, config_entry):
@@ -893,28 +909,30 @@ class LifeSmartStatesManager(threading.Thread):
 
     def __init__(self, ws) -> None:
         """Init LifeSmart Update Manager."""
-        threading.Thread.__init__(self)
-        self._run = False
+        threading.Thread.__init__(self, daemon=True)
+        self._stop_event = threading.Event()
         self._lock = threading.Lock()
         self._ws = ws
 
     def run(self):  # noqa: D102
-        while self._run:
+        while not self._stop_event.is_set():
             _LOGGER.debug("lifesmart: starting wss")
             self._ws.run_forever()
             _LOGGER.debug("lifesmart: restart wss")
-            time.sleep(10)
+            self._stop_event.wait(10)
 
     def start_keep_alive(self):
         """Start keep alive mechanism."""
         with self._lock:
-            self._run = True
+            self._stop_event.clear()
             threading.Thread.start(self)
 
     def stop_keep_alive(self):
         """Stop keep alive mechanism."""
         with self._lock:
-            self._run = False
+            self._stop_event.set()
+            self._ws.close()
+        if self.is_alive() and threading.current_thread() is not self:
             self.join()
 
 
