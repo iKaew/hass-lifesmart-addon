@@ -24,7 +24,7 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 
 # DOMAIN = "sensor"
 # ENTITY_ID_FORMAT = DOMAIN + ".{}"
-from . import LifeSmartDevice, device_via_info, generate_entity_id
+from . import LifeSmartDevice, device_identifier, device_via_info, generate_entity_id
 from .const import (
     AIR_PURIFIER_TYPES,
     CO2_SENSOR_TYPES,
@@ -670,7 +670,7 @@ class LifeSmartSensor(SensorEntity):
     def device_info(self) -> DeviceInfo:
         """Return the device info."""
         return DeviceInfo(
-            identifiers={(DOMAIN, self.hub_id, self.device_id)},
+            identifiers={device_identifier(self.hub_id, self.device_id)},
             name=self.sensor_device_name,
             manufacturer=MANUFACTURER,
             model=self.device_type,

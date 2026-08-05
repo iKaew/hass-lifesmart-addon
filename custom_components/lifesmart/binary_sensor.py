@@ -9,7 +9,7 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 
-from . import LifeSmartDevice, device_via_info, generate_entity_id
+from . import LifeSmartDevice, device_identifier, device_via_info, generate_entity_id
 from .const import (
     BINARY_SENSOR_TYPES,
     DEFED_DOOR_SENSOR_TYPES,
@@ -454,7 +454,7 @@ class LifeSmartBinarySensor(BinarySensorEntity):
     def device_info(self) -> DeviceInfo:
         """Return the device info."""
         return DeviceInfo(
-            identifiers={(DOMAIN, self.hub_id, self.device_id)},
+            identifiers={device_identifier(self.hub_id, self.device_id)},
             name=self.sensor_device_name,
             manufacturer=MANUFACTURER,
             model=self.device_type,

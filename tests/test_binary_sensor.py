@@ -213,7 +213,7 @@ def test_binary_sensor_name_device_info_unique_id_and_attrs():
     assert sensor.unique_id == sensor.entity_id
     assert sensor.extra_state_attributes == {}
     assert sensor.device_info["identifiers"] == {
-        (binary_sensor_module.DOMAIN, "HUB1", "DEVICE1")
+        (binary_sensor_module.DOMAIN, "HUB1:DEVICE1")
     }
     assert sensor.device_info["manufacturer"] == binary_sensor_module.MANUFACTURER
     assert sensor.device_info["model"] == "SL_SC_G"

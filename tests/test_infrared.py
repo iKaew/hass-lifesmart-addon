@@ -62,7 +62,7 @@ def test_setup_creates_emitters_only_for_included_ir_devices():
     assert len(added) == 1
     assert added[0].unique_id == "sl_spot_hub1_spot1_infrared"
     assert added[0].device_info["identifiers"] == {
-        (infrared_module.DOMAIN, "HUB1", "SPOT1")
+        (infrared_module.DOMAIN, "HUB1:SPOT1")
     }
 
 

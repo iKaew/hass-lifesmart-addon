@@ -240,6 +240,8 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
             device[HUB_ID_KEY]
         ]
 
+    _migrate_legacy_device_identifiers(dev_reg, config_entry.entry_id, devices)
+
     _cleanup_legacy_doorlock_history_entities(hass, devices)
 
     hass.data[DOMAIN][config_entry.entry_id] = {
@@ -782,6 +784,44 @@ def device_via_info(raw_device_data: dict, hub_id: str) -> dict:
     if hub_device_id is not None and "via_device_id" in DeviceInfo.__annotations__:
         return {"via_device_id": hub_device_id}
     return {"via_device": (DOMAIN, hub_id)}
+
+
+def device_identifier(hub_id: str, device_id: str) -> tuple[str, str]:
+    """Return a valid, integration-scoped identifier for a LifeSmart device."""
+    return (DOMAIN, f"{hub_id}:{device_id}")
+
+
+def _migrate_legacy_device_identifiers(
+    dev_reg, config_entry_id: str, devices: list[dict]
+) -> None:
+    """Replace legacy three-part identifiers without replacing device entries."""
+    replacements = {
+        (DOMAIN, device[HUB_ID_KEY], device[DEVICE_ID_KEY]): device_identifier(
+            device[HUB_ID_KEY], device[DEVICE_ID_KEY]
+        )
+        for device in devices
+        if DEVICE_ID_KEY in device
+    }
+    if not replacements:
+        return
+
+    for device_entry in list(getattr(dev_reg, "devices", {}).values()):
+        owner = getattr(device_entry, "config_entry_id", None)
+        if owner is not None:
+            belongs_to_entry = owner == config_entry_id
+        else:
+            belongs_to_entry = config_entry_id in device_entry.config_entries
+        if not belongs_to_entry:
+            continue
+
+        migrated_identifiers = {
+            replacements.get(identifier, identifier)
+            for identifier in device_entry.identifiers
+        }
+        if migrated_identifiers != device_entry.identifiers:
+            dev_reg.async_update_device(
+                device_entry.id, new_identifiers=migrated_identifiers
+            )
 
 
 class LifeSmartDevice(Entity):

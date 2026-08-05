@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
 
-from . import device_via_info
+from . import device_identifier, device_via_info
 from .const import (
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
@@ -67,7 +67,7 @@ class LifeSmartInfraredEmitter(InfraredEmitterEntity):
     def device_info(self) -> DeviceInfo:
         """Return the device registry information."""
         return DeviceInfo(
-            identifiers={(DOMAIN, self._hub_id, self._device_id)},
+            identifiers={device_identifier(self._hub_id, self._device_id)},
             name=self._device_name,
             manufacturer="LifeSmart",
             model=self._device_type,
