@@ -339,6 +339,51 @@ def test_device_via_info_falls_back_for_older_home_assistant(monkeypatch):
     ) == {"via_device": (DOMAIN, "HUB1")}
 
 
+def test_migrate_legacy_device_identifiers_preserves_registry_device():
+    """Legacy invalid identifiers are rewritten on their existing device entry."""
+    owned_device = SimpleNamespace(
+        id="owned-device",
+        config_entries={"entry-1"},
+        identifiers={(DOMAIN, "HUB1", "DEV1"), ("other", "identifier")},
+    )
+    unrelated_device = SimpleNamespace(
+        id="unrelated-device",
+        config_entries={"entry-2"},
+        identifiers={(DOMAIN, "HUB1", "DEV1")},
+    )
+
+    class MigrationRegistry:
+        devices = {
+            owned_device.id: owned_device,
+            unrelated_device.id: unrelated_device,
+        }
+
+        def __init__(self):
+            self.updated = []
+
+        def async_update_device(self, device_id, **changes):
+            self.updated.append((device_id, changes))
+
+    registry = MigrationRegistry()
+    lifesmart_init._migrate_legacy_device_identifiers(
+        registry,
+        "entry-1",
+        [{HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEV1"}],
+    )
+
+    assert registry.updated == [
+        (
+            "owned-device",
+            {
+                "new_identifiers": {
+                    (DOMAIN, "HUB1:DEV1"),
+                    ("other", "identifier"),
+                }
+            },
+        )
+    ]
+
+
 @pytest.mark.parametrize(
     ("stored_region", "expected_region"),
     [

@@ -21,7 +21,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 import homeassistant.util.color as color_util
 
-from . import LifeSmartDevice, device_via_info, generate_entity_id
+from . import LifeSmartDevice, device_identifier, device_via_info, generate_entity_id
 from .const import (
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
@@ -262,7 +262,7 @@ class LifeSmartSLSPOTLight(LightEntity):
     def device_info(self) -> DeviceInfo:
         """Return the device info."""
         return DeviceInfo(
-            identifiers={(DOMAIN, self._hub_id, self._device_id)},
+            identifiers={device_identifier(self._hub_id, self._device_id)},
             name=self._device_name,
             manufacturer=MANUFACTURER,
             model=self._device_type,
@@ -545,7 +545,7 @@ class LifeSmartLight(LightEntity):
     def device_info(self) -> DeviceInfo:
         """Return the device info."""
         return DeviceInfo(
-            identifiers={(DOMAIN, self.hub_id, self.device_id)},
+            identifiers={device_identifier(self.hub_id, self.device_id)},
             name=self.light_name,
             manufacturer=MANUFACTURER,
             model=self.device_type,
