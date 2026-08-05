@@ -316,7 +316,7 @@ def test_sensor_helper_functions_cover_remaining_paths():
         == sensor_module.SensorDeviceClass.POWER_FACTOR
     )
     assert sensor_module._modbus_sensor_metadata("O2VOL")[1] == sensor_module.PERCENTAGE
-    assert sensor_module._modbus_sensor_metadata("UNKNOWN") == (None, "None")
+    assert sensor_module._modbus_sensor_metadata("UNKNOWN") == (None, None)
     assert sensor_module._state_attributes(
         {"type": 1, "val": 11}, "SL_SC_CH", "P1"
     ) == {"alarm": True, "raw": 11}

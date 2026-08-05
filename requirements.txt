@@ -1,5 +1,5 @@
 isal
-homeassistant==2026.6.0
+homeassistant==2026.7.4
 infrared-protocols==5.6.1
 ruff==0.15.12
 zlib-ng

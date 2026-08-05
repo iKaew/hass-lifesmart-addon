@@ -5,16 +5,14 @@ import struct
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import (
-    CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
-    CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER,
-    CONCENTRATION_PARTS_PER_MILLION,
     LIGHT_LUX,
-    PERCENTAGE,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
     UnitOfEnergy,
     UnitOfFrequency,
     UnitOfPower,
+    UnitOfDensity,
+    UnitOfRatio,
     UnitOfSoundPressure,
     UnitOfTemperature,
     UnitOfTime,
@@ -59,6 +57,15 @@ from .const import (
     TVOC_CO2_SENSOR_TYPES,
     WATER_LEAK_SENSOR_TYPES,
 )
+
+CONCENTRATION_MICROGRAMS_PER_CUBIC_METER = (
+    UnitOfDensity.MICROGRAMS_PER_CUBIC_METER
+)
+CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER = (
+    UnitOfDensity.MILLIGRAMS_PER_CUBIC_METER
+)
+CONCENTRATION_PARTS_PER_MILLION = UnitOfRatio.PARTS_PER_MILLION
+PERCENTAGE = UnitOfRatio.PERCENTAGE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -469,7 +476,7 @@ class LifeSmartSensor(SensorEntity):
                 self._device_class = SensorDeviceClass.GAS
             else:
                 self._device_class = None
-            self._unit = "None"
+            self._unit = None
             self._state = sub_device_data.get("val")
         elif device_type in SMART_PLUG_TYPES and sub_device_key == "P2":
             self._device_class = SensorDeviceClass.ENERGY
@@ -545,7 +552,7 @@ class LifeSmartSensor(SensorEntity):
                 self._unit = UnitOfSoundPressure.DECIBEL
             else:
                 self._device_class = None
-                self._unit = "None"
+                self._unit = None
             self._state = _display_value(sub_device_data, device_type, sub_device_key)
         elif device_type in SMART_CAMERA_TYPES:
             self.device_name = "Battery"
@@ -594,7 +601,7 @@ class LifeSmartSensor(SensorEntity):
                 self._unit = UnitOfTime.HOURS
             else:
                 self._device_class = None
-                self._unit = "None"
+                self._unit = None
             self._state = _display_value(sub_device_data, device_type, sub_device_key)
         elif device_type in GENERIC_CONTROLLER_TYPES and sub_device_key == "P1":
             self._device_class = None
@@ -621,10 +628,10 @@ class LifeSmartSensor(SensorEntity):
                 self._device_class = SensorDeviceClass.VOLTAGE
                 self._unit = UnitOfElectricPotential.VOLT
             elif sub_device_key == "P3":
-                self._device_class = "None"
+                self._device_class = None
                 self._unit = CONCENTRATION_PARTS_PER_MILLION
             elif sub_device_key == "P4":
-                self._device_class = "None"
+                self._device_class = None
                 self._unit = CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER
             elif sub_device_key == DIGITAL_DOORLOCK_BATTERY_EVENT_KEY:
                 self.device_name = "Battery"
@@ -652,8 +659,8 @@ class LifeSmartSensor(SensorEntity):
                 self._device_class = None
                 self._unit = None
             else:
-                self._unit = "None"
-                self._device_class = "None"
+                self._unit = None
+                self._device_class = None
             self._state = _display_value(sub_device_data, device_type, sub_device_key)
 
     @property
@@ -849,7 +856,7 @@ def _modbus_sensor_metadata(sub_device_key):
         return SensorDeviceClass.GAS, CONCENTRATION_PARTS_PER_MILLION
     if sub_device_key == "O2VOL":
         return SensorDeviceClass.GAS, PERCENTAGE
-    return None, "None"
+    return None, None
 
 
 def _state_attributes(data, device_type=None, sub_device_key=None):
