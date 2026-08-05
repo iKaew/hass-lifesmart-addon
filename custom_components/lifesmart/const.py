@@ -213,6 +213,7 @@ SUPPORTED_PLATFORMS = [
     Platform.COVER,
     Platform.LIGHT,
     Platform.REMOTE,
+    Platform.INFRARED,
     Platform.CLIMATE,
 ]
 AIR_CONDITIONER_TYPES = [

@@ -2,13 +2,18 @@
 
 ## Overview
 
-SPOT devices in the LifeSmart ecosystem can provide three different roles in Home Assistant:
+SPOT devices in the LifeSmart ecosystem can provide four different roles in Home Assistant:
 
 1. **Light entity** - Controls RGB/RGBW lighting functions on supported SPOT models
 2. **Remote entity** - Sends learned or raw IR commands
 3. **Climate entity** - Controls an air conditioner through a LifeSmart A/C IR profile
+4. **Infrared emitter entity** - Makes the SPOT selectable by Home Assistant IR device integrations
 
 The climate entity is optional and must be configured through the integration options flow.
+
+The infrared emitter entity requires Home Assistant 2026.6 or newer. It is created
+automatically and appears as an emitter when configuring integrations that use Home
+Assistant's Infrared panel. The existing remote and climate entities remain available.
 
 ## Supported SPOT Devices
 
