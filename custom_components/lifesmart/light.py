@@ -21,7 +21,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 import homeassistant.util.color as color_util
 
-from . import LifeSmartDevice, generate_entity_id
+from . import LifeSmartDevice, device_via_info, generate_entity_id
 from .const import (
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
@@ -267,7 +267,7 @@ class LifeSmartSLSPOTLight(LightEntity):
             manufacturer=MANUFACTURER,
             model=self._device_type,
             sw_version=self._sw_version,
-            via_device=(DOMAIN, self._hub_id),
+            **device_via_info(self._raw_device_data, self._hub_id),
         )
 
     async def _update_state(self, data) -> None:
@@ -550,7 +550,7 @@ class LifeSmartLight(LightEntity):
             manufacturer=MANUFACTURER,
             model=self.device_type,
             sw_version=self.raw_device_data.get(DEVICE_VERSION_KEY),
-            via_device=(DOMAIN, self.hub_id),
+            **device_via_info(self.raw_device_data, self.hub_id),
         )
 
     async def async_added_to_hass(self):

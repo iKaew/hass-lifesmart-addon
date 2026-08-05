@@ -1,6 +1,7 @@
 import asyncio
 import importlib
 import json
+from types import SimpleNamespace
 
 import pytest
 from homeassistant.components.light import (
@@ -23,6 +24,7 @@ from custom_components.lifesmart.const import (
     DEVICE_ID_KEY,
     DOMAIN,
     HUB_ID_KEY,
+    HUB_DEVICE_REGISTRY_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     LIFESMART_STATE_MANAGER,
     NATURE_CLIMATE_KEY,
@@ -106,6 +108,7 @@ class FakeDeviceRegistry:
 
     def async_get_or_create(self, **kwargs):
         self.created.append(kwargs)
+        return SimpleNamespace(id=f"device-{len(self.created)}")
 
 
 class FakeEntityRegistry:
@@ -274,10 +277,18 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     assert client.login_calls == 1
     assert client.device_calls == 1
     assert hass.data[DOMAIN][config_entry.entry_id]["client"] is client
-    assert (
-        hass.data[DOMAIN][config_entry.entry_id]["devices"]
-        == FakeLifeSmartClient.devices_response
-    )
+    stored_devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
+    assert [device[HUB_ID_KEY] for device in stored_devices] == [
+        "HUB1",
+        "HUB2",
+        "HUB1",
+    ]
+    assert stored_devices[0][HUB_DEVICE_REGISTRY_ID_KEY] == stored_devices[2][
+        HUB_DEVICE_REGISTRY_ID_KEY
+    ]
+    assert stored_devices[0][HUB_DEVICE_REGISTRY_ID_KEY] != stored_devices[1][
+        HUB_DEVICE_REGISTRY_ID_KEY
+    ]
     assert hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"] == []
     assert hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"] == []
     assert hass.data[DOMAIN][config_entry.entry_id]["ai_include_hubs"] == []
@@ -304,6 +315,28 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     assert ws.url == "wss://example.invalid/wsapp/"
     ws.on_open(ws)
     assert ws.sent == ['{"id": 1, "method": "WbAuth"}']
+
+
+def test_device_via_info_uses_registry_id_when_supported(monkeypatch):
+    """New Home Assistant releases link child devices by registry ID."""
+    monkeypatch.setitem(
+        lifesmart_init.DeviceInfo.__annotations__, "via_device_id", str | None
+    )
+
+    assert lifesmart_init.device_via_info(
+        {HUB_DEVICE_REGISTRY_ID_KEY: "hub-device-id"}, "HUB1"
+    ) == {"via_device_id": "hub-device-id"}
+
+
+def test_device_via_info_falls_back_for_older_home_assistant(monkeypatch):
+    """Older Home Assistant releases still require the identifier tuple."""
+    monkeypatch.delitem(
+        lifesmart_init.DeviceInfo.__annotations__, "via_device_id", raising=False
+    )
+
+    assert lifesmart_init.device_via_info(
+        {HUB_DEVICE_REGISTRY_ID_KEY: "hub-device-id"}, "HUB1"
+    ) == {"via_device": (DOMAIN, "HUB1")}
 
 
 @pytest.mark.parametrize(

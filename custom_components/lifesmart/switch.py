@@ -6,7 +6,7 @@ from homeassistant.components.switch import SwitchDeviceClass, SwitchEntity
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 
-from . import LifeSmartDevice, generate_entity_id
+from . import LifeSmartDevice, device_via_info, generate_entity_id
 from .const import (
     AIR_PURIFIER_TYPES,
     DEVICE_DATA_KEY,
@@ -242,7 +242,7 @@ class LifeSmartSwitch(SwitchEntity):
             manufacturer=MANUFACTURER,
             model=self.device_type,
             sw_version=self.raw_device_data.get(DEVICE_VERSION_KEY),
-            via_device=(DOMAIN, self.hub_id),
+            **device_via_info(self.raw_device_data, self.hub_id),
         )
 
     async def async_added_to_hass(self) -> None:
@@ -307,6 +307,7 @@ class LifeSmartSceneSwitch(LifeSmartDevice, SwitchEntity):
         super().__init__(raw_device_data, client)
 
         self._device = device
+        self._raw_device_data = raw_device_data
         self.entity_id = generate_entity_id(device_type, hub_id, device_id)
 
         self.hub_id = hub_id
@@ -325,15 +326,12 @@ class LifeSmartSceneSwitch(LifeSmartDevice, SwitchEntity):
     def device_info(self) -> DeviceInfo:
         """Return the device info."""
         return DeviceInfo(
-            identifiers={
-                # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.hub_id, self.device_id)
-            },
+            identifiers={(DOMAIN, self.hub_id, self.device_id)},
             name=self.switch_name,
             manufacturer=MANUFACTURER,
             model=self.device_type,
             # sw_version=self.light.swversion,
-            via_device=(DOMAIN, self.hub_id),
+            **device_via_info(self._raw_device_data, self.hub_id),
         )
 
     async def async_added_to_hass(self):
