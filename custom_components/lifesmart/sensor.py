@@ -22,7 +22,7 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 
 # DOMAIN = "sensor"
 # ENTITY_ID_FORMAT = DOMAIN + ".{}"
-from . import LifeSmartDevice, device_identifier, device_via_info, generate_entity_id
+from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
 from .const import (
     AIR_PURIFIER_TYPES,
     CO2_SENSOR_TYPES,
@@ -464,8 +464,8 @@ class LifeSmartSensor(SensorEntity):
         self.device_type = device_type
         self.raw_device_data = raw_device_data
         self._device = device
-        self.entity_id = generate_entity_id(
-            device_type, hub_id, device_id, sub_device_key
+        configure_entity_identity(
+            self, generate_entity_id(device_type, hub_id, device_id, sub_device_key)
         )
         self._client = client
         self._attrs = _state_attributes(sub_device_data, device_type, sub_device_key)
@@ -698,7 +698,7 @@ class LifeSmartSensor(SensorEntity):
     @property
     def unique_id(self):
         """A unique identifier for this entity."""
-        return self.entity_id
+        return self._attr_unique_id
 
     async def async_added_to_hass(self) -> None:
         """Register callbacks."""
@@ -731,7 +731,7 @@ class LifeSmartSensor(SensorEntity):
                 self.device_id,
                 DIGITAL_DOORLOCK_ALARM_EVENT_KEY,
             )
-        return self.entity_id
+        return self._attr_unique_id
 
 
 def _display_value(data, device_type=None, sub_device_key=None):

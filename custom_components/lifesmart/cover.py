@@ -9,7 +9,7 @@ from homeassistant.components.cover import (
     CoverEntityFeature,
 )
 
-from . import LifeSmartDevice, generate_entity_id
+from . import LifeSmartDevice, configure_entity_identity, generate_entity_id
 from .const import (
     COVER_TYPES,
     DEVICE_DATA_KEY,
@@ -163,8 +163,9 @@ class LifeSmartCover(CoverEntity):
         hub_id = raw_device_data[HUB_ID_KEY]
         device_id = raw_device_data[DEVICE_ID_KEY]
 
-        # Generate entity ID
-        self.entity_id = generate_entity_id(device_type, hub_id, device_id)
+        configure_entity_identity(
+            self, generate_entity_id(device_type, hub_id, device_id)
+        )
 
         # Initialize position based on device type
         if device_config.get("type") == "position":
@@ -178,7 +179,6 @@ class LifeSmartCover(CoverEntity):
 
         self._attr_name = device_name
         self._attr_device_class = device_config.get("device_class", CoverDeviceClass.CURTAIN)
-        self._attr_unique_id = self.entity_id
 
     @property
     def should_poll(self):

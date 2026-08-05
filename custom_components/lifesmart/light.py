@@ -21,7 +21,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 import homeassistant.util.color as color_util
 
-from . import LifeSmartDevice, device_identifier, device_via_info, generate_entity_id
+from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
 from .const import (
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
@@ -219,8 +219,11 @@ class LifeSmartSLSPOTLight(LightEntity):
         self._raw_device_data = raw_device_data
         self._device = device
         self._client = client
-        self._entity_id = generate_entity_id(
-            self._device_type, self._hub_id, self._device_id, self._sub_device_key
+        self._entity_id = configure_entity_identity(
+            self,
+            generate_entity_id(
+                self._device_type, self._hub_id, self._device_id, self._sub_device_key
+            ),
         )
 
         self._brightness = None
@@ -290,7 +293,7 @@ class LifeSmartSLSPOTLight(LightEntity):
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
-                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self.entity_id}",
+                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self._entity_id}",
                 self._update_state,
             )
         )
@@ -430,8 +433,8 @@ class LifeSmartLight(LightEntity):
         self.raw_device_data = raw_device_data
         self._device = device
         self._client = client
-        self.entity_id = generate_entity_id(
-            device_type, hub_id, device_id, sub_device_key
+        self._signal_entity_id = configure_entity_identity(
+            self, generate_entity_id(device_type, hub_id, device_id, sub_device_key)
         )
 
         self._brightness = None
@@ -863,4 +866,4 @@ class LifeSmartLight(LightEntity):
     @property
     def unique_id(self):
         """A unique identifier for this entity."""
-        return self.entity_id
+        return self._attr_unique_id

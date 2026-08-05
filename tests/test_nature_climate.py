@@ -74,7 +74,7 @@ def test_async_setup_entry_filters_nature_thermostats(monkeypatch):
     asyncio.run(nature_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
 
     assert len(added) == 1
-    assert added[0].entity_id == "climate.sl_nature_hub1_good_thermostat"
+    assert added[0].unique_id == "climate.sl_nature_hub1_good_thermostat"
 
 
 def test_nature_properties_and_setters(monkeypatch):
@@ -152,5 +152,5 @@ def test_nature_async_added_to_hass_registers_dispatcher(monkeypatch):
     entity.async_on_remove = lambda remover: removers.append(remover)
     monkeypatch.setattr(nature_module, "async_dispatcher_connect", fake_connect)
     asyncio.run(entity.async_added_to_hass())
-    assert calls[0][1] == f"{nature_module.LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity.entity_id}"
+    assert calls[0][1] == f"{nature_module.LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity.unique_id}"
     assert removers == ["remove-token"]

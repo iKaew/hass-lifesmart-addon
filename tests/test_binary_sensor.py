@@ -88,7 +88,7 @@ def test_async_setup_entry_creates_supported_binary_sensors_and_skips_excluded()
         )
     )
 
-    entity_ids = {entity.entity_id for entity in added_entities}
+    entity_ids = {entity.unique_id for entity in added_entities}
 
     assert len(added_entities) == 13
     assert "binary_sensor.sl_sc_g_hub1_device1_g" in entity_ids
@@ -210,7 +210,7 @@ def test_binary_sensor_name_device_info_unique_id_and_attrs():
     )
 
     assert sensor.name == "Front Door"
-    assert sensor.unique_id == sensor.entity_id
+    assert sensor.entity_id is None
     assert sensor.extra_state_attributes == {}
     assert sensor.device_info["identifiers"] == {
         (binary_sensor_module.DOMAIN, "HUB1:DEVICE1")
@@ -309,7 +309,7 @@ def test_async_added_to_hass_registers_dispatcher_callback(monkeypatch):
     asyncio.run(sensor.async_added_to_hass())
 
     assert dispatcher_calls[0][0] is sensor.hass
-    assert dispatcher_calls[0][1] == f"{binary_sensor_module.LIFESMART_SIGNAL_UPDATE_ENTITY}_{sensor.entity_id}"
+    assert dispatcher_calls[0][1] == f"{binary_sensor_module.LIFESMART_SIGNAL_UPDATE_ENTITY}_{sensor.unique_id}"
     assert dispatcher_calls[0][2] == sensor._update_state
     assert removers == ["remove-token"]
 
