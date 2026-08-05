@@ -3,7 +3,7 @@
 import asyncio
 
 import pytest
-from infrared_protocols import NECCommand
+from infrared_protocols.commands.nec import NECCommand
 
 from custom_components.lifesmart import infrared as infrared_module
 
@@ -89,6 +89,16 @@ def test_command_conversion_rejects_invalid_commands():
 
     with pytest.raises(ValueError, match="no timings"):
         infrared_module.command_to_pronto(EmptyCommand())
+
+    class InvalidCommand:
+        modulation = 38_000
+
+        @staticmethod
+        def get_raw_timings():
+            return [9000, 4500]
+
+    with pytest.raises(ValueError, match="alternate"):
+        infrared_module.command_to_pronto(InvalidCommand())
 
 
 def test_send_command_reports_lifesmart_api_error():

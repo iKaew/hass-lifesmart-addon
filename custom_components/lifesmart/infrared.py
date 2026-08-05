@@ -101,8 +101,8 @@ def command_to_pronto(command: InfraredCommand) -> str:
     if not isinstance(modulation, int) or modulation <= 0:
         raise ValueError("a positive carrier frequency is required")
 
-    timings = command.get_raw_timings()
-    if not timings:
+    raw_timings = command.get_raw_timings()
+    if not raw_timings:
         raise ValueError("the command contains no timings")
 
     frequency_word = round(1_000_000 / (modulation * PRONTO_CLOCK_US))
@@ -111,19 +111,8 @@ def command_to_pronto(command: InfraredCommand) -> str:
 
     period_us = frequency_word * PRONTO_CLOCK_US
     durations: list[int] = []
-    for timing in timings:
-        high_us = getattr(timing, "high_us", None)
-        low_us = getattr(timing, "low_us", None)
-        if not isinstance(high_us, int) or not isinstance(low_us, int):
-            raise TypeError("timings must contain integer high_us and low_us values")
-        if high_us <= 0 or low_us < 0:
-            raise ValueError("timings must have a positive high and non-negative low")
-
-        # A final zero-length space is used by protocol encoders to describe an
-        # ending mark. Pronto still requires a complete mark/space pair.
-        durations.extend(
-            (max(1, round(high_us / period_us)), max(1, round(low_us / period_us)))
-        )
+    for timing_us in _normalize_raw_timings(raw_timings):
+        durations.append(max(1, round(timing_us / period_us)))
 
     if len(durations) // 2 > 0xFFFF:
         raise ValueError("the command contains too many timing pairs")
@@ -132,3 +121,31 @@ def command_to_pronto(command: InfraredCommand) -> str:
     if any(word > 0xFFFF for word in words):
         raise ValueError("a timing exceeds the Pronto format limit")
     return " ".join(f"{word:04X}" for word in words)
+
+
+def _normalize_raw_timings(raw_timings: list[Any]) -> list[int]:
+    """Return alternating positive mark/space durations from an IR command."""
+    timings: list[int] = []
+    for index, timing in enumerate(raw_timings):
+        if isinstance(timing, int):
+            expected_positive = index % 2 == 0
+            if timing == 0 or (timing > 0) != expected_positive:
+                raise ValueError("timings must alternate positive marks and negative spaces")
+            timings.append(abs(timing))
+            continue
+
+        # Compatibility with the paired Timing objects used by early versions
+        # of infrared-protocols.
+        high_us = getattr(timing, "high_us", None)
+        low_us = getattr(timing, "low_us", None)
+        if not isinstance(high_us, int) or not isinstance(low_us, int):
+            raise TypeError("timings must be integers or high/low timing pairs")
+        if high_us <= 0 or low_us < 0:
+            raise ValueError("timings must have a positive high and non-negative low")
+        timings.extend((high_us, low_us))
+
+    # Protocol encoders normally finish with a mark. Pronto requires complete
+    # mark/space pairs, so supply the shortest representable trailing space.
+    if len(timings) % 2:
+        timings.append(1)
+    return timings
