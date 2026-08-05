@@ -19,7 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.storage import Store
 
-from . import LifeSmartDevice, generate_entity_id
+from . import LifeSmartDevice, device_via_info, generate_entity_id
 from .const import (
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
@@ -107,7 +107,7 @@ class LifeSmartSPOTRemote(RemoteEntity):
             manufacturer="LifeSmart",
             model=self._device_type,
             sw_version=self._sw_version,
-            via_device=(DOMAIN, self._hub_id),
+            **device_via_info(self._raw_device_data, self._hub_id),
         )
 
     @property

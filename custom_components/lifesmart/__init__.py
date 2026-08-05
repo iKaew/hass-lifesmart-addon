@@ -23,7 +23,7 @@ from homeassistant.const import CONF_REGION, STATE_OFF, STATE_ON, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.dispatcher import dispatcher_send
-from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity import DeviceInfo, Entity
 
 from .const import (
     AIR_PURIFIER_TYPES,
@@ -65,6 +65,7 @@ from .const import (
     GENERIC_CONTROLLER_TYPES,
     HA_CONTROLLER_SWITCH_PORTS,
     HUB_ID_KEY,
+    HUB_DEVICE_REGISTRY_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     LIFESMART_STATE_MANAGER,
     LIGHT_DIMMER_TYPES,
@@ -216,17 +217,28 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
 
     _LOGGER.info(devices)
 
+    # Work with local copies because Home Assistant registry metadata is not part of
+    # the LifeSmart API response.
+    devices = [dict(device) for device in devices]
+
     # Create hub devices
     dev_reg = device_registry.async_get(hass)
     hub_ids = set(device[HUB_ID_KEY] for device in devices)
+    hub_device_registry_ids = {}
     for hub_id in hub_ids:
-        dev_reg.async_get_or_create(
+        hub_device = dev_reg.async_get_or_create(
             config_entry_id=config_entry.entry_id,
             identifiers={(DOMAIN, hub_id)},
             name=f"LifeSmart Hub {hub_id}",
             manufacturer="LifeSmart",
             model="Hub",
         )
+        hub_device_registry_ids[hub_id] = hub_device.id
+
+    for device in devices:
+        device[HUB_DEVICE_REGISTRY_ID_KEY] = hub_device_registry_ids[
+            device[HUB_ID_KEY]
+        ]
 
     _cleanup_legacy_doorlock_history_entities(hass, devices)
 
@@ -762,6 +774,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def _async_update_listener(hass: HomeAssistant, config_entry):
     """Handle options update."""
     await hass.config_entries.async_reload(config_entry.entry_id)
+
+
+def device_via_info(raw_device_data: dict, hub_id: str) -> dict:
+    """Return hub topology info supported by the running Home Assistant."""
+    hub_device_id = raw_device_data.get(HUB_DEVICE_REGISTRY_ID_KEY)
+    if hub_device_id is not None and "via_device_id" in DeviceInfo.__annotations__:
+        return {"via_device_id": hub_device_id}
+    return {"via_device": (DOMAIN, hub_id)}
 
 
 class LifeSmartDevice(Entity):

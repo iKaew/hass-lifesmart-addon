@@ -15,7 +15,7 @@ from homeassistant.const import PRECISION_WHOLE, UnitOfTemperature
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 
-from . import LifeSmartDevice, generate_entity_id
+from . import LifeSmartDevice, device_via_info, generate_entity_id
 from .const import (
     AIR_CONDITIONER_TYPES,
     CLIMATE_TYPES,
@@ -192,7 +192,7 @@ class LifeSmartClimateDevice(LifeSmartDevice, ClimateEntity):
             manufacturer=MANUFACTURER,
             model=self._device_type,
             sw_version=self._sw_version,
-            via_device=(DOMAIN, self._hub_id),
+            **device_via_info(self._raw_device_data, self._hub_id),
         )
 
     @property

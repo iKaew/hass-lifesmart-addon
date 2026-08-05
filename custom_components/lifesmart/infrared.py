@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
 
+from . import device_via_info
 from .const import (
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
@@ -51,6 +52,7 @@ class LifeSmartInfraredEmitter(InfraredEmitterEntity):
     def __init__(self, raw_device_data: dict[str, Any], client: Any) -> None:
         """Initialize the emitter."""
         self._client = client
+        self._raw_device_data = raw_device_data
         self._device_id = raw_device_data[DEVICE_ID_KEY]
         self._hub_id = raw_device_data[HUB_ID_KEY]
         self._device_type = raw_device_data[DEVICE_TYPE_KEY]
@@ -70,7 +72,7 @@ class LifeSmartInfraredEmitter(InfraredEmitterEntity):
             manufacturer="LifeSmart",
             model=self._device_type,
             sw_version=self._sw_version,
-            via_device=(DOMAIN, self._hub_id),
+            **device_via_info(self._raw_device_data, self._hub_id),
         )
 
     async def async_send_command(self, command: InfraredCommand) -> None:

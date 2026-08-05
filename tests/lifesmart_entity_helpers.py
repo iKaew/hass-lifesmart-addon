@@ -7,6 +7,7 @@ sys.path.insert(0, str(ROOT))
 from custom_components.lifesmart.binary_sensor import LifeSmartBinarySensor  # noqa: E402
 from custom_components.lifesmart.sensor import LifeSmartSensor  # noqa: E402
 from custom_components.lifesmart.switch import LifeSmartSwitch  # noqa: E402
+from custom_components.lifesmart.const import HUB_DEVICE_REGISTRY_ID_KEY  # noqa: E402
 
 
 def make_raw_device(device_type):
@@ -16,6 +17,7 @@ def make_raw_device(device_type):
         "agt": "HUB1",
         "me": "DEVICE1",
         "ver": "1.0",
+        HUB_DEVICE_REGISTRY_ID_KEY: "hub-device-registry-id",
     }
 
 

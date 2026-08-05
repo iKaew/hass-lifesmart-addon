@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from . import LifeSmartDevice, generate_entity_id
+from . import LifeSmartDevice, device_via_info, generate_entity_id
 from .const import (
     CONF_AC_CONFIG,
     DEVICE_ID_KEY,
@@ -176,7 +176,7 @@ class LifeSmartSPOTACClimate(ClimateEntity, RestoreEntity):
             manufacturer="LifeSmart",
             model=self._device_type,
             sw_version=self._sw_version,
-            via_device=(DOMAIN, self._hub_id),
+            **device_via_info(self._raw_device_data, self._hub_id),
         )
 
     @property

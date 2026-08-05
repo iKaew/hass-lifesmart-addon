@@ -9,7 +9,7 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 
-from . import LifeSmartDevice, generate_entity_id
+from . import LifeSmartDevice, device_via_info, generate_entity_id
 from .const import (
     BINARY_SENSOR_TYPES,
     DEFED_DOOR_SENSOR_TYPES,
@@ -459,7 +459,7 @@ class LifeSmartBinarySensor(BinarySensorEntity):
             manufacturer=MANUFACTURER,
             model=self.device_type,
             sw_version=self.raw_device_data["ver"],
-            via_device=(DOMAIN, self.hub_id),
+            **device_via_info(self.raw_device_data, self.hub_id),
         )
 
     @property

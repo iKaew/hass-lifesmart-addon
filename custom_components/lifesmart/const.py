@@ -15,6 +15,9 @@ CONF_AI_INCLUDE_ITEMS = "ai_include_me"
 CONF_AC_CONFIG = "ac_config"
 IR_CATEGORY_AC = "ac"
 
+# Internal key used to link child devices to their Home Assistant hub device.
+HUB_DEVICE_REGISTRY_ID_KEY = "_ha_hub_device_registry_id"
+
 CON_AI_TYPE_SCENE = "scene"
 CON_AI_TYPE_AIB = "aib"
 CON_AI_TYPE_GROUP = "grouphw"
