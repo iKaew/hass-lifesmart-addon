@@ -52,5 +52,5 @@ def test_air_purifier_filter_life_and_uv_sensors():
     uv = make_sensor("OD_MFRESH_M8088", "UV", {"val": 6})
     assert uv.state == 6
     assert uv.device_class is None
-    assert uv.unit_of_measurement == "None"
+    assert uv.unit_of_measurement is None
     assert uv.extra_state_attributes == {"raw": 6}
