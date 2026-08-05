@@ -19,7 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.storage import Store
 
-from . import LifeSmartDevice, device_identifier, device_via_info, generate_entity_id
+from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
 from .const import (
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
@@ -87,7 +87,9 @@ class LifeSmartSPOTRemote(RemoteEntity):
         self._sw_version = raw_device_data.get(DEVICE_VERSION_KEY, "")
 
         # Generate entity ID
-        self.entity_id = generate_entity_id(device_type, hub_id, device_id, "remote")
+        configure_entity_identity(
+            self, generate_entity_id(device_type, hub_id, device_id, "remote")
+        )
 
         # Remote control attributes
         self._attr_is_on = True  # Remote is always "on" as it's a control device
@@ -113,7 +115,7 @@ class LifeSmartSPOTRemote(RemoteEntity):
     @property
     def unique_id(self):
         """A unique identifier for this entity."""
-        return self.entity_id
+        return self._attr_unique_id
 
     async def async_turn_on(self, **kwargs):
         """Turn the remote on."""

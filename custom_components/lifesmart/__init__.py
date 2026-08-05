@@ -1114,6 +1114,16 @@ def _sanitize_entity_id_part(value):
     )
 
 
+def configure_entity_identity(
+    entity: Entity, unique_id: str, suggested_entity_id: str | None = None
+) -> str:
+    """Configure registry-owned identity while preserving existing unique IDs."""
+    _, object_id = (suggested_entity_id or unique_id).split(".", 1)
+    entity._attr_unique_id = unique_id
+    entity._attr_suggested_object_id = object_id
+    return unique_id
+
+
 def generate_entity_id(device_type, hub_id, device_id, idx=None):
     """Generate unique id for entity in HA."""
     device_type = _sanitize_entity_id_part(device_type)

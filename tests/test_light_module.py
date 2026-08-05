@@ -121,7 +121,7 @@ def test_light_async_setup_entry_creates_expected_entities():
         if isinstance(entity, light_module.LifeSmartLight)
         and entity.device_type == "MSL_IRCTL"
     )
-    assert msl.entity_id == "light.msl_irctl_hub1_msl1_rgbw"
+    assert msl.unique_id == "light.msl_irctl_hub1_msl1_rgbw"
     assert msl.color_mode == ColorMode.RGBW
 
 
@@ -153,12 +153,12 @@ def test_light_async_setup_entry_creates_reported_strip_and_quantum_lights():
 
     assert len(added) == 2
     assert any(
-        entity.entity_id == "light.sl_ct_rgbw_hub1_strip1_rgbw" for entity in added
+        entity.unique_id == "light.sl_ct_rgbw_hub1_strip1_rgbw" for entity in added
     )
     quantum = next(
         entity
         for entity in added
-        if entity.entity_id == "light.od_we_quan_hub1_quan1_p2"
+        if entity.unique_id == "light.od_we_quan_hub1_quan1_p2"
     )
     assert quantum.is_on is True
     assert quantum.brightness == 76
@@ -353,7 +353,7 @@ def test_generic_light_and_dimmer_branches(monkeypatch):
     assert hs_light.color_mode == ColorMode.HS
     assert rgb.color_mode == ColorMode.RGBW
     assert rgbw.rgbw_color == (10, 20, 30, 40)
-    assert rgb.unique_id == rgb.entity_id
+    assert rgb.entity_id is None
     assert (
         client.epset_calls[-2:]
         == [
@@ -512,7 +512,7 @@ def test_light_async_setup_entry_excludes_blacklisted_devices():
     )
 
     assert len(added) == 1
-    assert added[0].entity_id == "light.sl_ct_rgbw_hub1_strip1_rgbw"
+    assert added[0].unique_id == "light.sl_ct_rgbw_hub1_strip1_rgbw"
 
 
 def test_light_async_setup_entry_handles_msl_irctl_rgb():

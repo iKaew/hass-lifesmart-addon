@@ -54,7 +54,7 @@ def test_cover_async_setup_entry_creates_supported_entities():
     asyncio.run(cover_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
 
     assert len(added) == 2
-    assert {entity.entity_id for entity in added} == {
+    assert {entity.unique_id for entity in added} == {
         "cover.sl_dooya_hub1_dev1",
         "cover.sl_cn_if_hub1_func1",
     }

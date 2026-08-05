@@ -9,7 +9,13 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 
-from . import LifeSmartDevice, device_identifier, device_via_info, generate_entity_id
+from . import (
+    LifeSmartDevice,
+    configure_entity_identity,
+    device_identifier,
+    device_via_info,
+    generate_entity_id,
+)
 from .const import (
     BINARY_SENSOR_TYPES,
     DEFED_DOOR_SENSOR_TYPES,
@@ -340,8 +346,8 @@ class LifeSmartBinarySensor(BinarySensorEntity):
         self.device_type = device_type
         self.raw_device_data = raw_device_data
         self._device = device
-        self.entity_id = generate_entity_id(
-            device_type, hub_id, device_id, sub_device_key
+        configure_entity_identity(
+            self, generate_entity_id(device_type, hub_id, device_id, sub_device_key)
         )
         self._client = client
         self._attrs = {}
@@ -475,7 +481,7 @@ class LifeSmartBinarySensor(BinarySensorEntity):
     @property
     def unique_id(self):
         """A unique identifier for this entity."""
-        return self.entity_id
+        return self._attr_unique_id
 
     async def async_added_to_hass(self) -> None:
         """Register callbacks."""
@@ -558,7 +564,7 @@ class LifeSmartBinarySensor(BinarySensorEntity):
     @property
     def _signal_entity_id(self):
         """Return the dispatcher signal entity id for this binary sensor."""
-        return self.entity_id
+        return self._attr_unique_id
 
 
 def _camera_status_bit_state(data, sub_device_key):

@@ -64,7 +64,7 @@ def test_spotac_async_setup_entry_creates_only_ac_configured_spots():
     asyncio.run(spotac_module.async_setup_entry(hass, entry, lambda entities: added.extend(entities)))
 
     assert len(added) == 1
-    assert added[0].entity_id == "climate.sl_spot_hub1_spot1_climate_ac"
+    assert added[0]._attr_suggested_object_id == "sl_spot_hub1_spot1_climate_ac"
 
 
 def test_spotac_entity_controls_and_send_command_paths():
