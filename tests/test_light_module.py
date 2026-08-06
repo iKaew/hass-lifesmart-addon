@@ -349,7 +349,9 @@ def test_generic_light_and_dimmer_branches(monkeypatch):
     assert dimmer.is_on is False
     assert dimmer.color_mode == ColorMode.COLOR_TEMP
     assert dimmer.brightness == 150
-    assert dimmer.max_mireds == light_module.MAX_MIREDS
+    assert dimmer.max_color_temp_kelvin == light_module.MAX_COLOR_TEMP_KELVIN
+    assert dimmer.min_color_temp_kelvin == light_module.MIN_COLOR_TEMP_KELVIN
+    assert dimmer.color_temp_kelvin == 4000
     assert hs_light.color_mode == ColorMode.HS
     assert rgb.color_mode == ColorMode.RGBW
     assert rgbw.rgbw_color == (10, 20, 30, 40)
@@ -407,7 +409,9 @@ def test_sl_li_ww_power_uses_wrapped_lifesmart_device():
     assert base_device.calls == [("0x80", 0, "P1"), ("0x81", 1, "P1")]
     assert client.epset_calls == []
     assert updates == ["scheduled", "scheduled"]
-    assert entity.min_mireds == light_module.MIN_MIREDS
+    assert entity.min_color_temp_kelvin == light_module.MIN_COLOR_TEMP_KELVIN
+    assert entity.max_color_temp_kelvin == light_module.MAX_COLOR_TEMP_KELVIN
+    assert entity.color_temp_kelvin == 5308
 
 
 def test_sl_li_ww_initial_off_state():
@@ -569,9 +573,7 @@ def test_spot_light_off_state_and_update_state_true_branch(monkeypatch):
         None, raw, "RGB", raw["data"]["RGB"], client
     )
     assert entity.is_on is False
-    assert entity.color_temp is None
-    assert entity.max_mireds is None
-    assert entity.min_mireds is None
+    assert entity.color_temp_kelvin is None
 
     updates = []
     entity.schedule_update_ha_state = lambda: updates.append("scheduled")
@@ -647,7 +649,7 @@ def test_lifesmart_light_p1_color_temp_properties_and_device_info():
 
     assert entity.color_mode == ColorMode.COLOR_TEMP
     assert entity.supported_color_modes == {ColorMode.COLOR_TEMP}
-    assert entity.color_temp is None
+    assert entity.color_temp_kelvin is None
     assert entity.device_info["name"] == "Light"
 
 
@@ -670,7 +672,7 @@ def test_lifesmart_light_spot_async_added_to_hass_populates_remote_list():
 
     assert entity.device_type == "SL_SPOT"
     assert entity.rgbw_color == (34, 51, 68, 17)
-    assert entity.color_temp is None
+    assert entity.color_temp_kelvin is None
     assert entity.supported_color_modes == {ColorMode.RGBW}
 
 
