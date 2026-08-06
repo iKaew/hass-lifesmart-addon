@@ -467,7 +467,7 @@ def test_async_setup_entry_raises_when_login_fails(monkeypatch):
     FakeLifeSmartClient.devices_response = []
     patch_setup_dependencies(monkeypatch, device_reg)
 
-    with pytest.raises(Exception, match="Error connecting to LifeSmart API"):
+    with pytest.raises(lifesmart_init.ConfigEntryAuthFailed):
         asyncio.run(lifesmart_init.async_setup_entry(hass, config_entry))
 
     client = FakeLifeSmartClient.instances[0]
@@ -488,7 +488,7 @@ def test_async_setup_entry_raises_when_device_fetch_returns_error(monkeypatch):
     }
     patch_setup_dependencies(monkeypatch, device_reg)
 
-    with pytest.raises(Exception, match="Error connecting to LifeSmart API"):
+    with pytest.raises(lifesmart_init.ConfigEntryNotReady):
         asyncio.run(lifesmart_init.async_setup_entry(hass, config_entry))
 
     client = FakeLifeSmartClient.instances[0]

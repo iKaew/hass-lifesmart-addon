@@ -109,12 +109,12 @@ def test_validate_input_success_and_failures(monkeypatch):
 
     bad_login_client = FakeClient(login_response={"code": "failure"})
     monkeypatch.setattr(config_flow_module, "LifeSmartClient", lambda *args: bad_login_client)
-    with pytest.raises(Exception, match="Error connecting to LifeSmart API"):
+    with pytest.raises(config_flow_module.LifeSmartInvalidAuth):
         asyncio.run(config_flow_module.validate_input(object(), make_user_input()))
 
     bad_device_client = FakeClient(login_response={"code": "success"}, devices_response={"code": 500})
     monkeypatch.setattr(config_flow_module, "LifeSmartClient", lambda *args: bad_device_client)
-    with pytest.raises(Exception, match="Error connecting to LifeSmart API"):
+    with pytest.raises(config_flow_module.LifeSmartCannotConnect):
         asyncio.run(config_flow_module.validate_input(object(), make_user_input()))
 
 
@@ -160,9 +160,60 @@ def test_config_flow_async_step_user_success_and_error(monkeypatch):
     empty_result = asyncio.run(flow.async_step_user())
 
     assert error_result["type"] == "form"
-    assert error_result["errors"]["base"] == "boom"
+    assert error_result["errors"]["base"] == "unknown"
     assert empty_result["type"] == "form"
     assert empty_result["step_id"] == "user"
+
+
+def test_config_flow_maps_connection_and_auth_errors(monkeypatch):
+    flow = config_flow_module.LifeSmartConfigFlowHandler()
+    flow.hass = object()
+    flow.async_show_form = lambda **kwargs: {"type": "form", **kwargs}
+
+    async def invalid_auth(hass, data):
+        raise config_flow_module.LifeSmartInvalidAuth
+
+    monkeypatch.setattr(config_flow_module, "validate_input", invalid_auth)
+    result = asyncio.run(flow.async_step_user(make_user_input()))
+    assert result["errors"] == {"base": "invalid_auth"}
+
+    async def cannot_connect(hass, data):
+        raise config_flow_module.LifeSmartCannotConnect
+
+    monkeypatch.setattr(config_flow_module, "validate_input", cannot_connect)
+    result = asyncio.run(flow.async_step_user(make_user_input()))
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
+def test_reauth_updates_existing_entry(monkeypatch):
+    entry = FakeConfigEntry(data=make_user_input())
+    flow = config_flow_module.LifeSmartConfigFlowHandler()
+    flow.context = {"entry_id": entry.entry_id}
+    flow.hass = type(
+        "Hass",
+        (),
+        {"config_entries": type("Entries", (), {"async_get_entry": lambda self, entry_id: entry})()},
+    )()
+    flow.async_show_form = lambda **kwargs: {"type": "form", **kwargs}
+    flow.async_set_unique_id = lambda unique_id: asyncio.sleep(0)
+    flow._abort_if_unique_id_mismatch = lambda: None
+    flow.async_update_and_abort = lambda config_entry, **kwargs: {
+        "type": "abort",
+        "reason": "reauth_successful",
+        **kwargs,
+    }
+
+    form = asyncio.run(flow.async_step_reauth(entry.data))
+    assert form["step_id"] == "reauth_confirm"
+
+    async def valid_input(hass, data):
+        return {"title": "User Id userid", "unique_id": "appkey"}
+
+    monkeypatch.setattr(config_flow_module, "validate_input", valid_input)
+    updated = make_user_input() | {config_flow_module.CONF_LIFESMART_USERPASSWORD: "new"}
+    result = asyncio.run(flow.async_step_reauth_confirm(updated))
+    assert result["reason"] == "reauth_successful"
+    assert result["data_updates"] == updated
 
 
 def test_options_flow_client_helpers_and_normalizers(monkeypatch):

@@ -12,13 +12,30 @@
           "userid": "อีเมล/รหัสผู้ใช้",
           "region": "ประเทศ/ภูมิภาคของบัญชี LifeSmart"
         }
+      },
+      "reauth_confirm": {
+        "title": "เชื่อมต่อ LifeSmart อีกครั้ง",
+        "description": "กรอกข้อมูลรับรองที่อัปเดตสำหรับบัญชี LifeSmart ของคุณ",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "รหัสผ่านผู้ใช้",
+          "userid": "อีเมล/รหัสผู้ใช้",
+          "region": "ประเทศ/ภูมิภาคของบัญชี LifeSmart"
+        }
       }
     },
     "abort": {
       "already_in_progress": "กำลังตั้งค่าอยู่แล้ว",
-      "already_configured": "อุปกรณ์นี้ถูกตั้งค่าไว้แล้ว"
+      "already_configured": "อุปกรณ์นี้ถูกตั้งค่าไว้แล้ว",
+      "unique_id_mismatch": "ข้อมูลรับรองนี้เป็นของบัญชี LifeSmart อื่น",
+      "reauth_successful": "เชื่อมต่อ LifeSmart อีกครั้งสำเร็จแล้ว"
     },
-    "error": {}
+    "error": {
+      "cannot_connect": "ไม่สามารถเชื่อมต่อ LifeSmart ได้ โปรดลองอีกครั้ง",
+      "invalid_auth": "ข้อมูลรับรอง LifeSmart ไม่ถูกต้อง",
+      "unknown": "เกิดข้อผิดพลาดที่ไม่คาดคิด โปรดลองอีกครั้ง"
+    }
   },
   "options": {
     "step": {

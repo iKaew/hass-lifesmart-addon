@@ -10,12 +10,13 @@ from typing import cast
 import voluptuous as vol
 import websocket
 from homeassistant.components.climate import FAN_HIGH, FAN_LOW, FAN_MEDIUM
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryNotReady
 from homeassistant.const import CONF_REGION, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.entity import DeviceInfo, Entity
+from homeassistant.exceptions import ConfigEntryAuthFailed
 
 from .const import (
     AIR_PURIFIER_TYPES,
@@ -178,9 +179,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
     if ai_include_items is None:
         ai_include_items = []
 
-    # Update listener for config option changes
-    update_listener = config_entry.add_update_listener(_async_update_listener)
-
     lifesmart_client = LifeSmartClient(
         region,
         app_key,
@@ -189,13 +187,19 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         user_password,
     )
 
-    response = await lifesmart_client.login_async()
-    if response["code"] != "success":
-        raise Exception(f"Error connecting to LifeSmart API: {response}")
+    try:
+        response = await lifesmart_client.login_async()
+    except Exception as err:
+        raise ConfigEntryNotReady("Unable to connect to LifeSmart") from err
+    if response.get("code") != "success":
+        raise ConfigEntryAuthFailed("LifeSmart rejected the configured credentials")
 
-    devices = await lifesmart_client.get_all_device_async()
-    if "code" in devices:
-        raise Exception(f"Error connecting to LifeSmart API: {response}")
+    try:
+        devices = await lifesmart_client.get_all_device_async()
+    except Exception as err:
+        raise ConfigEntryNotReady("Unable to retrieve LifeSmart devices") from err
+    if not isinstance(devices, list):
+        raise ConfigEntryNotReady("LifeSmart device discovery failed")
 
     _LOGGER.info(devices)
 
@@ -225,6 +229,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
     _migrate_legacy_device_identifiers(dev_reg, config_entry.entry_id, devices)
 
     _cleanup_legacy_doorlock_history_entities(hass, devices)
+
+    # Register only after setup succeeds so retries do not leak listeners.
+    update_listener = config_entry.add_update_listener(_async_update_listener)
 
     hass.data[DOMAIN][config_entry.entry_id] = {
         "client": lifesmart_client,

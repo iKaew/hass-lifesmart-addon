@@ -26,6 +26,7 @@ from .const import (
     normalize_lifesmart_region,
 )
 from .lifesmart_client import LifeSmartClient
+from .exceptions import LifeSmartCannotConnect, LifeSmartInvalidAuth
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,13 +56,19 @@ async def validate_input(hass, data):
         user_password,
     )
 
-    response = await lifesmart_client.login_async()
-    if response["code"] != "success":
-        raise Exception(f"Error connecting to LifeSmart API: {response}")
+    try:
+        response = await lifesmart_client.login_async()
+    except Exception as err:
+        raise LifeSmartCannotConnect from err
+    if response.get("code") != "success":
+        raise LifeSmartInvalidAuth
 
-    response = await lifesmart_client.get_all_device_async()
-    if "code" in response:
-        raise Exception(f"Error connecting to LifeSmart API: {response}")
+    try:
+        response = await lifesmart_client.get_all_device_async()
+    except Exception as err:
+        raise LifeSmartCannotConnect from err
+    if not isinstance(response, list):
+        raise LifeSmartCannotConnect
 
     return {"title": f"User Id {user_id}", "unique_id": app_key}
 
@@ -96,9 +103,13 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 validated = await validate_input(self.hass, user_input)
-            except Exception as err:
-                _LOGGER.error("Input validation error %s", err)
-                errors["base"] = str(err)
+            except LifeSmartInvalidAuth:
+                errors["base"] = "invalid_auth"
+            except LifeSmartCannotConnect:
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected input validation error")
+                errors["base"] = "unknown"
 
             if "base" not in errors:
                 await self.async_set_unique_id(validated["unique_id"])
@@ -148,6 +159,54 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=data_schema,
+            errors=errors,
+        )
+
+    async def async_step_reauth(self, entry_data) -> FlowResult:
+        """Start reauthentication for an existing config entry."""
+        self._reauth_entry = self.hass.config_entries.async_get_entry(
+            self.context["entry_id"]
+        )
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input=None) -> FlowResult:
+        """Validate and store replacement credentials."""
+        errors = {}
+        if user_input is not None:
+            try:
+                validated = await validate_input(self.hass, user_input)
+            except LifeSmartInvalidAuth:
+                errors["base"] = "invalid_auth"
+            except LifeSmartCannotConnect:
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected reauthentication error")
+                errors["base"] = "unknown"
+            else:
+                await self.async_set_unique_id(validated["unique_id"])
+                self._abort_if_unique_id_mismatch()
+                return self.async_update_and_abort(
+                    self._reauth_entry,
+                    data_updates=user_input,
+                )
+
+        defaults = dict(self._reauth_entry.data)
+        defaults.pop(CONF_NAME, None)
+        schema = {
+            key: defaults.get(key, "")
+            for key in (
+                CONF_LIFESMART_APPKEY,
+                CONF_LIFESMART_APPTOKEN,
+                CONF_LIFESMART_USERID,
+                CONF_LIFESMART_USERPASSWORD,
+                CONF_REGION,
+            )
+        }
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(DATA_SCHEMA), schema
+            ),
             errors=errors,
         )
 
