@@ -43,8 +43,8 @@ LIGHT_DIMMER_TYPES = [
     "SL_LI_WW",
 ]
 
-MAX_MIREDS = int(1000000 / 2700)
-MIN_MIREDS = int(1000000 / 6500)
+MIN_COLOR_TEMP_KELVIN = 2700
+MAX_COLOR_TEMP_KELVIN = 6500
 
 DYN_EFFECTS = {
     "Grass": 0x8218CC80,
@@ -227,7 +227,7 @@ class LifeSmartSLSPOTLight(LightEntity):
         )
 
         self._brightness = None
-        self._color_temp = None
+        self._attr_color_temp_kelvin = None
         _LOGGER.info("Light: %s added", str(self.entity_id))
         _LOGGER.info("Light: sub_device_key: %s ", str(sub_device_key))
         _LOGGER.info("Light: sub_device_data: %s ", str(sub_device_data))
@@ -240,8 +240,6 @@ class LifeSmartSLSPOTLight(LightEntity):
 
         self._color_mode = ColorMode.RGB
         self._supported_color_modes = {ColorMode.RGB}
-        self._max_mireds = None
-        self._min_mireds = None
 
         # convert from wrgb to rgbw tuple
         self._rgb_color = self.convert_LS_wrgb_to_HA_rgb(sub_device_data["val"])
@@ -375,21 +373,6 @@ class LifeSmartSLSPOTLight(LightEntity):
         return self._brightness
 
     @property
-    def color_temp(self):
-        """Return the color_temp value."""
-        return self._color_temp
-
-    @property
-    def max_mireds(self):
-        """Return the max_mireds value."""
-        return self._max_mireds
-
-    @property
-    def min_mireds(self):
-        """Return the min_mireds value."""
-        return self._min_mireds
-
-    @property
     def color_mode(self):
         """Return the color mode of the light."""
         return self._color_mode
@@ -438,7 +421,7 @@ class LifeSmartLight(LightEntity):
         )
 
         self._brightness = None
-        self._color_temp = None
+        self._attr_color_temp_kelvin = None
         self._effect = None
         self._effect_list = None
         self._dyn_data = raw_device_data.get(DEVICE_DATA_KEY, {}).get("DYN")
@@ -452,8 +435,6 @@ class LifeSmartLight(LightEntity):
             self._state = _is_on_type(sub_device_data.get("type"))
             self._color_mode = ColorMode.RGBW
             self._supported_color_modes = {ColorMode.RGBW}
-            self._max_mireds = None
-            self._min_mireds = None
             brightness = raw_device_data.get(DEVICE_DATA_KEY, {}).get("P1", {}).get(
                 "val"
             )
@@ -471,8 +452,8 @@ class LifeSmartLight(LightEntity):
         elif device_type in LIGHT_DIMMER_TYPES:
             self._color_mode = ColorMode.COLOR_TEMP
             self._supported_color_modes = {ColorMode.COLOR_TEMP}
-            self._max_mireds = MAX_MIREDS
-            self._min_mireds = MIN_MIREDS
+            self._attr_min_color_temp_kelvin = MIN_COLOR_TEMP_KELVIN
+            self._attr_max_color_temp_kelvin = MAX_COLOR_TEMP_KELVIN
             for data_idx in sub_device_data:
                 if data_idx == "P1":
                     # set on/off
@@ -484,10 +465,13 @@ class LifeSmartLight(LightEntity):
                     self._brightness = sub_device_data[data_idx]["val"]
                 elif data_idx == "P2":
                     # set color temp
-                    ratio = 1 - (sub_device_data[data_idx]["val"] / 255)
-                    self._color_temp = (
-                        int((self._max_mireds - self._min_mireds) * ratio)
-                        + self._min_mireds
+                    ratio = sub_device_data[data_idx]["val"] / 255
+                    self._attr_color_temp_kelvin = (
+                        MAX_COLOR_TEMP_KELVIN
+                        - int(
+                            (MAX_COLOR_TEMP_KELVIN - MIN_COLOR_TEMP_KELVIN)
+                            * ratio
+                        )
                     )
         else:
             self._state = _is_on_type(sub_device_data.get("type"))
@@ -598,21 +582,6 @@ class LifeSmartLight(LightEntity):
         """Return the brightness value."""
         return self._brightness
 
-    @property
-    def color_temp(self):
-        """Return the color_temp value."""
-        return self._color_temp
-
-    @property
-    def max_mireds(self):
-        """Return the max_mireds value."""
-        return self._max_mireds
-
-    @property
-    def min_mireds(self):
-        """Return the min_mireds value."""
-        return self._min_mireds
-
     # @property
     # def supported_features(self):
     #    """Return the supported features."""
@@ -695,12 +664,14 @@ class LifeSmartLight(LightEntity):
                     self._brightness = kwargs[ATTR_BRIGHTNESS]
                     self.async_schedule_update_ha_state()
             if ATTR_COLOR_TEMP_KELVIN in kwargs:
-                ratio = (kwargs[ATTR_COLOR_TEMP_KELVIN] - self._min_mireds) / (
-                    self._max_mireds - self._min_mireds
+                ratio = (
+                    kwargs[ATTR_COLOR_TEMP_KELVIN] - MIN_COLOR_TEMP_KELVIN
+                ) / (
+                    MAX_COLOR_TEMP_KELVIN - MIN_COLOR_TEMP_KELVIN
                 )
                 val = int((-ratio + 1) * 255)
                 if await self._device.async_lifesmart_epset("0xcf", val, "P2") == 0:
-                    self._color_temp = kwargs[ATTR_COLOR_TEMP_KELVIN]
+                    self._attr_color_temp_kelvin = kwargs[ATTR_COLOR_TEMP_KELVIN]
                     self.async_schedule_update_ha_state()
             if await self._device.async_lifesmart_epset("0x81", 1, "P1") == 0:
                 self._state = True
