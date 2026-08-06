@@ -131,22 +131,22 @@ def test_sensor_async_setup_entry_creates_supported_entities():
     )
 
     assert len(added) >= 24
-    assert any(entity.entity_id == "sensor.sl_sc_ch_hub1_dev1_p1" for entity in added)
-    assert any(entity.entity_id == "sensor.sl_lk_yl_hub1_lock1_bat" for entity in added)
+    assert any(entity.unique_id == "sensor.sl_sc_ch_hub1_dev1_p1" for entity in added)
+    assert any(entity.unique_id == "sensor.sl_lk_yl_hub1_lock1_bat" for entity in added)
     assert any(
-        entity.entity_id == "sensor.sl_lk_yl_hub1_lock1_evtop" for entity in added
+        entity.unique_id == "sensor.sl_lk_yl_hub1_lock1_evtop" for entity in added
     )
     assert any(
-        entity.entity_id == "sensor.sl_lk_yl_hub1_lock1_alm_desc" for entity in added
+        entity.unique_id == "sensor.sl_lk_yl_hub1_lock1_alm_desc" for entity in added
     )
     assert any(
-        entity.entity_id == "sensor.sl_lk_yl_hub1_lock1_hislk" for entity in added
+        entity.unique_id == "sensor.sl_lk_yl_hub1_lock1_hislk" for entity in added
     )
-    assert any(entity.entity_id == "sensor.sl_p_hub1_ctrl1_p1" for entity in added)
-    assert any(entity.entity_id == "sensor.sl_sc_bg_hub1_guard1_v" for entity in added)
-    assert any(entity.entity_id == "sensor.sl_sc_bm_hub1_bm1_v" for entity in added)
-    assert any(entity.entity_id == "sensor.v_485_p_hub1_mod1_ev" for entity in added)
-    assert any(entity.entity_id == "sensor.sl_cam_hub1_cam1_v" for entity in added)
+    assert any(entity.unique_id == "sensor.sl_p_hub1_ctrl1_p1" for entity in added)
+    assert any(entity.unique_id == "sensor.sl_sc_bg_hub1_guard1_v" for entity in added)
+    assert any(entity.unique_id == "sensor.sl_sc_bm_hub1_bm1_v" for entity in added)
+    assert any(entity.unique_id == "sensor.v_485_p_hub1_mod1_ev" for entity in added)
+    assert any(entity.unique_id == "sensor.sl_cam_hub1_cam1_v" for entity in added)
 
 
 def test_sensor_entity_branches_and_properties():
@@ -199,7 +199,7 @@ def test_sensor_entity_branches_and_properties():
         "user_role": "administrator",
         "raw": 0x12012303,
     }
-    assert lock_alarm.entity_id == "sensor.sl_lk_yl_hub1_dev1_alm_desc"
+    assert lock_alarm.unique_id == "sensor.sl_lk_yl_hub1_dev1_alm_desc"
     assert lock_alarm.device_name == "Alarm Description"
     assert lock_alarm.state == "Error alarm, Low battery alarm"
     assert lock_alarm.device_class == sensor_module.SensorDeviceClass.ENUM
@@ -244,7 +244,7 @@ def test_sensor_entity_branches_and_properties():
     assert camera_battery.state == 78
     assert camera_battery.extra_state_attributes == {"voltage": 3.7, "raw": 3.7}
     assert default_temp.state == 23
-    assert gas.unique_id == gas.entity_id
+    assert gas.entity_id is None
     assert gas.device_info["model"] == "SL_SC_CH"
 
 

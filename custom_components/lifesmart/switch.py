@@ -6,7 +6,7 @@ from homeassistant.components.switch import SwitchDeviceClass, SwitchEntity
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 
-from . import LifeSmartDevice, device_identifier, device_via_info, generate_entity_id
+from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
 from .const import (
     AIR_PURIFIER_TYPES,
     DEVICE_DATA_KEY,
@@ -214,8 +214,8 @@ class LifeSmartSwitch(SwitchEntity):
         self.raw_device_data = raw_device_data
         self._device = device
         self._attr_device_class = SwitchDeviceClass.SWITCH
-        self.entity_id = generate_entity_id(
-            device_type, hub_id, device_id, sub_device_key
+        configure_entity_identity(
+            self, generate_entity_id(device_type, hub_id, device_id, sub_device_key)
         )
         self._client = client
 
@@ -250,7 +250,7 @@ class LifeSmartSwitch(SwitchEntity):
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
-                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self.entity_id}",
+                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self.unique_id}",
                 self._update_state,
             )
         )
@@ -293,7 +293,7 @@ class LifeSmartSwitch(SwitchEntity):
     @property
     def unique_id(self):
         """A unique identifier for this entity."""
-        return self.entity_id
+        return self._attr_unique_id
 
 
 class LifeSmartSceneSwitch(LifeSmartDevice, SwitchEntity):
@@ -308,7 +308,11 @@ class LifeSmartSceneSwitch(LifeSmartDevice, SwitchEntity):
 
         self._device = device
         self._raw_device_data = raw_device_data
-        self.entity_id = generate_entity_id(device_type, hub_id, device_id)
+        configure_entity_identity(
+            self,
+            generate_entity_id(device_type, hub_id, device_id)
+            or f"switch.{device_type}_{hub_id}_{device_id}".lower(),
+        )
 
         self.hub_id = hub_id
         self.device_id = device_id
@@ -355,4 +359,4 @@ class LifeSmartSceneSwitch(LifeSmartDevice, SwitchEntity):
     @property
     def unique_id(self):
         """A unique identifier for this entity."""
-        return self.entity_id
+        return self._attr_unique_id

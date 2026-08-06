@@ -126,7 +126,7 @@ def test_async_setup_entry_filters_devices_and_adds_supported_climates(monkeypat
     assert spot_calls == ["entry-1"]
     assert nature_calls == ["entry-1"]
     assert len(added_entities) == 2
-    assert {entity.entity_id for entity in added_entities} == {
+    assert {entity.unique_id for entity in added_entities} == {
         "climate." + f"{make_air_device('AIR1')['devtype']}_hub1_air1".lower(),
         "climate." + f"{make_thermostat_device('THERM1')['devtype']}_hub1_therm1".lower(),
     }
@@ -147,7 +147,7 @@ def test_async_setup_platform_handles_none_incomplete_and_valid_discovery():
 def test_air_climate_initialization_and_properties():
     entity, _device, _updates = make_climate_entity(make_air_device())
 
-    assert entity.unique_id == entity.entity_id
+    assert entity.entity_id is None
     assert entity.name == "Air"
     assert entity.hvac_mode == HVACMode.COOL
     assert entity.hvac_modes == climate_module.LIFESMART_STATE_LIST
@@ -308,7 +308,7 @@ def test_async_added_to_hass_registers_dispatcher_callback(monkeypatch):
     asyncio.run(entity.async_added_to_hass())
 
     assert dispatcher_calls[0][0] is entity.hass
-    assert dispatcher_calls[0][1] == f"{climate_module.LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity.entity_id}"
+    assert dispatcher_calls[0][1] == f"{climate_module.LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity.unique_id}"
     assert dispatcher_calls[0][2] == entity._update_state
     assert removers == ["remove-token"]
 

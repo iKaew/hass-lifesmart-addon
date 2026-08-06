@@ -82,12 +82,12 @@ def test_async_setup_entry_creates_supported_switch_entities(monkeypatch):
     asyncio.run(switch_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
 
     assert len(added) == 8
-    assert any(entity.entity_id == "switch.sl_ol_hub1_dev1_p1" for entity in added)
-    assert any(entity.entity_id == "switch.od_mfresh_m8088_hub1_air1_o" for entity in added)
-    assert any(entity.entity_id == "switch.sl_jema_hub1_ctrl1_p8" for entity in added)
-    assert any(entity.entity_id == "switch.v_485_p_hub1_mod1_l1" for entity in added)
-    assert any(entity.entity_id == "switch.sl_oe_de_hub1_plug1_p1" for entity in added)
-    assert any(entity.entity_id == "switch.sl_nature_hub1_nat1_p1" for entity in added)
+    assert any(entity.unique_id == "switch.sl_ol_hub1_dev1_p1" for entity in added)
+    assert any(entity.unique_id == "switch.od_mfresh_m8088_hub1_air1_o" for entity in added)
+    assert any(entity.unique_id == "switch.sl_jema_hub1_ctrl1_p8" for entity in added)
+    assert any(entity.unique_id == "switch.v_485_p_hub1_mod1_l1" for entity in added)
+    assert any(entity.unique_id == "switch.sl_oe_de_hub1_plug1_p1" for entity in added)
+    assert any(entity.unique_id == "switch.sl_nature_hub1_nat1_p1" for entity in added)
 
 
 def test_async_setup_entry_creates_reported_switch_and_outlet_entities():
@@ -103,10 +103,10 @@ def test_async_setup_entry_creates_reported_switch_and_outlet_entities():
     asyncio.run(switch_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
 
     assert len(added) == 5
-    assert any(entity.entity_id == "switch.sl_sf_if1_hub1_sw1_l1" for entity in added)
-    assert any(entity.entity_id == "switch.sl_sf_if2_hub1_sw2_l2" for entity in added)
-    assert any(entity.entity_id == "switch.sl_sf_if3_hub1_sw3_l3" for entity in added)
-    assert any(entity.entity_id == "switch.sl_ol_3c_hub1_outlet1_o" for entity in added)
+    assert any(entity.unique_id == "switch.sl_sf_if1_hub1_sw1_l1" for entity in added)
+    assert any(entity.unique_id == "switch.sl_sf_if2_hub1_sw2_l2" for entity in added)
+    assert any(entity.unique_id == "switch.sl_sf_if3_hub1_sw3_l3" for entity in added)
+    assert any(entity.unique_id == "switch.sl_ol_3c_hub1_outlet1_o" for entity in added)
 
 
 def test_virtual_switch_creates_all_reported_p_ports():
@@ -142,7 +142,7 @@ def test_virtual_switch_creates_all_reported_p_ports():
         "P7",
         "P8",
     ]
-    assert added[-1].entity_id == "switch.v_ind_s_hub1_virt1_p8"
+    assert added[-1].unique_id == "switch.v_ind_s_hub1_virt1_p8"
 
 
 def test_switch_entity_properties_updates_and_turn_on_off():
@@ -151,7 +151,7 @@ def test_switch_entity_properties_updates_and_turn_on_off():
 
     assert entity.name == ""
     assert entity.is_on is True
-    assert entity.unique_id == entity.entity_id
+    assert entity.entity_id is None
     assert entity.device_info["model"] == "SL_OL"
 
     asyncio.run(entity._update_state({"type": 0}))
@@ -218,7 +218,7 @@ def test_switch_async_added_to_hass_registers_dispatcher(monkeypatch):
 
     asyncio.run(entity.async_added_to_hass())
 
-    assert calls[0][1] == f"{switch_module.LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity.entity_id}"
+    assert calls[0][1] == f"{switch_module.LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity.unique_id}"
     assert removers == ["remove-token"]
 
 
@@ -237,6 +237,6 @@ def test_scene_switch_turns_on_and_off(monkeypatch):
     asyncio.run(scene.async_turn_off())
 
     assert scene.device_info["model"] == "ai"
-    assert scene.unique_id == scene.entity_id
+    assert scene.entity_id is None
     assert scene._get_state() is False
     assert updates == ["scheduled", "scheduled"]

@@ -72,9 +72,13 @@ class FakeConfigEntriesManager:
 class FakeServices:
     def __init__(self):
         self.registrations = []
+        self.removals = []
 
     def async_register(self, domain, service, handler, schema=None):
         self.registrations.append((domain, service, handler, schema))
+
+    def async_remove(self, domain, service):
+        self.removals.append((domain, service))
 
 
 class FakeStates:
@@ -101,6 +105,9 @@ class FakeHass:
         self.services = FakeServices()
         self.states = FakeStates()
 
+    async def async_add_executor_job(self, target, *args):
+        return target(*args)
+
 
 class FakeDeviceRegistry:
     def __init__(self):
@@ -112,9 +119,13 @@ class FakeDeviceRegistry:
 
 
 class FakeEntityRegistry:
-    def __init__(self, existing=None):
+    def __init__(self, existing=None, entity_ids=None):
         self.existing = set(existing or [])
+        self.entity_ids = entity_ids or {}
         self.removed = []
+
+    def async_get_entity_id(self, domain, platform, unique_id):
+        return self.entity_ids.get((domain, platform, unique_id))
 
     def async_get(self, entity_id):
         return entity_id if entity_id in self.existing else None
@@ -146,10 +157,14 @@ class FakeStatesManager:
     def __init__(self, ws):
         self.ws = ws
         self.started = False
+        self.stopped = False
         FakeStatesManager.instances.append(self)
 
     def start_keep_alive(self):
         self.started = True
+
+    def stop_keep_alive(self):
+        self.stopped = True
 
 
 class FakeLifeSmartClient:
@@ -211,7 +226,9 @@ def patch_setup_dependencies(monkeypatch, device_registry, entity_registry=None)
     monkeypatch.setattr(lifesmart_init, "LifeSmartStatesManager", FakeStatesManager)
 
 
-def setup_entry_for_ws_tests(monkeypatch, devices, options=None):
+def setup_entry_for_ws_tests(
+    monkeypatch, devices, options=None, entity_registry_instance=None
+):
     hass = FakeHass()
     config_entry = make_config_entry(options=options)
     device_reg = FakeDeviceRegistry()
@@ -219,7 +236,7 @@ def setup_entry_for_ws_tests(monkeypatch, devices, options=None):
 
     FakeLifeSmartClient.login_response = {"code": "success"}
     FakeLifeSmartClient.devices_response = devices
-    patch_setup_dependencies(monkeypatch, device_reg)
+    patch_setup_dependencies(monkeypatch, device_reg, entity_registry_instance)
     monkeypatch.setattr(
         lifesmart_init,
         "dispatcher_send",
@@ -309,8 +326,9 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     assert hass.config_entries.forward_calls == [
         (config_entry, tuple(lifesmart_init.SUPPORTED_PLATFORMS))
     ]
-    assert isinstance(hass.data[DOMAIN][LIFESMART_STATE_MANAGER], FakeStatesManager)
-    assert hass.data[DOMAIN][LIFESMART_STATE_MANAGER].started is True
+    manager = hass.data[DOMAIN][config_entry.entry_id][LIFESMART_STATE_MANAGER]
+    assert isinstance(manager, FakeStatesManager)
+    assert manager.started is True
     ws = FakeWebSocketApp.instances[0]
     assert ws.url == "wss://example.invalid/wsapp/"
     ws.on_open(ws)
@@ -492,12 +510,29 @@ def test_async_update_listener_reloads_entry():
 def test_async_unload_entry_forwards_to_platform_unload():
     hass = FakeHass()
     config_entry = FakeConfigEntry(data={}, entry_id="entry-99")
+    manager = FakeStatesManager(ws=object())
+    listener_removals = []
+    hass.data[DOMAIN] = {
+        config_entry.entry_id: {
+            LIFESMART_STATE_MANAGER: manager,
+            UPDATE_LISTENER: lambda: listener_removals.append("removed"),
+        }
+    }
 
     result = asyncio.run(lifesmart_init.async_unload_entry(hass, config_entry))
 
     assert result is True
     assert hass.config_entries.unload_calls == [
         (config_entry, tuple(lifesmart_init.SUPPORTED_PLATFORMS))
+    ]
+    assert manager.stopped is True
+    assert listener_removals == ["removed"]
+    assert hass.data[DOMAIN] == {}
+    assert hass.services.removals == [
+        (DOMAIN, "send_ir_code"),
+        (DOMAIN, "send_keys"),
+        (DOMAIN, "send_ackeys"),
+        (DOMAIN, "scene_set"),
     ]
 
 
@@ -1027,6 +1062,8 @@ def test_on_message_applies_direct_state_updates(monkeypatch):
         send_ws_device_update(ws, payload)
 
     assert dispatch_calls == []
+
+
     assert hass.states.get(cover_entity).state == "opening"
     assert hass.states.get(cover_entity).attributes["current_position"] == 45
     assert hass.states.get(garage_entity).state == "closing"
@@ -1037,6 +1074,45 @@ def test_on_message_applies_direct_state_updates(monkeypatch):
     assert hass.states.get(plug_sensor_entity).state == 42
     assert hass.states.get(ot_entity).state == 99
     assert hass.states.get(gas_entity).state == 7
+
+
+def test_on_message_updates_user_renamed_registry_entity(monkeypatch):
+    """Direct websocket updates resolve the current entity registry ID."""
+    smart_plug_type = next(iter(lifesmart_init.SMART_PLUG_TYPES))
+    unique_id = lifesmart_init.generate_entity_id(
+        smart_plug_type, "HUB1", "PLUG1", "P1"
+    )
+    renamed_entity_id = "switch.office_plug"
+    ent_reg = FakeEntityRegistry(
+        entity_ids={("switch", DOMAIN, unique_id): renamed_entity_id}
+    )
+    hass, _entry, ws, _dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch,
+        devices=[
+            {
+                HUB_ID_KEY: "HUB1",
+                DEVICE_ID_KEY: "PLUG1",
+                "devtype": smart_plug_type,
+            }
+        ],
+        entity_registry_instance=ent_reg,
+    )
+    hass.states.set(renamed_entity_id, STATE_OFF, {"friendly_name": "Office"})
+
+    send_ws_device_update(
+        ws,
+        {
+            "devtype": smart_plug_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "PLUG1",
+            SUBDEVICE_INDEX_KEY: "P1",
+            "type": 1,
+            "val": 1,
+        },
+    )
+
+    assert hass.states.get(renamed_entity_id).state == STATE_ON
+    assert hass.states.get(unique_id) is None
 
 
 def test_on_message_skips_direct_state_updates_for_missing_entities(monkeypatch):
@@ -1183,7 +1259,10 @@ def test_states_manager_run_start_and_stop(monkeypatch):
     class FakeWS:
         def run_forever(self):
             events.append("run_forever")
-            manager._run = False
+            manager._stop_event.set()
+
+        def close(self):
+            events.append("close")
 
     manager = lifesmart_init.LifeSmartStatesManager(FakeWS())
     monkeypatch.setattr(
@@ -1191,21 +1270,19 @@ def test_states_manager_run_start_and_stop(monkeypatch):
         "start",
         lambda self: events.append("thread-start"),
     )
-    monkeypatch.setattr(
-        lifesmart_init.time, "sleep", lambda seconds: events.append(("sleep", seconds))
-    )
+    monkeypatch.setattr(manager, "is_alive", lambda: True)
     monkeypatch.setattr(manager, "join", lambda: events.append("join"))
 
     manager.start_keep_alive()
-    assert manager._run is True
+    assert manager._stop_event.is_set() is False
     assert events == ["thread-start"]
 
     manager.run()
-    assert events[-2:] == ["run_forever", ("sleep", 10)]
+    assert events[-1] == "run_forever"
 
     manager.stop_keep_alive()
-    assert manager._run is False
-    assert events[-1] == "join"
+    assert manager._stop_event.is_set() is True
+    assert events[-2:] == ["close", "join"]
 
 
 @pytest.mark.parametrize(

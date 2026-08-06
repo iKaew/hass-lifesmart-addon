@@ -64,7 +64,7 @@ def test_remote_async_setup_entry_and_helpers():
     hass = FakeHass("entry-1", devices, client=FakeClient())
     added = []
     asyncio.run(remote_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
-    entity_ids = {entity.entity_id for entity in added}
+    entity_ids = {entity.unique_id for entity in added}
     assert len(added) == 3
     assert "remote.sl_spot_hub1_spot1_remote" in entity_ids
     assert "remote.sl_p_ir_hub1_ir1_remote" in entity_ids

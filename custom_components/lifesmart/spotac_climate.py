@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from . import LifeSmartDevice, device_identifier, device_via_info, generate_entity_id
+from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
 from .const import (
     CONF_AC_CONFIG,
     DEVICE_ID_KEY,
@@ -131,8 +131,13 @@ class LifeSmartSPOTACClimate(ClimateEntity, RestoreEntity):
         self._sw_version = raw_device_data.get(DEVICE_VERSION_KEY, "")
 
         # Generate entity ID
-        self.entity_id = generate_entity_id(
+        suggested_entity_id = generate_entity_id(
             device_type, hub_id, device_id, "climate_ac"
+        )
+        configure_entity_identity(
+            self,
+            f"{suggested_entity_id}_ac_{ac_info.get('brand', 'unknown')}",
+            suggested_entity_id,
         )
 
         # Climate entity attributes
@@ -182,7 +187,7 @@ class LifeSmartSPOTACClimate(ClimateEntity, RestoreEntity):
     @property
     def unique_id(self):
         """A unique identifier for this entity."""
-        return f"{self.entity_id}_ac_{self._ac_info.get('brand', 'unknown')}"
+        return self._attr_unique_id
 
     async def async_added_to_hass(self) -> None:
         """Restore the last known HA state after reload."""

@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 
-from . import LifeSmartDevice, device_identifier, device_via_info, generate_entity_id
+from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
 from .const import (
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
@@ -67,8 +67,11 @@ class LifeSmartNatureClimate(ClimateEntity):
         self._hub_id = raw_device_data[HUB_ID_KEY]
         self._device_id = raw_device_data[DEVICE_ID_KEY]
         self._sw_version = raw_device_data.get(DEVICE_VERSION_KEY, "")
-        self.entity_id = generate_entity_id(
-            self._device_type, self._hub_id, self._device_id, NATURE_CLIMATE_KEY
+        configure_entity_identity(
+            self,
+            generate_entity_id(
+                self._device_type, self._hub_id, self._device_id, NATURE_CLIMATE_KEY
+            ),
         )
 
         cdata = raw_device_data[DEVICE_DATA_KEY]
@@ -96,7 +99,7 @@ class LifeSmartNatureClimate(ClimateEntity):
     @property
     def unique_id(self):
         """A unique identifier for this entity."""
-        return self.entity_id
+        return self._attr_unique_id
 
     @property
     def name(self):
@@ -234,7 +237,7 @@ class LifeSmartNatureClimate(ClimateEntity):
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
-                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self.entity_id}",
+                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self.unique_id}",
                 self._update_state,
             )
         )
