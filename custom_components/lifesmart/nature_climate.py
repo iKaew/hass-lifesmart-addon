@@ -17,26 +17,28 @@ from homeassistant.helpers.entity import DeviceInfo
 
 from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
 from .const import (
+    DOMAIN as DOMAIN,
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     DEVICE_VERSION_KEY,
-    DOMAIN,
     HUB_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     MANUFACTURER,
     NATURE_CLIMATE_KEY,
     is_nature_thermostat,
 )
+from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entities):
     """Setup NATURE thermostat climate entities."""
-    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
-    exclude_devices = hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"]
-    exclude_hubs = hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"]
-    client = hass.data[DOMAIN][config_entry.entry_id]["client"]
+    runtime = get_runtime_data(hass, config_entry)
+    devices = runtime.devices
+    exclude_devices = runtime.exclude_devices
+    exclude_hubs = runtime.exclude_hubs
+    client = runtime.client
 
     climate_devices = []
     for device in devices:
@@ -51,10 +53,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
             LifeSmartNatureClimate(LifeSmartDevice(device, client), device, client)
         )
 
+    runtime.track_entities(climate_devices)
     async_add_entities(climate_devices)
 
 
-class LifeSmartNatureClimate(ClimateEntity):
+class LifeSmartNatureClimate(LifeSmartAvailabilityMixin, ClimateEntity):
     """LifeSmart NATURE thermostat climate entity."""
 
     def __init__(self, ha_device, raw_device_data, client):

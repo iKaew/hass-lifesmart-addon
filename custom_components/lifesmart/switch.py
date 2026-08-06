@@ -8,13 +8,13 @@ from homeassistant.helpers.entity import DeviceInfo
 
 from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
 from .const import (
+    DOMAIN as DOMAIN,
     AIR_PURIFIER_TYPES,
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     DEVICE_VERSION_KEY,
-    DOMAIN,
     GENERIC_CONTROLLER_SWITCH_PORTS,
     GENERIC_CONTROLLER_TYPES,
     HA_CONTROLLER_SWITCH_PORTS,
@@ -29,6 +29,7 @@ from .const import (
     SUPPORTED_SWTICH_TYPES,
     is_nature_switch,
 )
+from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,10 +64,11 @@ def _is_virtual_switch_port(sub_device_key) -> bool:
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Setup switch entities."""
-    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
-    exclude_devices = hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"]
-    exclude_hubs = hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"]
-    client = hass.data[DOMAIN][config_entry.entry_id]["client"]
+    runtime = get_runtime_data(hass, config_entry)
+    devices = runtime.devices
+    exclude_devices = runtime.exclude_devices
+    exclude_hubs = runtime.exclude_hubs
+    client = runtime.client
     switch_devices = []
     for device in devices:
         if (
@@ -186,10 +188,11 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                                 client,
                             )
                         )
+    runtime.track_entities(switch_devices)
     async_add_entities(switch_devices)
 
 
-class LifeSmartSwitch(SwitchEntity):
+class LifeSmartSwitch(LifeSmartAvailabilityMixin, SwitchEntity):
     """Switch Entity."""
 
     def __init__(

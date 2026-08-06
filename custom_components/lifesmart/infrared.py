@@ -11,14 +11,15 @@ from homeassistant.helpers.entity import DeviceInfo
 
 from . import device_identifier, device_via_info
 from .const import (
+    DOMAIN as DOMAIN,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     DEVICE_VERSION_KEY,
-    DOMAIN,
     HUB_ID_KEY,
     SPOT_TYPES,
 )
+from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
 
 # Pronto represents durations in carrier periods and derives the carrier from a
 # 0.241246 microsecond clock. LifeSmart SendCodes accepts this raw IR form.
@@ -29,21 +30,23 @@ async def async_setup_entry(
     hass: HomeAssistant, config_entry, async_add_entities
 ) -> None:
     """Set up LifeSmart infrared emitter entities."""
-    entry_data = hass.data[DOMAIN][config_entry.entry_id]
-    client = entry_data["client"]
-    excluded_devices = entry_data["exclude_devices"]
-    excluded_hubs = entry_data["exclude_hubs"]
+    runtime = get_runtime_data(hass, config_entry)
+    client = runtime.client
+    excluded_devices = runtime.exclude_devices
+    excluded_hubs = runtime.exclude_hubs
 
-    async_add_entities(
+    entities = [
         LifeSmartInfraredEmitter(device, client)
-        for device in entry_data["devices"]
+        for device in runtime.devices
         if device[DEVICE_TYPE_KEY] in SPOT_TYPES
         and device[DEVICE_ID_KEY] not in excluded_devices
         and device[HUB_ID_KEY] not in excluded_hubs
-    )
+    ]
+    runtime.track_entities(entities)
+    async_add_entities(entities)
 
 
-class LifeSmartInfraredEmitter(InfraredEmitterEntity):
+class LifeSmartInfraredEmitter(LifeSmartAvailabilityMixin, InfraredEmitterEntity):
     """A LifeSmart SPOT-family infrared emitter."""
 
     _attr_has_entity_name = True

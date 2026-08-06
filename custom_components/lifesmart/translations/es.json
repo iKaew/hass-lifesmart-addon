@@ -108,6 +108,17 @@
       "no_remote_idxs": "No se encontraron perfiles de mando para la marca de A/C seleccionada."
     }
   },
+  "exceptions": {
+    "service_target_not_found": {
+      "message": "El destino no pertenece exactamente a una cuenta de LifeSmart cargada."
+    },
+    "service_action_failed": {
+      "message": "La acción del servicio LifeSmart ha fallado."
+    },
+    "service_action_rejected": {
+      "message": "LifeSmart ha rechazado la acción del servicio."
+    }
+  },
   "services": {
     "send_ir_code": {
       "name": "Enviar código IR",

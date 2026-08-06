@@ -108,6 +108,17 @@
       "no_remote_idxs": "ไม่พบโปรไฟล์รีโมทสำหรับยี่ห้อแอร์ที่เลือก"
     }
   },
+  "exceptions": {
+    "service_target_not_found": {
+      "message": "เป้าหมายไม่ได้อยู่ในบัญชี LifeSmart ที่โหลดไว้เพียงบัญชีเดียว"
+    },
+    "service_action_failed": {
+      "message": "การเรียกใช้บริการ LifeSmart ล้มเหลว"
+    },
+    "service_action_rejected": {
+      "message": "LifeSmart ปฏิเสธการเรียกใช้บริการ"
+    }
+  },
   "services": {
     "send_ir_code": {
       "name": "ส่งรหัส IR",

@@ -26,6 +26,7 @@ from .const import (
     normalize_lifesmart_region,
 )
 from .lifesmart_client import LifeSmartClient
+from .runtime_data import get_runtime_data
 from .exceptions import LifeSmartCannotConnect, LifeSmartInvalidAuth
 
 _LOGGER = logging.getLogger(__name__)
@@ -252,9 +253,7 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
         """Return SPOT devices from the running config entry."""
         return [
             device
-            for device in self.hass.data.get(DOMAIN, {})
-            .get(self._config_entry.entry_id, {})
-            .get("devices", [])
+            for device in get_runtime_data(self.hass, self._config_entry).devices
             if device.get(DEVICE_TYPE_KEY) in SPOT_TYPES
         ]
 

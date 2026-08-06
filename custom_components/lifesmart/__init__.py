@@ -5,7 +5,6 @@ import logging
 import re
 import sys
 import threading
-from typing import cast
 
 import voluptuous as vol
 import websocket
@@ -13,6 +12,7 @@ from homeassistant.components.climate import FAN_HIGH, FAN_LOW, FAN_MEDIUM
 from homeassistant.config_entries import ConfigEntry, ConfigEntryNotReady
 from homeassistant.const import CONF_REGION, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.entity import DeviceInfo, Entity
@@ -60,7 +60,6 @@ from .const import (
     HUB_ID_KEY,
     HUB_DEVICE_REGISTRY_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
-    LIFESMART_STATE_MANAGER,
     LIGHT_DIMMER_TYPES,
     LIGHT_SWITCH_TYPES,
     LOCK_TYPES,
@@ -85,12 +84,12 @@ from .const import (
     SUPPORTED_SUB_SWITCH_TYPES,
     SUPPORTED_SWTICH_TYPES,
     TVOC_CO2_SENSOR_TYPES,
-    UPDATE_LISTENER,
     WATER_LEAK_SENSOR_TYPES,
     is_nature_thermostat,
     normalize_lifesmart_region,
 )
 from .lifesmart_client import LifeSmartClient
+from .runtime_data import LifeSmartAvailabilityMixin, LifeSmartRuntimeData
 
 sys.setrecursionlimit(100000)
 
@@ -101,8 +100,130 @@ SEND_IR_CODE_SCHEMA = vol.Schema(
         vol.Required("ir_code"): str,
     }
 )
+SEND_KEYS_SCHEMA = vol.Schema(
+    {
+        vol.Required(HUB_ID_KEY): str,
+        vol.Required(DEVICE_ID_KEY): str,
+        vol.Required("ai"): str,
+        vol.Required("category"): str,
+        vol.Required("brand"): str,
+        vol.Required("keys"): vol.Any(list, str),
+    }
+)
+SEND_AC_KEYS_SCHEMA = SEND_KEYS_SCHEMA.extend(
+    {
+        vol.Optional("idx", default=""): str,
+        vol.Required("power"): int,
+        vol.Required("mode"): int,
+        vol.Required("temp"): int,
+        vol.Required("wind"): int,
+        vol.Required("swing"): int,
+    }
+)
+SCENE_SET_SCHEMA = vol.Schema(
+    {vol.Required(HUB_ID_KEY): str, vol.Required("id"): str}
+)
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _runtime_for_service(hass: HomeAssistant, data: dict) -> LifeSmartRuntimeData:
+    """Resolve service data to exactly one loaded LifeSmart entry."""
+    hub_id = data[HUB_ID_KEY]
+    device_id = data.get(DEVICE_ID_KEY)
+    matches = []
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        runtime = getattr(entry, "runtime_data", None)
+        if not isinstance(runtime, LifeSmartRuntimeData):
+            continue
+        if any(
+            device.get(HUB_ID_KEY) == hub_id
+            and (device_id is None or device.get(DEVICE_ID_KEY) == device_id)
+            for device in runtime.devices
+        ):
+            matches.append(runtime)
+    if len(matches) != 1:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="service_target_not_found",
+        )
+    return matches[0]
+
+
+async def _async_call_lifesmart_service(hass: HomeAssistant, call) -> None:
+    """Handle a LifeSmart service action using its target entry."""
+    runtime = _runtime_for_service(hass, call.data)
+    client = runtime.client
+    try:
+        if call.service == "send_ir_code":
+            keys = json.dumps(
+                [{"param": {"data": str(call.data["ir_code"]), "type": 1}}]
+            )
+            response = await client.send_ir_code_async(
+                call.data[HUB_ID_KEY], call.data[DEVICE_ID_KEY], keys
+            )
+        elif call.service == "send_keys":
+            response = await client.send_ir_key_async(
+                call.data[HUB_ID_KEY],
+                call.data["ai"],
+                call.data[DEVICE_ID_KEY],
+                call.data["category"],
+                call.data["brand"],
+                call.data["keys"],
+            )
+        elif call.service == "send_ackeys":
+            response = await client.send_ir_ackey_async(
+                call.data[HUB_ID_KEY],
+                call.data["ai"],
+                call.data[DEVICE_ID_KEY],
+                call.data["category"],
+                call.data["brand"],
+                call.data["keys"],
+                call.data["idx"],
+                call.data["power"],
+                call.data["mode"],
+                call.data["temp"],
+                call.data["wind"],
+                call.data["swing"],
+            )
+        else:
+            response = await client.set_scene_async(
+                call.data[HUB_ID_KEY], call.data["id"]
+            )
+    except Exception as err:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="service_action_failed",
+        ) from err
+
+    if isinstance(response, int) and response != 0:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="service_action_rejected",
+        )
+    if isinstance(response, dict) and response.get("code") not in (None, 0, "success"):
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="service_action_rejected",
+        )
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Register integration-wide service actions."""
+    schemas = {
+        "send_ir_code": SEND_IR_CODE_SCHEMA,
+        "send_keys": SEND_KEYS_SCHEMA,
+        "send_ackeys": SEND_AC_KEYS_SCHEMA,
+        "scene_set": SCENE_SET_SCHEMA,
+    }
+    for service, schema in schemas.items():
+        hass.services.async_register(
+            DOMAIN,
+            service,
+            _async_call_lifesmart_service,
+            schema=schema,
+        )
+    return True
 
 
 def _dispatch_doorlock_update(
@@ -201,8 +322,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
     if not isinstance(devices, list):
         raise ConfigEntryNotReady("LifeSmart device discovery failed")
 
-    _LOGGER.info(devices)
-
     # Work with local copies because Home Assistant registry metadata is not part of
     # the LifeSmart API response.
     devices = [dict(device) for device in devices]
@@ -233,15 +352,16 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
     # Register only after setup succeeds so retries do not leak listeners.
     update_listener = config_entry.add_update_listener(_async_update_listener)
 
-    hass.data[DOMAIN][config_entry.entry_id] = {
-        "client": lifesmart_client,
-        "exclude_devices": exclude_devices,
-        "exclude_hubs": exclude_hubs,
-        "ai_include_hubs": ai_include_hubs,
-        "ai_include_items": ai_include_items,
-        "devices": devices,
-        UPDATE_LISTENER: update_listener,
-    }
+    runtime_data = LifeSmartRuntimeData(
+        client=lifesmart_client,
+        devices=devices,
+        exclude_devices=exclude_devices,
+        exclude_hubs=exclude_hubs,
+        ai_include_hubs=ai_include_hubs,
+        ai_include_items=ai_include_items,
+        update_listener=update_listener,
+    )
+    config_entry.runtime_data = runtime_data
 
     def data_update_handler(msg):  # noqa: C901
         data = msg["msg"]
@@ -565,9 +685,12 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         data_update_handler(msg)
 
     def on_error(ws, error):
-        _LOGGER.error("Websocket_error: %s", str(error))
+        if runtime_data.connected:
+            _LOGGER.warning("LifeSmart websocket connection lost: %s", error)
+        runtime_data.set_connected(False, type(error).__name__)
 
     def on_close(ws, close_status_code, close_msg):
+        runtime_data.set_connected(False, f"closed:{close_status_code}")
         _LOGGER.debug(
             "lifesmart websocket closed...: %s %s",
             str(close_status_code),
@@ -575,97 +698,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         )
 
     def on_open(ws):
-        client = hass.data[DOMAIN][config_entry.entry_id]["client"]
+        was_unavailable = runtime_data.last_error is not None
+        runtime_data.set_connected(True)
+        client = runtime_data.client
         send_data = client.generate_wss_auth()
         ws.send(send_data)
+        if was_unavailable:
+            _LOGGER.info("LifeSmart websocket connection restored")
         _LOGGER.debug("LifeSmart websocket sending_data")
-
-    async def send_keys(call):
-        """Handle the service call."""
-        agt = call.data[HUB_ID_KEY]
-        me = call.data[DEVICE_ID_KEY]
-        ai = call.data["ai"]
-        category = call.data["category"]
-        brand = call.data["brand"]
-        keys = call.data["keys"]
-        restkey = await hass.data[DOMAIN][config_entry.entry_id][
-            "client"
-        ].send_ir_key_async(
-            agt,
-            ai,
-            me,
-            category,
-            brand,
-            keys,
-        )
-        _LOGGER.debug("sendkey: %s", str(restkey))
-
-    async def send_ir_code(call):
-        """Handle the service call."""
-        agt = call.data["hub_id"]
-        me = call.data["device_id"]
-        ir_code = call.data["ir_code"]
-        keys = json.dumps([{"param": {"data": str(ir_code), "type": 1}}])
-        lifesmart_client = cast(
-            LifeSmartClient, hass.data[DOMAIN][config_entry.entry_id]["client"]
-        )
-        restkey = await lifesmart_client.send_ir_code_async(
-            agt,
-            me,
-            keys,
-        )
-        _LOGGER.debug("sendkey: %s", str(restkey))
-
-    async def send_ackeys(call):
-        """Handle the service call."""
-        agt = call.data[HUB_ID_KEY]
-        me = call.data[DEVICE_ID_KEY]
-        ai = call.data["ai"]
-        category = call.data["category"]
-        brand = call.data["brand"]
-        keys = call.data["keys"]
-        idx = call.data.get("idx", "")
-        power = call.data["power"]
-        mode = call.data["mode"]
-        temp = call.data["temp"]
-        wind = call.data["wind"]
-        swing = call.data["swing"]
-        restackey = await hass.data[DOMAIN][config_entry.entry_id][
-            "client"
-        ].send_ir_ackey_async(
-            agt,
-            ai,
-            me,
-            category,
-            brand,
-            keys,
-            idx,
-            power,
-            mode,
-            temp,
-            wind,
-            swing,
-        )
-        _LOGGER.debug("sendkey: %s", str(restackey))
-
-    async def scene_set_async(call):
-        """Handle the service call."""
-        agt = call.data[HUB_ID_KEY]
-        id = call.data["id"]
-        restkey = await hass.data[DOMAIN][config_entry.entry_id][
-            "client"
-        ].set_scene_async(
-            agt,
-            id,
-        )
-        _LOGGER.debug("scene_set: %s", str(restkey))
-
-    hass.services.async_register(
-        DOMAIN, "send_ir_code", send_ir_code, schema=SEND_IR_CODE_SCHEMA
-    )
-    hass.services.async_register(DOMAIN, "send_keys", send_keys)
-    hass.services.async_register(DOMAIN, "send_ackeys", send_ackeys)
-    hass.services.async_register(DOMAIN, "scene_set", scene_set_async)
 
     ws = websocket.WebSocketApp(
         lifesmart_client.get_wss_url(),
@@ -675,7 +715,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         on_close=on_close,
     )
     state_manager = LifeSmartStatesManager(ws=ws)
-    hass.data[DOMAIN][config_entry.entry_id][LIFESMART_STATE_MANAGER] = state_manager
+    runtime_data.state_manager = state_manager
     state_manager.start_keep_alive()
 
     await hass.config_entries.async_forward_entry_setups(
@@ -693,19 +733,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not unload_ok:
         return False
 
-    domain_data = hass.data.get(DOMAIN, {})
-    entry_data = domain_data.pop(entry.entry_id, {})
-    state_manager = entry_data.get(LIFESMART_STATE_MANAGER)
+    runtime_data = entry.runtime_data
+    state_manager = runtime_data.state_manager
     if state_manager is not None:
         await hass.async_add_executor_job(state_manager.stop_keep_alive)
 
-    update_listener = entry_data.get(UPDATE_LISTENER)
+    update_listener = runtime_data.update_listener
     if callable(update_listener):
         update_listener()
-
-    if not domain_data:
-        for service in ("send_ir_code", "send_keys", "send_ackeys", "scene_set"):
-            hass.services.async_remove(DOMAIN, service)
 
     return True
 
@@ -761,7 +796,7 @@ def _migrate_legacy_device_identifiers(
             )
 
 
-class LifeSmartDevice(Entity):
+class LifeSmartDevice(LifeSmartAvailabilityMixin, Entity):
     """LifeSmart base device."""
 
     def __init__(self, dev, lifesmart_client) -> None:
