@@ -12,13 +12,29 @@
           "userid": "Email/User ID",
           "region": "LifeSmart Account Country/Region"
         }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect LifeSmart",
+        "description": "Enter updated credentials for your LifeSmart account.",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "User Password",
+          "userid": "Email/User ID",
+          "region": "LifeSmart Account Country/Region"
+        }
       }
     },
     "abort": {
       "already_in_progress": "Configuration is already in progress.",
-      "already_configured": "This device is already configured."
+      "already_configured": "This device is already configured.",
+      "unique_id_mismatch": "These credentials belong to a different LifeSmart account.",
+      "reauth_successful": "LifeSmart was reconnected successfully."
     },
     "error": {
+      "cannot_connect": "Unable to connect to LifeSmart. Please try again.",
+      "invalid_auth": "The LifeSmart credentials are invalid.",
+      "unknown": "Unexpected error. Please try again."
     }
   },
   "options": {
