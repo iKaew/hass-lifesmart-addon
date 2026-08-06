@@ -386,7 +386,7 @@ def test_dimmer_websocket_update_changes_entity_state():
 
     assert entity.is_on is True
     assert entity.brightness == 123
-    assert entity.color_temp == light_module.MAX_MIREDS
+    assert entity.color_temp_kelvin == light_module.MAX_COLOR_TEMP_KELVIN
     assert writes == [True, True]
 
 

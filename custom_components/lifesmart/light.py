@@ -572,10 +572,10 @@ class LifeSmartLight(LightEntity):
             self._state = _is_on_type(data.get("type"))
             self._brightness = data.get("val")
         elif data.get("idx") == "P2":
-            ratio = 1 - (data.get("val", 0) / 255)
-            self._color_temp = int(
-                (self._max_mireds - self._min_mireds) * ratio
-            ) + self._min_mireds
+            ratio = data.get("val", 0) / 255
+            self._attr_color_temp_kelvin = MAX_COLOR_TEMP_KELVIN - int(
+                (MAX_COLOR_TEMP_KELVIN - MIN_COLOR_TEMP_KELVIN) * ratio
+            )
         self.async_write_ha_state()
 
     @property
