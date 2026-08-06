@@ -2,10 +2,11 @@ name: Validate for HACS
 
 on:
   push:
+    branches:
+      - master
   pull_request:
-  schedule:
-    - cron: "0 0 * * *"
-  workflow_dispatch:
+    branches:
+      - master
 
 jobs:
   validate-hacs:
