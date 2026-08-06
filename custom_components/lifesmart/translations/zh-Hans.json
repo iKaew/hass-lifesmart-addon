@@ -12,13 +12,30 @@
           "userid": "邮箱/用户 ID",
           "region": "LifeSmart 账号国家/地区"
         }
+      },
+      "reauth_confirm": {
+        "title": "重新连接 LifeSmart",
+        "description": "请输入更新后的 LifeSmart 账号凭据。",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "用户密码",
+          "userid": "邮箱/用户 ID",
+          "region": "LifeSmart 账号国家/地区"
+        }
       }
     },
     "abort": {
       "already_in_progress": "配置已在进行中。",
-      "already_configured": "此设备已配置。"
+      "already_configured": "此设备已配置。",
+      "unique_id_mismatch": "这些凭据属于另一个 LifeSmart 账号。",
+      "reauth_successful": "LifeSmart 已成功重新连接。"
     },
-    "error": {}
+    "error": {
+      "cannot_connect": "无法连接到 LifeSmart，请重试。",
+      "invalid_auth": "LifeSmart 凭据无效。",
+      "unknown": "发生意外错误，请重试。"
+    }
   },
   "options": {
     "step": {

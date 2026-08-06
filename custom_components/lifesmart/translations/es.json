@@ -12,13 +12,30 @@
           "userid": "Correo electrónico/ID de usuario",
           "region": "País/región de la cuenta LifeSmart"
         }
+      },
+      "reauth_confirm": {
+        "title": "Volver a conectar LifeSmart",
+        "description": "Introduce las credenciales actualizadas de tu cuenta LifeSmart.",
+        "data": {
+          "appkey": "App Key",
+          "apptoken": "App Token",
+          "userpassword": "Contraseña de usuario",
+          "userid": "Correo electrónico/ID de usuario",
+          "region": "País/región de la cuenta LifeSmart"
+        }
       }
     },
     "abort": {
       "already_in_progress": "La configuración ya está en curso.",
-      "already_configured": "Este dispositivo ya está configurado."
+      "already_configured": "Este dispositivo ya está configurado.",
+      "unique_id_mismatch": "Estas credenciales pertenecen a otra cuenta de LifeSmart.",
+      "reauth_successful": "LifeSmart se ha vuelto a conectar correctamente."
     },
-    "error": {}
+    "error": {
+      "cannot_connect": "No se puede conectar con LifeSmart. Inténtalo de nuevo.",
+      "invalid_auth": "Las credenciales de LifeSmart no son válidas.",
+      "unknown": "Error inesperado. Inténtalo de nuevo."
+    }
   },
   "options": {
     "step": {
