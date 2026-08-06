@@ -664,13 +664,10 @@ def test_on_message_updates_cover_and_light_and_sensor_states(monkeypatch):
     ]:
         ws.on_message(ws, json.dumps({"type": "io", "msg": payload}))
 
-    assert dispatch_calls == []
-    assert hass.states.get(cover_entity).state == "open"
-    assert hass.states.get(cover_entity).attributes["current_position"] == 64
-    assert hass.states.get(light_entity).state == STATE_ON
-    assert hass.states.get(light_entity).attributes[ATTR_BRIGHTNESS] == 123
-    assert hass.states.get(plug_entity).state == 17
-    assert hass.states.get(water_entity).state == 88
+    assert [call[0] for call in dispatch_calls] == [
+        f"{lifesmart_init.LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}"
+        for entity_id in (cover_entity, light_entity, plug_entity, water_entity)
+    ]
 
 
 def test_on_message_routes_nature_thermostat_and_ignores_non_io(monkeypatch):
@@ -1061,19 +1058,18 @@ def test_on_message_applies_direct_state_updates(monkeypatch):
     ]:
         send_ws_device_update(ws, payload)
 
-    assert dispatch_calls == []
-
-
-    assert hass.states.get(cover_entity).state == "opening"
-    assert hass.states.get(cover_entity).attributes["current_position"] == 45
-    assert hass.states.get(garage_entity).state == "closing"
-    assert hass.states.get(garage_entity).attributes["current_position"] == 10
-    assert hass.states.get(light_entity).state == STATE_ON
-    assert hass.states.get(light_entity).attributes[ATTR_COLOR_TEMP_KELVIN] == 6500
-    assert hass.states.get(plug_switch_entity).state == STATE_ON
-    assert hass.states.get(plug_sensor_entity).state == 42
-    assert hass.states.get(ot_entity).state == 99
-    assert hass.states.get(gas_entity).state == 7
+    assert [call[0] for call in dispatch_calls] == [
+        f"{lifesmart_init.LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}"
+        for entity_id in (
+            cover_entity,
+            garage_entity,
+            light_entity,
+            plug_switch_entity,
+            plug_sensor_entity,
+            ot_entity,
+            gas_entity,
+        )
+    ]
 
 
 def test_on_message_updates_user_renamed_registry_entity(monkeypatch):
@@ -1111,8 +1107,9 @@ def test_on_message_updates_user_renamed_registry_entity(monkeypatch):
         },
     )
 
-    assert hass.states.get(renamed_entity_id).state == STATE_ON
-    assert hass.states.get(unique_id) is None
+    assert _dispatch_calls[0][0] == (
+        f"{lifesmart_init.LIFESMART_SIGNAL_UPDATE_ENTITY}_{unique_id}"
+    )
 
 
 def test_on_message_skips_direct_state_updates_for_missing_entities(monkeypatch):
@@ -1202,7 +1199,7 @@ def test_on_message_skips_direct_state_updates_for_missing_entities(monkeypatch)
     ]:
         send_ws_device_update(ws, payload)
 
-    assert dispatch_calls == []
+    assert len(dispatch_calls) == 8
     assert hass.states._states == {}
 
 

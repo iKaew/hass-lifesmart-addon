@@ -371,6 +371,25 @@ def test_generic_light_and_dimmer_branches(monkeypatch):
     assert client.off_calls[-1] == ("RGB", "HUB1", "RGB1")
 
 
+def test_dimmer_websocket_update_changes_entity_state():
+    raw = make_device(
+        "SL_LI_WW", {"P1": {"type": 0, "val": 0}, "P2": {"val": 80}}
+    )
+    entity = light_module.LifeSmartLight(
+        FakeBaseDevice(), raw, "P1P2", raw["data"], FakeClient()
+    )
+    writes = []
+    entity.async_write_ha_state = lambda: writes.append(True)
+
+    asyncio.run(entity._update_state({"idx": "P1", "type": "0x81", "val": 123}))
+    asyncio.run(entity._update_state({"idx": "P2", "type": 1, "val": 0}))
+
+    assert entity.is_on is True
+    assert entity.brightness == 123
+    assert entity.color_temp_kelvin == light_module.MAX_COLOR_TEMP_KELVIN
+    assert writes == [True, True]
+
+
 def test_sl_li_ww_power_uses_wrapped_lifesmart_device():
     client = FakeClient()
     base_device = FakeBaseDevice()

@@ -8,6 +8,7 @@ from homeassistant.components.cover import (
     CoverEntity,
     CoverEntityFeature,
 )
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from . import LifeSmartDevice, configure_entity_identity, generate_entity_id
 from .const import (
@@ -18,9 +19,18 @@ from .const import (
     DEVICE_TYPE_KEY,
     DOMAIN,
     HUB_ID_KEY,
+    LIFESMART_SIGNAL_UPDATE_ENTITY,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _is_on_type(value) -> bool:
+    """Return whether a LifeSmart type value indicates movement."""
+    try:
+        return int(str(value), 0) % 2 == 1
+    except (TypeError, ValueError):
+        return False
 
 # Device type specific configurations for curtain control
 CURTAIN_DEVICE_CONFIG = {
@@ -179,6 +189,24 @@ class LifeSmartCover(CoverEntity):
 
         self._attr_name = device_name
         self._attr_device_class = device_config.get("device_class", CoverDeviceClass.CURTAIN)
+
+    async def async_added_to_hass(self) -> None:
+        """Register for push updates."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self.unique_id}",
+                self._async_update_state,
+            )
+        )
+
+    async def _async_update_state(self, data) -> None:
+        """Apply a position update from the websocket."""
+        value = data.get("val", 0)
+        self._pos = value & 0x7F
+        self._moving = _is_on_type(data.get("type"))
+        self._opening = self._moving and value & 0x80 == 0x80
+        self.async_write_ha_state()
 
     @property
     def should_poll(self):
