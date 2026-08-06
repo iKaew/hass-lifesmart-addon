@@ -10,14 +10,8 @@ from typing import cast
 import voluptuous as vol
 import websocket
 from homeassistant.components.climate import FAN_HIGH, FAN_LOW, FAN_MEDIUM
-from homeassistant.components.light import (
-    ATTR_BRIGHTNESS,
-    ATTR_COLOR_TEMP_KELVIN,
-    ATTR_MAX_COLOR_TEMP_KELVIN,
-    ATTR_MIN_COLOR_TEMP_KELVIN,
-)
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_REGION, STATE_OFF, STATE_ON, Platform
+from homeassistant.const import CONF_REGION, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.dispatcher import dispatcher_send
@@ -108,34 +102,6 @@ SEND_IR_CODE_SCHEMA = vol.Schema(
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _state_for_direct_update(hass, entity_id):
-    """Return an existing HA state object for direct websocket updates."""
-    resolved_entity_id = _resolve_registry_entity_id(hass, entity_id)
-    state = hass.states.get(resolved_entity_id)
-    if state is None:
-        _LOGGER.debug(
-            "Skipping websocket direct state update for missing entity: %s", entity_id
-        )
-    return state
-
-
-def _resolve_registry_entity_id(hass, unique_id):
-    """Resolve a stable LifeSmart unique ID to its current registry entity ID."""
-    domain, _ = unique_id.split(".", 1)
-    ent_reg = entity_registry.async_get(hass)
-    lookup = getattr(ent_reg, "async_get_entity_id", None)
-    if lookup is None:
-        return unique_id
-    return lookup(domain, DOMAIN, unique_id) or unique_id
-
-
-def _set_direct_state(hass, unique_id, state, attributes):
-    """Set state using the entity's current registry ID."""
-    hass.states.set(
-        _resolve_registry_entity_id(hass, unique_id), state, attributes
-    )
 
 
 def _dispatch_doorlock_update(
@@ -376,11 +342,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                         hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
                     )
                 elif sub_device_key == "V":
-                    entity_state = _state_for_direct_update(hass, entity_id)
-                    if entity_state is None:
-                        return
-                    attrs = entity_state.attributes
-                    _set_direct_state(hass, entity_id, data["v"], attrs)
+                    dispatcher_send(hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data)
             elif (
                 device_type in RADAR_MOTION_SENSOR_TYPES
                 and sub_device_key == "P1"
@@ -513,68 +475,19 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                 or device_type in GARAGE_DOOR_TYPES
                 and sub_device_key == "P2"
             ):
-                entity_state = _state_for_direct_update(hass, entity_id)
-                if entity_state is None:
-                    return
-                attrs = dict(entity_state.attributes)
-                nval = data["val"]
-                ntype = data["type"]
-                attrs["current_position"] = nval & 0x7F
-                # _LOGGER.debug("websocket_cover_attrs: %s",str(attrs))
-                nstat = None
-                if not _is_on_type(ntype):
-                    if nval > 0:
-                        nstat = "open"
-                    else:
-                        nstat = "closed"
-                elif nval & 0x80 == 0x80:
-                    nstat = "opening"
-                else:
-                    nstat = "closing"
-                _set_direct_state(hass, entity_id, nstat, attrs)
+                dispatcher_send(hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data)
             elif device_type in EV_SENSOR_TYPES:
                 dispatcher_send(
                     hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
                 )
             elif device_type in GAS_SENSOR_TYPES and data["val"] > 0:
-                entity_state = _state_for_direct_update(hass, entity_id)
-                if entity_state is None:
-                    return
-                attrs = entity_state.attributes
-                _set_direct_state(hass, entity_id, data["val"], attrs)
+                dispatcher_send(hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data)
             elif device_type in SPOT_TYPES or device_type in LIGHT_SWITCH_TYPES:
                 dispatcher_send(
                     hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data
                 )
             elif device_type in LIGHT_DIMMER_TYPES:
-                entity_state = _state_for_direct_update(hass, entity_id)
-                if entity_state is None:
-                    return
-                attrs = dict(entity_state.attributes)
-                state = entity_state.state
-                _LOGGER.debug("websocket_light_msg: %s ", str(msg))
-                _LOGGER.debug("websocket_light_attrs: %s", str(attrs))
-                value = data["val"]
-                idx = sub_device_key
-                if idx in ["P1"]:
-                    if _is_on_type(data["type"]):
-                        attrs[ATTR_BRIGHTNESS] = value
-                        _set_direct_state(hass, entity_id, STATE_ON, attrs)
-                    else:
-                        _set_direct_state(hass, entity_id, STATE_OFF, attrs)
-                elif idx in ["P2"]:
-                    ratio = 1 - (value / 255)
-                    attrs[ATTR_COLOR_TEMP_KELVIN] = (
-                        int(
-                            (
-                                attrs[ATTR_MAX_COLOR_TEMP_KELVIN]
-                                - attrs[ATTR_MIN_COLOR_TEMP_KELVIN]
-                            )
-                            * ratio
-                        )
-                        + attrs[ATTR_MIN_COLOR_TEMP_KELVIN]
-                    )
-                    _set_direct_state(hass, entity_id, state, attrs)
+                dispatcher_send(hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data)
 
             elif device_type in CLIMATE_TYPES:
                 dispatcher_send(
@@ -604,27 +517,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                 "P3",
                 "P4",
             ]:
-                entity_state = _state_for_direct_update(hass, entity_id)
-                if entity_state is None:
-                    return
-                attrs = entity_state.attributes
-                _set_direct_state(hass, entity_id, data["v"], attrs)
+                dispatcher_send(hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data)
             elif device_type in SMART_PLUG_TYPES:
-                if sub_device_key == "P1":
-                    entity_state = _state_for_direct_update(hass, entity_id)
-                    if entity_state is None:
-                        return
-                    attrs = entity_state.attributes
-                    if _is_on_type(data["type"]):
-                        _set_direct_state(hass, entity_id, STATE_ON, attrs)
-                    else:
-                        _set_direct_state(hass, entity_id, STATE_OFF, attrs)
-                elif sub_device_key in ["P2", "P3"]:
-                    entity_state = _state_for_direct_update(hass, entity_id)
-                    if entity_state is None:
-                        return
-                    attrs = entity_state.attributes
-                    _set_direct_state(hass, entity_id, data["v"], attrs)
+                if sub_device_key in ["P1", "P2", "P3"]:
+                    dispatcher_send(hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data)
             else:
                 _LOGGER.debug("Event is not supported")
 

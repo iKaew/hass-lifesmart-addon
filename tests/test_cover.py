@@ -99,5 +99,32 @@ def test_cover_properties_and_commands():
     asyncio.run(func_cover.async_stop_cover())
     asyncio.run(func_cover.async_set_cover_position(position=50))
 
-    assert pos_device.calls == [("0xCF", 0, "P2"), ("0xCF", 100, "P2"), ("0xCE", 128, "P2"), ("0xCE", 25, "P2")]
-    assert func_device.calls == [("0x81", 1, "P3"), ("0x81", 1, "P1"), ("0x81", 1, "P2")]
+    assert pos_device.calls == [
+        ("0xCF", 0, "P2"),
+        ("0xCF", 100, "P2"),
+        ("0xCE", 128, "P2"),
+        ("0xCE", 25, "P2"),
+    ]
+    assert func_device.calls == [
+        ("0x81", 1, "P3"),
+        ("0x81", 1, "P1"),
+        ("0x81", 1, "P2"),
+    ]
+
+
+def test_cover_websocket_update_changes_entity_state():
+    cover = cover_module.LifeSmartCover(
+        FakeDevice(),
+        make_device("SL_DOOYA", {"P1": {"type": 0, "val": 0}}),
+        "P1",
+        {"type": 0, "val": 0},
+        cover_module.CURTAIN_DEVICE_CONFIG["SL_DOOYA"],
+    )
+    writes = []
+    cover.async_write_ha_state = lambda: writes.append(True)
+
+    asyncio.run(cover._async_update_state({"type": "0x81", "val": 0x80 | 45}))
+
+    assert cover.current_cover_position == 45
+    assert cover.is_opening is True
+    assert writes == [True]

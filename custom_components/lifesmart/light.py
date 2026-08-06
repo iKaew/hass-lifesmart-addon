@@ -558,6 +558,13 @@ class LifeSmartLight(LightEntity):
 
     async def async_added_to_hass(self):
         """Add to Hass."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{self._signal_entity_id}",
+                self._update_state,
+            )
+        )
         if self.device_type not in SPOT_TYPES:
             return
         rmdata = {}
@@ -572,6 +579,20 @@ class LifeSmartLight(LightEntity):
             rmdata[device_id] = rms
         _LOGGER.debug("Remote List: %s", str(rmdata))
         # self.attribution ["remotelist"] = rmdata
+
+    async def _update_state(self, data) -> None:
+        """Apply a websocket update to this entity."""
+        if data is None or self.device_type not in LIGHT_DIMMER_TYPES:
+            return
+        if data.get("idx") == "P1":
+            self._state = _is_on_type(data.get("type"))
+            self._brightness = data.get("val")
+        elif data.get("idx") == "P2":
+            ratio = 1 - (data.get("val", 0) / 255)
+            self._color_temp = int(
+                (self._max_mireds - self._min_mireds) * ratio
+            ) + self._min_mireds
+        self.async_write_ha_state()
 
     @property
     def is_on(self):
