@@ -38,6 +38,11 @@ class LifeSmartRuntimeData:
         self.connected = connected
         self.last_error = error
         for entity in tuple(self.entities):
+            # The websocket can connect while platforms are still adding their
+            # entities. An entity without hass has no event loop to schedule on;
+            # once added, it reads the current availability from this runtime.
+            if getattr(entity, "hass", None) is None:
+                continue
             entity.schedule_update_ha_state()
 
 

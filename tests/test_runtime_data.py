@@ -7,8 +7,9 @@ from custom_components.lifesmart.const import DOMAIN
 
 
 class FakeEntity(LifeSmartAvailabilityMixin):
-    def __init__(self, writes):
+    def __init__(self, writes, hass=object()):
         self._writes = writes
+        self.hass = hass
 
     def schedule_update_ha_state(self):
         self._writes.append(True)
@@ -45,6 +46,18 @@ def test_runtime_ignores_unchanged_connection_state():
     runtime.set_connected(True)
 
     assert writes == [True]
+
+
+def test_runtime_does_not_schedule_entity_before_home_assistant_adds_it():
+    writes = []
+    entity = FakeEntity(writes, hass=None)
+    runtime = LifeSmartRuntimeData(client=None, devices=[])
+    runtime.track_entities([entity])
+
+    runtime.set_connected(True)
+
+    assert entity.available is True
+    assert writes == []
 
 
 def test_entity_is_available_before_it_is_tracked():
