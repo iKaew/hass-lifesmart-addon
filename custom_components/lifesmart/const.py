@@ -218,6 +218,7 @@ SUPPORTED_PLATFORMS = [
     Platform.REMOTE,
     Platform.INFRARED,
     Platform.CLIMATE,
+    Platform.BUTTON,
 ]
 AIR_CONDITIONER_TYPES = [
     "V_AIR_P",

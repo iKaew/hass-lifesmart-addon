@@ -195,6 +195,9 @@ class FakeLifeSmartClient:
     instances = []
     login_response = {"code": "success"}
     devices_response = []
+    hubs_response = []
+    system_info_response = {}
+    timezone_response = {}
 
     def __init__(self, region, appkey, apptoken, userid, userpassword):
         self.region = region
@@ -214,6 +217,15 @@ class FakeLifeSmartClient:
     async def get_all_device_async(self):
         self.device_calls += 1
         return self.devices_response
+
+    async def get_all_hubs_async(self):
+        return self.hubs_response
+
+    async def get_hub_system_info_async(self, hub_id):
+        return self.system_info_response
+
+    async def get_hub_timezone_async(self, hub_id):
+        return self.timezone_response
 
     def get_wss_url(self):
         return "wss://example.invalid/wsapp/"
@@ -265,6 +277,9 @@ def setup_entry_for_ws_tests(
 
     FakeLifeSmartClient.login_response = {"code": "success"}
     FakeLifeSmartClient.devices_response = devices
+    FakeLifeSmartClient.hubs_response = []
+    FakeLifeSmartClient.system_info_response = {}
+    FakeLifeSmartClient.timezone_response = {}
     patch_setup_dependencies(monkeypatch, device_reg, entity_registry_instance)
     monkeypatch.setattr(
         lifesmart_init,
@@ -377,6 +392,9 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     )
     device_reg = FakeDeviceRegistry()
     FakeLifeSmartClient.login_response = {"code": "success"}
+    FakeLifeSmartClient.hubs_response = []
+    FakeLifeSmartClient.system_info_response = {}
+    FakeLifeSmartClient.timezone_response = {}
     FakeLifeSmartClient.devices_response = [
         {HUB_ID_KEY: "HUB1"},
         {HUB_ID_KEY: "HUB2"},
@@ -423,6 +441,7 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     assert runtime.ai_include_hubs == []
     assert runtime.ai_include_items == []
     assert runtime.update_listener == "listener-token"
+    assert {hub[HUB_ID_KEY] for hub in runtime.hubs} == {"HUB1", "HUB2"}
     assert config_entry.update_listener is lifesmart_init._async_update_listener
     assert len(device_reg.created) == 2
     assert {entry["name"] for entry in device_reg.created} == {
@@ -449,6 +468,70 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     ws.on_error(ws, RuntimeError("offline"))
     assert runtime.connected is False
     assert runtime.last_error == "RuntimeError"
+
+
+def test_async_setup_entry_adds_cloud_hub_metadata(monkeypatch):
+    hass = FakeHass()
+    config_entry = make_config_entry()
+    device_reg = FakeDeviceRegistry()
+    FakeLifeSmartClient.login_response = {"code": "success"}
+    FakeLifeSmartClient.devices_response = []
+    FakeLifeSmartClient.hubs_response = [
+        {
+            HUB_ID_KEY: "HUB1",
+            "name": "Living Room Hub",
+            "agt_ver": "1.2.3",
+            "stat": 1,
+        }
+    ]
+    FakeLifeSmartClient.system_info_response = {
+        "mac": "AA-BB-CC-DD-EE-FF",
+        "ip": "192.168.1.20",
+    }
+    FakeLifeSmartClient.timezone_response = {"tmzone": 7}
+    patch_setup_dependencies(monkeypatch, device_reg)
+
+    assert asyncio.run(lifesmart_init.async_setup_entry(hass, config_entry)) is True
+
+    assert config_entry.runtime_data.hubs == [
+        {
+            **FakeLifeSmartClient.hubs_response[0],
+            "mac": "aa:bb:cc:dd:ee:ff",
+            "ip": "192.168.1.20",
+            "tmzone": 7,
+        }
+    ]
+    assert device_reg.created == [
+        {
+            "config_entry_id": "entry-1",
+            "identifiers": {(DOMAIN, "HUB1")},
+            "connections": {("mac", "aa:bb:cc:dd:ee:ff")},
+            "name": "Living Room Hub",
+            "manufacturer": "LifeSmart",
+            "model": "Hub",
+            "sw_version": "1.2.3",
+        }
+    ]
+
+
+def test_async_setup_entry_ignores_invalid_hub_network_metadata(monkeypatch):
+    hass = FakeHass()
+    config_entry = make_config_entry()
+    device_reg = FakeDeviceRegistry()
+    FakeLifeSmartClient.login_response = {"code": "success"}
+    FakeLifeSmartClient.devices_response = []
+    FakeLifeSmartClient.hubs_response = [{HUB_ID_KEY: "HUB1"}]
+    FakeLifeSmartClient.system_info_response = {
+        "mac": "not-a-mac",
+        "ip": "not-an-ip",
+    }
+    FakeLifeSmartClient.timezone_response = {"code": 500}
+    patch_setup_dependencies(monkeypatch, device_reg)
+
+    assert asyncio.run(lifesmart_init.async_setup_entry(hass, config_entry)) is True
+
+    assert config_entry.runtime_data.hubs == [{HUB_ID_KEY: "HUB1"}]
+    assert "connections" not in device_reg.created[0]
 
 
 def test_central_service_handler_resolves_runtime_by_device():

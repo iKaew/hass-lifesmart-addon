@@ -109,6 +109,12 @@
     }
   },
   "exceptions": {
+    "hub_restart_failed": {
+      "message": "ไม่สามารถรีสตาร์ทฮับ LifeSmart ได้"
+    },
+    "hub_restart_rejected": {
+      "message": "LifeSmart ปฏิเสธคำขอรีสตาร์ทฮับ"
+    },
     "service_target_not_found": {
       "message": "เป้าหมายไม่ได้อยู่ในบัญชี LifeSmart ที่โหลดไว้เพียงบัญชีเดียว"
     },
@@ -117,6 +123,23 @@
     },
     "service_action_rejected": {
       "message": "LifeSmart ปฏิเสธการเรียกใช้บริการ"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "hub_status": {
+        "name": "สถานะ",
+        "state": {
+          "offline": "ออฟไลน์",
+          "initializing": "กำลังเริ่มต้น",
+          "online": "ออนไลน์"
+        }
+      }
+    },
+    "button": {
+      "restart_hub": {
+        "name": "รีสตาร์ท"
+      }
     }
   },
   "services": {

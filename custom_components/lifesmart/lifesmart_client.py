@@ -60,6 +60,98 @@ class LifeSmartClient:
             return response["message"]
         return response
 
+    async def get_all_hubs_async(self):
+        """Get all LifeSmart hubs belonging to the current user."""
+        url = self.get_api_url() + "/api.EpGetAllAgts"
+        tick = int(time.time())
+        sdata = "method:EpGetAllAgts," + self.__generate_time_and_credential_data(
+            tick
+        )
+        send_values = {
+            "id": self._next_request_id(),
+            "method": "EpGetAllAgts",
+            "system": self.__generate_system_request_body(tick, sdata),
+        }
+        response = await self._post_json(url, send_values)
+        _LOGGER.debug("EpGetAllAgts_res: %s", response)
+        if response.get("code") == 0:
+            return response.get("message", [])
+        return response
+
+    async def get_hub_state_async(self, agt):
+        """Get the current state of a LifeSmart hub."""
+        url = self.get_api_url() + "/api.EpGetAgtState"
+        tick = int(time.time())
+        sdata = (
+            "method:EpGetAgtState,agt:"
+            + agt
+            + ","
+            + self.__generate_time_and_credential_data(tick)
+        )
+        send_values = {
+            "id": self._next_request_id(),
+            "method": "EpGetAgtState",
+            "params": {"agt": agt},
+            "system": self.__generate_system_request_body(tick, sdata),
+        }
+        response = await self._post_json(url, send_values)
+        _LOGGER.debug("EpGetAgtState_res for agt=%s: %s", agt, response)
+        if response.get("code") == 0:
+            return response.get("message", {})
+        return response
+
+    async def reboot_hub_async(self, agt):
+        """Restart a LifeSmart hub."""
+        url = self.get_api_url() + "/api.EpRebootAgt"
+        tick = int(time.time())
+        sdata = (
+            "method:EpRebootAgt,agt:"
+            + agt
+            + ","
+            + self.__generate_time_and_credential_data(tick)
+        )
+        send_values = {
+            "id": self._next_request_id(),
+            "method": "EpRebootAgt",
+            "params": {"agt": agt},
+            "system": self.__generate_system_request_body(tick, sdata),
+        }
+        response = await self._post_json(url, send_values)
+        _LOGGER.debug("EpRebootAgt_res for agt=%s: %s", agt, response)
+        return response
+
+    async def _get_hub_config_async(self, agt, action):
+        """Query a non-sensitive Smart Station configuration value."""
+        url = self.get_api_url() + "/api.EpConfigAgt"
+        tick = int(time.time())
+        sdata = (
+            "method:EpConfigAgt,act:"
+            + action
+            + ",agt:"
+            + agt
+            + ","
+            + self.__generate_time_and_credential_data(tick)
+        )
+        send_values = {
+            "id": self._next_request_id(),
+            "method": "EpConfigAgt",
+            "params": {"agt": agt, "act": action},
+            "system": self.__generate_system_request_body(tick, sdata),
+        }
+        response = await self._post_json(url, send_values)
+        _LOGGER.debug("EpConfigAgt %s response for agt=%s: %s", action, agt, response)
+        if response.get("code") == 0:
+            return response.get("message", {})
+        return response
+
+    async def get_hub_system_info_async(self, agt):
+        """Get the hub MAC and IP addresses through the cloud API."""
+        return await self._get_hub_config_async(agt, "querySys")
+
+    async def get_hub_timezone_async(self, agt):
+        """Get the configured hub time zone through the cloud API."""
+        return await self._get_hub_config_async(agt, "queryTimezone")
+
     async def get_all_scene_async(self, agt):
         """Get all scenes belong to current user."""
         url = self.get_api_url() + "/api.SceneGet"

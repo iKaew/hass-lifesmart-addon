@@ -285,6 +285,55 @@ def test_device_and_scene_calls_return_api_payloads_for_success_and_failure():
     assert failed_scenes is False
 
 
+def test_hub_methods_build_expected_cloud_api_requests():
+    client = FakeLifeSmartClient(
+        post_responses=[
+            '{"code":0,"message":[{"agt":"HUB1","agt_ver":"1.2.3"}]}',
+            '{"code":0,"message":{"state":2,"agt_ver":"1.2.3"}}',
+            '{"code":0,"message":"success"}',
+        ]
+    )
+    client._usertoken = "usertoken"
+
+    hubs = asyncio.run(client.get_all_hubs_async())
+    status = asyncio.run(client.get_hub_state_async("HUB1"))
+    reboot = asyncio.run(client.reboot_hub_async("HUB1"))
+
+    payloads = [json.loads(call[1]) for call in client.post_calls]
+    assert hubs == [{"agt": "HUB1", "agt_ver": "1.2.3"}]
+    assert status == {"state": 2, "agt_ver": "1.2.3"}
+    assert reboot == {"code": 0, "message": "success"}
+    assert [payload["method"] for payload in payloads] == [
+        "EpGetAllAgts",
+        "EpGetAgtState",
+        "EpRebootAgt",
+    ]
+    assert "params" not in payloads[0]
+    assert payloads[1]["params"] == {"agt": "HUB1"}
+    assert payloads[2]["params"] == {"agt": "HUB1"}
+
+
+def test_hub_metadata_methods_query_only_non_sensitive_values():
+    client = FakeLifeSmartClient(
+        post_responses=[
+            '{"code":0,"message":{"mac":"AABBCCDDEEFF","ip":"192.168.1.20"}}',
+            '{"code":0,"message":{"tmzone":7}}',
+        ]
+    )
+    client._usertoken = "usertoken"
+
+    system_info = asyncio.run(client.get_hub_system_info_async("HUB1"))
+    timezone = asyncio.run(client.get_hub_timezone_async("HUB1"))
+
+    payloads = [json.loads(call[1]) for call in client.post_calls]
+    assert system_info == {"mac": "AABBCCDDEEFF", "ip": "192.168.1.20"}
+    assert timezone == {"tmzone": 7}
+    assert [payload["params"] for payload in payloads] == [
+        {"agt": "HUB1", "act": "querySys"},
+        {"agt": "HUB1", "act": "queryTimezone"},
+    ]
+
+
 def test_scene_and_ir_send_methods_build_expected_payloads():
     client = FakeLifeSmartClient(
         post_responses=[

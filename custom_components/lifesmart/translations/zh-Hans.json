@@ -109,6 +109,12 @@
     }
   },
   "exceptions": {
+    "hub_restart_failed": {
+      "message": "无法重启 LifeSmart 网关。"
+    },
+    "hub_restart_rejected": {
+      "message": "LifeSmart 拒绝了网关重启请求。"
+    },
     "service_target_not_found": {
       "message": "目标未明确属于一个已加载的 LifeSmart 账号。"
     },
@@ -117,6 +123,23 @@
     },
     "service_action_rejected": {
       "message": "LifeSmart 拒绝了该服务操作。"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "hub_status": {
+        "name": "状态",
+        "state": {
+          "offline": "离线",
+          "initializing": "正在初始化",
+          "online": "在线"
+        }
+      }
+    },
+    "button": {
+      "restart_hub": {
+        "name": "重启"
+      }
     }
   },
   "services": {
