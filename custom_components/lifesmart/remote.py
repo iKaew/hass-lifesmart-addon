@@ -29,6 +29,7 @@ from .const import (
     HUB_ID_KEY,
     SPOT_TYPES,
 )
+from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,10 +41,11 @@ DEFAULT_COMMAND_TYPE = "ir"
 
 async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entities):
     """Setup remote entities."""
-    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
-    exclude_devices = hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"]
-    exclude_hubs = hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"]
-    client = hass.data[DOMAIN][config_entry.entry_id]["client"]
+    runtime = get_runtime_data(hass, config_entry)
+    devices = runtime.devices
+    exclude_devices = runtime.exclude_devices
+    exclude_hubs = runtime.exclude_hubs
+    client = runtime.client
     remote_devices = []
 
     for device in devices:
@@ -61,10 +63,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
         ha_device = LifeSmartDevice(device, client)
         remote_devices.append(LifeSmartSPOTRemote(ha_device, device, client))
 
+    runtime.track_entities(remote_devices)
     async_add_entities(remote_devices)
 
 
-class LifeSmartSPOTRemote(RemoteEntity):
+class LifeSmartSPOTRemote(LifeSmartAvailabilityMixin, RemoteEntity):
     """Representation of a LifeSmart SPOT IR remote control."""
 
     def __init__(self, ha_device, raw_device_data, client):

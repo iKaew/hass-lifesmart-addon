@@ -26,10 +26,8 @@ from custom_components.lifesmart.const import (
     HUB_ID_KEY,
     HUB_DEVICE_REGISTRY_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
-    LIFESMART_STATE_MANAGER,
     NATURE_CLIMATE_KEY,
     SUBDEVICE_INDEX_KEY,
-    UPDATE_LISTENER,
 )
 
 lifesmart_init = importlib.import_module("custom_components.lifesmart")
@@ -41,6 +39,7 @@ class FakeConfigEntry:
         self.options = options or {}
         self.entry_id = entry_id
         self.update_listener = None
+        self.runtime_data = None
 
     def add_update_listener(self, listener):
         self.update_listener = listener
@@ -57,6 +56,10 @@ class FakeConfigEntriesManager:
         self.forward_calls = []
         self.reload_calls = []
         self.unload_calls = []
+        self.entries = []
+
+    def async_entries(self, domain):
+        return self.entries
 
     async def async_forward_entry_setups(self, config_entry, platforms):
         self.forward_calls.append((config_entry, tuple(platforms)))
@@ -180,6 +183,7 @@ class FakeLifeSmartClient:
         self.userpassword = userpassword
         self.login_calls = 0
         self.device_calls = 0
+        self.service_calls = []
         FakeLifeSmartClient.instances.append(self)
 
     async def login_async(self):
@@ -195,6 +199,10 @@ class FakeLifeSmartClient:
 
     def generate_wss_auth(self):
         return '{"id": 1, "method": "WbAuth"}'
+
+    async def send_ir_code_async(self, *args):
+        self.service_calls.append(("send_ir_code", args))
+        return 0
 
 
 def make_config_entry(options=None):
@@ -274,6 +282,7 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     ]
     patch_setup_dependencies(monkeypatch, device_reg)
 
+    assert asyncio.run(lifesmart_init.async_setup(hass, {})) is True
     result = asyncio.run(lifesmart_init.async_setup_entry(hass, config_entry))
 
     assert result is True
@@ -293,8 +302,9 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     )
     assert client.login_calls == 1
     assert client.device_calls == 1
-    assert hass.data[DOMAIN][config_entry.entry_id]["client"] is client
-    stored_devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
+    runtime = config_entry.runtime_data
+    assert runtime.client is client
+    stored_devices = runtime.devices
     assert [device[HUB_ID_KEY] for device in stored_devices] == [
         "HUB1",
         "HUB2",
@@ -306,11 +316,11 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     assert stored_devices[0][HUB_DEVICE_REGISTRY_ID_KEY] != stored_devices[1][
         HUB_DEVICE_REGISTRY_ID_KEY
     ]
-    assert hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"] == []
-    assert hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"] == []
-    assert hass.data[DOMAIN][config_entry.entry_id]["ai_include_hubs"] == []
-    assert hass.data[DOMAIN][config_entry.entry_id]["ai_include_items"] == []
-    assert hass.data[DOMAIN][config_entry.entry_id][UPDATE_LISTENER] == "listener-token"
+    assert runtime.exclude_devices == []
+    assert runtime.exclude_hubs == []
+    assert runtime.ai_include_hubs == []
+    assert runtime.ai_include_items == []
+    assert runtime.update_listener == "listener-token"
     assert config_entry.update_listener is lifesmart_init._async_update_listener
     assert len(device_reg.created) == 2
     assert {entry["name"] for entry in device_reg.created} == {
@@ -326,13 +336,200 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     assert hass.config_entries.forward_calls == [
         (config_entry, tuple(lifesmart_init.SUPPORTED_PLATFORMS))
     ]
-    manager = hass.data[DOMAIN][config_entry.entry_id][LIFESMART_STATE_MANAGER]
+    manager = runtime.state_manager
     assert isinstance(manager, FakeStatesManager)
     assert manager.started is True
     ws = FakeWebSocketApp.instances[0]
     assert ws.url == "wss://example.invalid/wsapp/"
     ws.on_open(ws)
     assert ws.sent == ['{"id": 1, "method": "WbAuth"}']
+    assert runtime.connected is True
+    ws.on_error(ws, RuntimeError("offline"))
+    assert runtime.connected is False
+    assert runtime.last_error == "RuntimeError"
+
+
+def test_central_service_handler_resolves_runtime_by_device():
+    hass = FakeHass()
+    entry = make_config_entry()
+    client = FakeLifeSmartClient("us", "key", "token", "user", "password")
+    entry.runtime_data = lifesmart_init.LifeSmartRuntimeData(
+        client=client,
+        devices=[{HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEVICE1"}],
+        connected=True,
+    )
+    hass.config_entries.entries = [entry]
+    call = SimpleNamespace(
+        service="send_ir_code",
+        data={HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEVICE1", "ir_code": "123"},
+    )
+
+    asyncio.run(lifesmart_init._async_call_lifesmart_service(hass, call))
+
+    assert client.service_calls == [
+        (
+            "send_ir_code",
+            (
+                "HUB1",
+                "DEVICE1",
+                '[{"param": {"data": "123", "type": 1}}]',
+            ),
+        )
+    ]
+
+
+def test_central_service_handler_rejects_unknown_target():
+    hass = FakeHass()
+    hass.config_entries.entries = []
+    call = SimpleNamespace(
+        service="scene_set", data={HUB_ID_KEY: "missing", "id": "scene"}
+    )
+
+    with pytest.raises(lifesmart_init.ServiceValidationError):
+        asyncio.run(lifesmart_init._async_call_lifesmart_service(hass, call))
+
+
+def test_central_service_handler_rejects_ambiguous_target():
+    hass = FakeHass()
+    entries = [make_config_entry() for _index in range(2)]
+    for entry in entries:
+        entry.runtime_data = lifesmart_init.LifeSmartRuntimeData(
+            client=object(),
+            devices=[{HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEVICE1"}],
+        )
+    hass.config_entries.entries = entries
+
+    with pytest.raises(lifesmart_init.ServiceValidationError):
+        lifesmart_init._runtime_for_service(
+            hass, {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEVICE1"}
+        )
+
+
+@pytest.mark.parametrize(
+    ("service", "data", "method", "expected_args"),
+    [
+        (
+            "send_keys",
+            {
+                HUB_ID_KEY: "HUB1",
+                DEVICE_ID_KEY: "DEVICE1",
+                "ai": "ai-1",
+                "category": "tv",
+                "brand": "brand",
+                "keys": ["power"],
+            },
+            "send_ir_key_async",
+            ("HUB1", "ai-1", "DEVICE1", "tv", "brand", ["power"]),
+        ),
+        (
+            "send_ackeys",
+            {
+                HUB_ID_KEY: "HUB1",
+                DEVICE_ID_KEY: "DEVICE1",
+                "ai": "ai-1",
+                "category": "ac",
+                "brand": "brand",
+                "keys": "power",
+                "idx": "1",
+                "power": 1,
+                "mode": 2,
+                "temp": 24,
+                "wind": 3,
+                "swing": 4,
+            },
+            "send_ir_ackey_async",
+            (
+                "HUB1",
+                "ai-1",
+                "DEVICE1",
+                "ac",
+                "brand",
+                "power",
+                "1",
+                1,
+                2,
+                24,
+                3,
+                4,
+            ),
+        ),
+        (
+            "scene_set",
+            {HUB_ID_KEY: "HUB1", "id": "scene-1"},
+            "set_scene_async",
+            ("HUB1", "scene-1"),
+        ),
+    ],
+)
+def test_central_service_handler_dispatches_all_actions(
+    service, data, method, expected_args
+):
+    calls = []
+
+    async def service_method(*args):
+        calls.append(args)
+        return {"code": "success"}
+
+    client = SimpleNamespace(**{method: service_method})
+    entry = make_config_entry()
+    entry.runtime_data = lifesmart_init.LifeSmartRuntimeData(
+        client=client,
+        devices=[{HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEVICE1"}],
+    )
+    hass = FakeHass()
+    hass.config_entries.entries = [entry]
+
+    asyncio.run(
+        lifesmart_init._async_call_lifesmart_service(
+            hass, SimpleNamespace(service=service, data=data)
+        )
+    )
+
+    assert calls == [expected_args]
+
+
+@pytest.mark.parametrize("response", [1, {"code": 500}])
+def test_central_service_handler_reports_rejected_action(response):
+    async def set_scene_async(*args):
+        return response
+
+    entry = make_config_entry()
+    entry.runtime_data = lifesmart_init.LifeSmartRuntimeData(
+        client=SimpleNamespace(set_scene_async=set_scene_async),
+        devices=[{HUB_ID_KEY: "HUB1"}],
+    )
+    hass = FakeHass()
+    hass.config_entries.entries = [entry]
+    call = SimpleNamespace(
+        service="scene_set", data={HUB_ID_KEY: "HUB1", "id": "scene-1"}
+    )
+
+    with pytest.raises(lifesmart_init.HomeAssistantError) as error:
+        asyncio.run(lifesmart_init._async_call_lifesmart_service(hass, call))
+
+    assert error.value.translation_key == "service_action_rejected"
+
+
+def test_central_service_handler_wraps_client_error():
+    async def set_scene_async(*args):
+        raise RuntimeError("private API failure")
+
+    entry = make_config_entry()
+    entry.runtime_data = lifesmart_init.LifeSmartRuntimeData(
+        client=SimpleNamespace(set_scene_async=set_scene_async),
+        devices=[{HUB_ID_KEY: "HUB1"}],
+    )
+    hass = FakeHass()
+    hass.config_entries.entries = [entry]
+    call = SimpleNamespace(
+        service="scene_set", data={HUB_ID_KEY: "HUB1", "id": "scene-1"}
+    )
+
+    with pytest.raises(lifesmart_init.HomeAssistantError) as error:
+        asyncio.run(lifesmart_init._async_call_lifesmart_service(hass, call))
+
+    assert error.value.translation_key == "service_action_failed"
+    assert isinstance(error.value.__cause__, RuntimeError)
 
 
 def test_device_via_info_uses_registry_id_when_supported(monkeypatch):
@@ -512,12 +709,12 @@ def test_async_unload_entry_forwards_to_platform_unload():
     config_entry = FakeConfigEntry(data={}, entry_id="entry-99")
     manager = FakeStatesManager(ws=object())
     listener_removals = []
-    hass.data[DOMAIN] = {
-        config_entry.entry_id: {
-            LIFESMART_STATE_MANAGER: manager,
-            UPDATE_LISTENER: lambda: listener_removals.append("removed"),
-        }
-    }
+    config_entry.runtime_data = lifesmart_init.LifeSmartRuntimeData(
+        client=None,
+        devices=[],
+        state_manager=manager,
+        update_listener=lambda: listener_removals.append("removed"),
+    )
 
     result = asyncio.run(lifesmart_init.async_unload_entry(hass, config_entry))
 
@@ -527,13 +724,29 @@ def test_async_unload_entry_forwards_to_platform_unload():
     ]
     assert manager.stopped is True
     assert listener_removals == ["removed"]
-    assert hass.data[DOMAIN] == {}
-    assert hass.services.removals == [
-        (DOMAIN, "send_ir_code"),
-        (DOMAIN, "send_keys"),
-        (DOMAIN, "send_ackeys"),
-        (DOMAIN, "scene_set"),
-    ]
+    assert hass.services.removals == []
+
+
+def test_async_unload_entry_keeps_runtime_running_when_platform_unload_fails():
+    hass = FakeHass()
+
+    async def fail_unload(_entry, _platforms):
+        return False
+
+    hass.config_entries.async_unload_platforms = fail_unload
+    config_entry = FakeConfigEntry(data={})
+    manager = FakeStatesManager(ws=object())
+    listener_removals = []
+    config_entry.runtime_data = lifesmart_init.LifeSmartRuntimeData(
+        client=None,
+        devices=[],
+        state_manager=manager,
+        update_listener=lambda: listener_removals.append("removed"),
+    )
+
+    assert asyncio.run(lifesmart_init.async_unload_entry(hass, config_entry)) is False
+    assert manager.stopped is False
+    assert listener_removals == []
 
 
 def test_on_message_dispatches_switch_updates(monkeypatch):

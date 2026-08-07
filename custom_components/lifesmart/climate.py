@@ -17,6 +17,7 @@ from homeassistant.helpers.entity import DeviceInfo
 
 from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
 from .const import (
+    DOMAIN as DOMAIN,
     AIR_CONDITIONER_TYPES,
     CLIMATE_TYPES,
     DEVICE_DATA_KEY,
@@ -24,12 +25,12 @@ from .const import (
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     DEVICE_VERSION_KEY,
-    DOMAIN,
     HUB_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     MANUFACTURER,
     THERMOSTAT_TYPES,
 )
+from .runtime_data import get_runtime_data
 from .nature_climate import async_setup_entry as async_setup_nature_entry
 from .spotac_climate import async_setup_entry as async_setup_spotac_entry
 
@@ -63,10 +64,11 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     await async_setup_spotac_entry(hass, config_entry, async_add_entities)
     await async_setup_nature_entry(hass, config_entry, async_add_entities)
 
-    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
-    exclude_devices = hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"]
-    exclude_hubs = hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"]
-    client = hass.data[DOMAIN][config_entry.entry_id]["client"]
+    runtime = get_runtime_data(hass, config_entry)
+    devices = runtime.devices
+    exclude_devices = runtime.exclude_devices
+    exclude_hubs = runtime.exclude_hubs
+    client = runtime.client
 
     climate_devices = []
     for device in devices:
@@ -92,6 +94,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             LifeSmartClimateDevice(LifeSmartDevice(device, client), device, client)
         )
 
+    runtime.track_entities(climate_devices)
     async_add_entities(climate_devices)
 
 

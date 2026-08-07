@@ -37,6 +37,49 @@ send_keys:
       description: Command key to be sent
       example: '["key"]'
 
+send_ackeys:
+  description: Send A/C IR keys to a device.
+  fields:
+    me:
+      required: true
+      description: Device sub id
+      example: '0010'
+    agt:
+      required: true
+      description: Device hub id
+      example: '_xXXXXXXXXXXXXXXXXX'
+    ai:
+      required: true
+      description: Remote control id
+      example: 'AI_IR_xxxx_xxxxxxxx'
+    category:
+      required: true
+      description: Remote control category
+      example: 'ac'
+    brand:
+      required: true
+      description: Target device brand
+      example: 'custom'
+    keys:
+      required: true
+      description: Command keys to send
+      example: '["power"]'
+    power:
+      required: true
+      example: 1
+    mode:
+      required: true
+      example: 1
+    temp:
+      required: true
+      example: 24
+    wind:
+      required: true
+      example: 1
+    swing:
+      required: true
+      example: 0
+
 scene_set:
   description: Scene Set.
   fields:

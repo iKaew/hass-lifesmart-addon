@@ -108,6 +108,17 @@
       "no_remote_idxs": "未找到所选空调品牌的遥控器配置。"
     }
   },
+  "exceptions": {
+    "service_target_not_found": {
+      "message": "目标未明确属于一个已加载的 LifeSmart 账号。"
+    },
+    "service_action_failed": {
+      "message": "LifeSmart 服务操作失败。"
+    },
+    "service_action_rejected": {
+      "message": "LifeSmart 拒绝了该服务操作。"
+    }
+  },
   "services": {
     "send_ir_code": {
       "name": "发送 IR 码",

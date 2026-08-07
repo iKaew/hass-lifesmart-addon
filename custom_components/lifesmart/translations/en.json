@@ -108,6 +108,17 @@
       "no_remote_idxs": "No remote profiles found for the selected A/C brand."
     }
   },
+  "exceptions": {
+    "service_target_not_found": {
+      "message": "The target does not belong to exactly one loaded LifeSmart account."
+    },
+    "service_action_failed": {
+      "message": "The LifeSmart service action failed."
+    },
+    "service_action_rejected": {
+      "message": "LifeSmart rejected the service action."
+    }
+  },
   "services": {
     "send_ir_code": {
       "name": "Send IR Code",

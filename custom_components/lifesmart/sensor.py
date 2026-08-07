@@ -24,6 +24,7 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 # ENTITY_ID_FORMAT = DOMAIN + ".{}"
 from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
 from .const import (
+    DOMAIN as DOMAIN,
     AIR_PURIFIER_TYPES,
     CO2_SENSOR_TYPES,
     DEFED_SENSOR_TYPES,
@@ -37,7 +38,6 @@ from .const import (
     DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY,
     DIGITAL_DOORLOCK_OPERATION_EVENT_KEY,
     DLT_METER_TYPES,
-    DOMAIN,
     ELECTRICITY_METER_TYPES,
     ENV_SENSOR_TYPES,
     GAS_SENSOR_TYPES,
@@ -57,6 +57,7 @@ from .const import (
     TVOC_CO2_SENSOR_TYPES,
     WATER_LEAK_SENSOR_TYPES,
 )
+from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
 
 CONCENTRATION_MICROGRAMS_PER_CUBIC_METER = (
     UnitOfDensity.MICROGRAMS_PER_CUBIC_METER
@@ -118,10 +119,11 @@ MODBUS_SENSOR_KEYS = {
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Setup Switch entities."""
-    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
-    exclude_devices = hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"]
-    exclude_hubs = hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"]
-    client = hass.data[DOMAIN][config_entry.entry_id]["client"]
+    runtime = get_runtime_data(hass, config_entry)
+    devices = runtime.devices
+    exclude_devices = runtime.exclude_devices
+    exclude_hubs = runtime.exclude_hubs
+    client = runtime.client
     sensor_devices = []
     for device in devices:
         if (
@@ -428,10 +430,11 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         client,
                     )
                 )
+    runtime.track_entities(sensor_devices)
     async_add_entities(sensor_devices)
 
 
-class LifeSmartSensor(SensorEntity):
+class LifeSmartSensor(LifeSmartAvailabilityMixin, SensorEntity):
     """Representation of a LifeSmartSensor."""
 
     # def __init__(self, dev, idx, val, param) -> None:

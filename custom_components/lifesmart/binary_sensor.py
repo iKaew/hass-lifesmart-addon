@@ -17,6 +17,7 @@ from . import (
     generate_entity_id,
 )
 from .const import (
+    DOMAIN as DOMAIN,
     BINARY_SENSOR_TYPES,
     DEFED_DOOR_SENSOR_TYPES,
     DEFED_KEYFOB_TYPES,
@@ -30,7 +31,6 @@ from .const import (
     DIGITAL_DOORLOCK_ALARM_EVENT_KEY,
     DIGITAL_DOORLOCK_DOORBELL_EVENT_KEY,
     DIGITAL_DOORLOCK_LOCK_EVENT_KEY,
-    DOMAIN,
     GAS_SENSOR_TYPES,
     GENERIC_CONTROLLER_BINARY_PORTS,
     GENERIC_CONTROLLER_TYPES,
@@ -53,6 +53,7 @@ from .const import (
     SUBDEVICE_INDEX_KEY,
     WATER_LEAK_SENSOR_TYPES,
 )
+from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -77,10 +78,11 @@ SMART_CAMERA_STATUS_BIT_CONFIG = {
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Initialzie Switch entities for HA."""
-    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
-    exclude_devices = hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"]
-    exclude_hubs = hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"]
-    client = hass.data[DOMAIN][config_entry.entry_id]["client"]
+    runtime = get_runtime_data(hass, config_entry)
+    devices = runtime.devices
+    exclude_devices = runtime.exclude_devices
+    exclude_hubs = runtime.exclude_hubs
+    client = runtime.client
     sensor_devices = []
     for device in devices:
         if (
@@ -314,10 +316,11 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                             client,
                         )
                     )
+    runtime.track_entities(sensor_devices)
     async_add_entities(sensor_devices)
 
 
-class LifeSmartBinarySensor(BinarySensorEntity):
+class LifeSmartBinarySensor(LifeSmartAvailabilityMixin, BinarySensorEntity):
     """Representation of LifeSmartBinarySensor."""
 
     def __init__(  # noqa: D107

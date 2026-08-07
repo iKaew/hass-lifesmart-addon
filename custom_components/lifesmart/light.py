@@ -23,12 +23,12 @@ import homeassistant.util.color as color_util
 
 from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
 from .const import (
+    DOMAIN as DOMAIN,
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     DEVICE_VERSION_KEY,
-    DOMAIN,
     HUB_ID_KEY,
     LIFESMART_SIGNAL_UPDATE_ENTITY,
     MANUFACTURER,
@@ -36,6 +36,7 @@ from .const import (
     SPOT_LIGHT_TYPES,
     SPOT_TYPES,
 )
+from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -101,10 +102,11 @@ def _dyn_value_from_effect(effect):
 
 async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entities):
     """Perform the setup for LifeSmart lights devices."""
-    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
-    exclude_devices = hass.data[DOMAIN][config_entry.entry_id]["exclude_devices"]
-    exclude_hubs = hass.data[DOMAIN][config_entry.entry_id]["exclude_hubs"]
-    client = hass.data[DOMAIN][config_entry.entry_id]["client"]
+    runtime = get_runtime_data(hass, config_entry)
+    devices = runtime.devices
+    exclude_devices = runtime.exclude_devices
+    exclude_hubs = runtime.exclude_hubs
+    client = runtime.client
     light_devices = []
     for device in devices:
         if (
@@ -195,10 +197,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
                         )
                     )
 
+    runtime.track_entities(light_devices)
     async_add_entities(light_devices)
 
 
-class LifeSmartSLSPOTLight(LightEntity):
+class LifeSmartSLSPOTLight(LifeSmartAvailabilityMixin, LightEntity):
     """Representation of a LifeSmart SL SPOT."""
 
     def __init__(
@@ -394,7 +397,7 @@ class LifeSmartSLSPOTLight(LightEntity):
         return self._entity_id
 
 
-class LifeSmartLight(LightEntity):
+class LifeSmartLight(LifeSmartAvailabilityMixin, LightEntity):
     """Representation of a LifeSmartLight."""
 
     def __init__(
