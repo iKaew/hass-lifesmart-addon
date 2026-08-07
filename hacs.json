@@ -1,5 +1,7 @@
 {
   "name": "LifeSmart",
-  "homeassistant": "2026.4.1",
-  "render_readme": true
+  "homeassistant": "2026.6.0",
+  "render_readme": true,
+  "zip_release": true,
+  "filename": "lifesmart.zip"
 }

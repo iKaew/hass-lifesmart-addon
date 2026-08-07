@@ -1,0 +1,33 @@
+name: Build release asset
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+
+      - name: Build HACS archive
+        working-directory: custom_components/lifesmart
+        run: zip -r ../../lifesmart.zip . -x "*/__pycache__/*" "*.pyc"
+
+      - name: Verify archive layout
+        run: |
+          unzip -t lifesmart.zip
+          unzip -Z1 lifesmart.zip | grep -Fxq manifest.json
+          unzip -Z1 lifesmart.zip | grep -Fxq __init__.py
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" lifesmart.zip --clobber
