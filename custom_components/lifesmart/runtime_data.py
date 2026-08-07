@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 from weakref import WeakSet
 
+from .const import DEVICE_ID_KEY, HUB_ID_KEY
 from .lifesmart_client import LifeSmartClient
 
 
@@ -23,12 +24,26 @@ class LifeSmartRuntimeData:
     update_listener: Callable[[], None] | None = None
     connected: bool = False
     last_error: str | None = None
+    device_availability: dict[tuple[str, str], bool] = field(default_factory=dict)
     entities: WeakSet = field(default_factory=WeakSet)
 
     def track_entities(self, entities) -> None:
         """Associate entities with this entry's connection state."""
         for entity in entities:
             entity._lifesmart_runtime = self
+            raw_device = getattr(entity, "_raw_device_data", {})
+            hub_id = getattr(
+                entity,
+                "hub_id",
+                getattr(entity, "_hub_id", raw_device.get(HUB_ID_KEY)),
+            )
+            device_id = getattr(
+                entity,
+                "device_id",
+                getattr(entity, "_device_id", raw_device.get(DEVICE_ID_KEY)),
+            )
+            if hub_id is not None and device_id is not None:
+                entity._lifesmart_device_key = (hub_id, device_id)
             self.entities.add(entity)
 
     def set_connected(self, connected: bool, error: str | None = None) -> None:
@@ -45,17 +60,46 @@ class LifeSmartRuntimeData:
                 continue
             entity.schedule_update_ha_state()
 
+    def set_device_available(
+        self, hub_id: str, device_id: str, available: bool
+    ) -> None:
+        """Update availability for every entity belonging to one device."""
+        device_key = (hub_id, device_id)
+        if self.device_availability.get(device_key) == available:
+            return
+        self.device_availability[device_key] = available
+        for entity in tuple(self.entities):
+            if getattr(entity, "_lifesmart_device_key", None) != device_key:
+                continue
+            if getattr(entity, "hass", None) is None:
+                continue
+            entity.schedule_update_ha_state()
+
+    def set_hub_devices_unavailable(self, hub_id: str) -> None:
+        """Mark every known child device of an offline hub unavailable."""
+        for device_hub_id, device_id in tuple(self.device_availability):
+            if device_hub_id == hub_id:
+                self.set_device_available(device_hub_id, device_id, False)
+
 
 class LifeSmartAvailabilityMixin:
     """Expose the shared websocket connection as entity availability."""
 
     _lifesmart_runtime: LifeSmartRuntimeData | None = None
+    _lifesmart_device_key: tuple[str, str] | None = None
 
     @property
     def available(self) -> bool:
         """Return whether the LifeSmart websocket is connected."""
         runtime = self._lifesmart_runtime
-        return runtime.connected if runtime is not None else True
+        if runtime is None:
+            return True
+        if not runtime.connected:
+            return False
+        device_key = self._lifesmart_device_key
+        if device_key is None:
+            return True
+        return runtime.device_availability.get(device_key, True)
 
 
 def get_runtime_data(hass, entry) -> LifeSmartRuntimeData:
@@ -78,4 +122,5 @@ def get_runtime_data(hass, entry) -> LifeSmartRuntimeData:
         ai_include_items=legacy.get("ai_include_items", []),
         state_manager=legacy.get("state_manager"),
         update_listener=legacy.get("update_listener"),
+        device_availability=legacy.get("device_availability", {}),
     )

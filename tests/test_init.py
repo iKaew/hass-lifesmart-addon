@@ -51,6 +51,27 @@ def test_lifesmart_type_helper_handles_invalid_values():
     assert lifesmart_init._is_on_type("not-a-number") is False
 
 
+def test_refresh_device_availability_uses_cloud_status():
+    client = FakeLifeSmartClient("us", "key", "token", "user", "password")
+    client.devices_response = [
+        {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "ONLINE", "stat": 1},
+        {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "OFFLINE", "stat": 0},
+        {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "UNKNOWN"},
+    ]
+    runtime = lifesmart_init.LifeSmartRuntimeData(
+        client=client,
+        devices=[],
+        connected=True,
+    )
+
+    asyncio.run(lifesmart_init._async_refresh_device_availability(runtime))
+
+    assert runtime.device_availability == {
+        ("HUB1", "ONLINE"): True,
+        ("HUB1", "OFFLINE"): False,
+    }
+
+
 class FakeConfigEntriesManager:
     def __init__(self):
         self.forward_calls = []
@@ -259,6 +280,87 @@ def setup_entry_for_ws_tests(
 
 def send_ws_device_update(ws, payload):
     ws.on_message(ws, json.dumps({"type": "io", "msg": payload}))
+
+
+def test_setup_initializes_device_availability_from_cloud_status(monkeypatch):
+    _hass, entry, _ws, _dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch,
+        devices=[
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "ONLINE", "stat": 1},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "OFFLINE", "stat": 0},
+        ],
+    )
+
+    assert entry.runtime_data.device_availability == {
+        ("HUB1", "ONLINE"): True,
+        ("HUB1", "OFFLINE"): False,
+    }
+
+
+def test_websocket_device_status_updates_availability(monkeypatch):
+    _hass, entry, ws, dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch,
+        devices=[
+            {
+                HUB_ID_KEY: "HUB1",
+                DEVICE_ID_KEY: "DEV1",
+                "devtype": "SL_SW_IF1",
+                "stat": 1,
+            }
+        ],
+    )
+
+    send_ws_device_update(
+        ws,
+        {
+            "devtype": "SL_SW_IF1",
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "DEV1",
+            SUBDEVICE_INDEX_KEY: "s",
+            "v": 2,
+        },
+    )
+    assert entry.runtime_data.device_availability[("HUB1", "DEV1")] is False
+
+    send_ws_device_update(
+        ws,
+        {
+            "devtype": "SL_SW_IF1",
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "DEV1",
+            SUBDEVICE_INDEX_KEY: "s",
+            "v": 1,
+        },
+    )
+    assert entry.runtime_data.device_availability[("HUB1", "DEV1")] is True
+    assert dispatch_calls == []
+
+
+def test_websocket_hub_offline_marks_child_devices_unavailable(monkeypatch):
+    _hass, entry, ws, _dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch,
+        devices=[
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEV1", "stat": 1},
+            {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEV2", "stat": 1},
+            {HUB_ID_KEY: "HUB2", DEVICE_ID_KEY: "DEV3", "stat": 1},
+        ],
+    )
+
+    send_ws_device_update(
+        ws,
+        {
+            "devtype": "agt",
+            HUB_ID_KEY: "HUB1",
+            SUBDEVICE_INDEX_KEY: "s",
+            "v": 2,
+        },
+    )
+
+    assert entry.runtime_data.device_availability == {
+        ("HUB1", "DEV1"): False,
+        ("HUB1", "DEV2"): False,
+        ("HUB2", "DEV3"): True,
+    }
 
 
 def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch):
