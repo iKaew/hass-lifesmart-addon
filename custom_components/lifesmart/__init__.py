@@ -261,6 +261,31 @@ def _is_on_type(value) -> bool:
         return False
 
 
+async def _async_refresh_device_availability(
+    runtime_data: LifeSmartRuntimeData,
+) -> None:
+    """Refresh device availability after the websocket reconnects."""
+    try:
+        devices = await runtime_data.client.get_all_device_async()
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.warning(
+            "Unable to refresh LifeSmart device availability: %s", type(err).__name__
+        )
+        return
+
+    if not isinstance(devices, list):
+        _LOGGER.warning("Unable to refresh LifeSmart device availability")
+        return
+
+    for device in devices:
+        hub_id = device.get(HUB_ID_KEY)
+        device_id = device.get(DEVICE_ID_KEY)
+        status = device.get("stat")
+        if hub_id is None or device_id is None or status is None:
+            continue
+        runtime_data.set_device_available(hub_id, device_id, status == 1)
+
+
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # noqa: C901
     """Initialize a setup of the lifesamrt addon."""
     hass.data.setdefault(DOMAIN, {})
@@ -414,6 +439,12 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         ai_include_hubs=ai_include_hubs,
         ai_include_items=ai_include_items,
         update_listener=update_listener,
+        device_availability={
+            (device[HUB_ID_KEY], device[DEVICE_ID_KEY]): device.get("stat", 1) == 1
+            for device in devices
+            if device.get(HUB_ID_KEY) is not None
+            and device.get(DEVICE_ID_KEY) is not None
+        },
     )
     config_entry.runtime_data = runtime_data
 
@@ -421,8 +452,24 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         data = msg["msg"]
         device_type = data[DEVICE_TYPE_KEY]
         hub_id = data[HUB_ID_KEY]
-        device_id = data[DEVICE_ID_KEY]
+        device_id = data.get(DEVICE_ID_KEY)
         sub_device_key = data[SUBDEVICE_INDEX_KEY]
+
+        if sub_device_key == "s" and "info" not in data:
+            event_value = data.get("v")
+            if device_type == "agt":
+                if event_value == 2:
+                    runtime_data.set_hub_devices_unavailable(hub_id)
+                return
+            if device_type not in ("ai", "elog") and device_id is not None:
+                if event_value in (1, 2):
+                    runtime_data.set_device_available(
+                        hub_id, device_id, event_value == 1
+                    )
+                return
+
+        if device_id is not None and sub_device_key != "s":
+            runtime_data.set_device_available(hub_id, device_id, True)
 
         if (
             sub_device_key != "s"
@@ -759,6 +806,12 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         ws.send(send_data)
         if was_unavailable:
             _LOGGER.info("LifeSmart websocket connection restored")
+            hass.loop.call_soon_threadsafe(
+                lambda: hass.async_create_task(
+                    _async_refresh_device_availability(runtime_data),
+                    "Refresh LifeSmart device availability",
+                )
+            )
         _LOGGER.debug("LifeSmart websocket sending_data")
 
     ws = websocket.WebSocketApp(
