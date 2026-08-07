@@ -109,6 +109,12 @@
     }
   },
   "exceptions": {
+    "hub_restart_failed": {
+      "message": "Unable to restart the LifeSmart hub."
+    },
+    "hub_restart_rejected": {
+      "message": "LifeSmart rejected the hub restart request."
+    },
     "service_target_not_found": {
       "message": "The target does not belong to exactly one loaded LifeSmart account."
     },
@@ -117,6 +123,23 @@
     },
     "service_action_rejected": {
       "message": "LifeSmart rejected the service action."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "hub_status": {
+        "name": "Status",
+        "state": {
+          "offline": "Offline",
+          "initializing": "Initializing",
+          "online": "Online"
+        }
+      }
+    },
+    "button": {
+      "restart_hub": {
+        "name": "Restart"
+      }
     }
   },
   "services": {

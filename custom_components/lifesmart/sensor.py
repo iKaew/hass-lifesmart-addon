@@ -19,6 +19,7 @@ from homeassistant.const import (
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 # DOMAIN = "sensor"
 # ENTITY_ID_FORMAT = DOMAIN + ".{}"
@@ -58,6 +59,7 @@ from .const import (
     WATER_LEAK_SENSOR_TYPES,
 )
 from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
+from .hub import HUB_STATE_NAMES, get_hub_coordinator
 
 CONCENTRATION_MICROGRAMS_PER_CUBIC_METER = (
     UnitOfDensity.MICROGRAMS_PER_CUBIC_METER
@@ -431,7 +433,59 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     )
                 )
     runtime.track_entities(sensor_devices)
+    if runtime.hubs:
+        coordinator = get_hub_coordinator(hass, config_entry, runtime)
+        await coordinator.async_refresh()
+        sensor_devices.extend(
+            LifeSmartHubStatusSensor(coordinator, hub) for hub in runtime.hubs
+        )
     async_add_entities(sensor_devices)
+
+
+class LifeSmartHubStatusSensor(CoordinatorEntity, SensorEntity):
+    """Cloud-reported operating status of a LifeSmart hub."""
+
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_has_entity_name = True
+    _attr_options = list(HUB_STATE_NAMES.values())
+    _attr_translation_key = "hub_status"
+
+    def __init__(self, coordinator, hub) -> None:
+        """Initialize a hub status sensor."""
+        super().__init__(coordinator)
+        self._hub = hub
+        self._hub_id = hub[HUB_ID_KEY]
+        self._attr_unique_id = f"{self._hub_id}_status"
+
+    @property
+    def available(self) -> bool:
+        """Return whether status has been received for this hub."""
+        return super().available and self._hub_id in (self.coordinator.data or {})
+
+    @property
+    def native_value(self):
+        """Return the translated hub state key."""
+        status = (self.coordinator.data or {}).get(self._hub_id, {}).get("state")
+        return HUB_STATE_NAMES.get(status)
+
+    @property
+    def extra_state_attributes(self):
+        """Return non-sensitive hub network and regional metadata."""
+        return {
+            key: value
+            for key, value in {
+                "ip_address": self._hub.get("ip"),
+                "mac_address": self._hub.get("mac"),
+                "time_zone": self._hub.get("tmzone"),
+            }.items()
+            if value is not None
+        }
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Attach the sensor to its hub device."""
+        return DeviceInfo(identifiers={(DOMAIN, self._hub_id)})
 
 
 class LifeSmartSensor(LifeSmartAvailabilityMixin, SensorEntity):

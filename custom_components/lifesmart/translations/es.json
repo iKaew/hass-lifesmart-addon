@@ -109,6 +109,12 @@
     }
   },
   "exceptions": {
+    "hub_restart_failed": {
+      "message": "No se pudo reiniciar el concentrador LifeSmart."
+    },
+    "hub_restart_rejected": {
+      "message": "LifeSmart rechazó la solicitud de reinicio del concentrador."
+    },
     "service_target_not_found": {
       "message": "El destino no pertenece exactamente a una cuenta de LifeSmart cargada."
     },
@@ -117,6 +123,23 @@
     },
     "service_action_rejected": {
       "message": "LifeSmart ha rechazado la acción del servicio."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "hub_status": {
+        "name": "Estado",
+        "state": {
+          "offline": "Desconectado",
+          "initializing": "Inicializando",
+          "online": "Conectado"
+        }
+      }
+    },
+    "button": {
+      "restart_hub": {
+        "name": "Reiniciar"
+      }
     }
   },
   "services": {

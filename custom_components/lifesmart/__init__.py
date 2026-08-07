@@ -1,5 +1,7 @@
 """lifesmart by @ikaew."""
 
+import asyncio
+from ipaddress import ip_address
 import json
 import logging
 import re
@@ -326,17 +328,68 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
     # the LifeSmart API response.
     devices = [dict(device) for device in devices]
 
+    try:
+        hubs = await lifesmart_client.get_all_hubs_async()
+    except Exception as err:  # Hub metadata must not block existing device setup.
+        _LOGGER.warning("Unable to retrieve LifeSmart hub details: %s", type(err).__name__)
+        hubs = []
+    if not isinstance(hubs, list):
+        _LOGGER.warning("LifeSmart hub discovery returned an invalid response")
+        hubs = []
+    hubs_by_id = {
+        hub[HUB_ID_KEY]: dict(hub)
+        for hub in hubs
+        if isinstance(hub, dict) and hub.get(HUB_ID_KEY)
+    }
+
     # Create hub devices
     dev_reg = device_registry.async_get(hass)
-    hub_ids = set(device[HUB_ID_KEY] for device in devices)
+    hub_ids = set(device[HUB_ID_KEY] for device in devices) | set(hubs_by_id)
+    for hub_id in hub_ids:
+        hubs_by_id.setdefault(hub_id, {HUB_ID_KEY: hub_id})
+
+    async def async_enrich_hub(hub):
+        """Add non-sensitive cloud metadata without blocking hub discovery."""
+        hub_id = hub[HUB_ID_KEY]
+        system_info, timezone = await asyncio.gather(
+            lifesmart_client.get_hub_system_info_async(hub_id),
+            lifesmart_client.get_hub_timezone_async(hub_id),
+            return_exceptions=True,
+        )
+        if isinstance(system_info, dict) and system_info.get("code") is None:
+            mac = system_info.get("mac")
+            if isinstance(mac, str) and re.fullmatch(
+                r"(?:[0-9A-Fa-f]{2}[:-]?){5}[0-9A-Fa-f]{2}", mac
+            ):
+                hub["mac"] = device_registry.format_mac(mac)
+            ip = system_info.get("ip")
+            try:
+                hub["ip"] = str(ip_address(ip))
+            except ValueError:
+                pass
+        if isinstance(timezone, dict) and timezone.get("code") is None:
+            if "tmzone" in timezone:
+                hub["tmzone"] = timezone["tmzone"]
+
+    await asyncio.gather(*(async_enrich_hub(hub) for hub in hubs_by_id.values()))
+
     hub_device_registry_ids = {}
     for hub_id in hub_ids:
+        hub = hubs_by_id[hub_id]
+        mac = hub.get("mac")
+        connection_info = {}
+        if mac is not None:
+            connection_info["connections"] = {
+                (device_registry.CONNECTION_NETWORK_MAC, mac)
+            }
         hub_device = dev_reg.async_get_or_create(
             config_entry_id=config_entry.entry_id,
             identifiers={(DOMAIN, hub_id)},
-            name=f"LifeSmart Hub {hub_id}",
+            name=hub.get("name") or f"LifeSmart Hub {hub_id}",
             manufacturer="LifeSmart",
             model="Hub",
+            sw_version=hub.get("agt_ver"),
+            **connection_info,
         )
         hub_device_registry_ids[hub_id] = hub_device.id
 
@@ -355,6 +408,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
     runtime_data = LifeSmartRuntimeData(
         client=lifesmart_client,
         devices=devices,
+        hubs=list(hubs_by_id.values()),
         exclude_devices=exclude_devices,
         exclude_hubs=exclude_hubs,
         ai_include_hubs=ai_include_hubs,
