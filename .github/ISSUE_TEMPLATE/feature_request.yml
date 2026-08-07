@@ -1,0 +1,99 @@
+name: Feature request
+description: Suggest a new feature or enhancement for the LifeSmart Home Assistant custom component
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest an improvement.
+
+        Please describe your idea clearly so we can evaluate and prioritize it effectively.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I am running the latest version of this integration
+          required: true
+        - label: I have searched existing issues to avoid creating a duplicate
+          required: true
+
+  - type: dropdown
+    id: install_method
+    attributes:
+      label: Installation method
+      description: How did you install this integration?
+      options:
+        - HACS
+        - Manual copy to custom_components
+    validations:
+      required: true
+
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+      description: Version shown in HACS or the release/tag you installed
+      placeholder: e.g. v1.2.3
+    validations:
+      required: true
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: e.g. 2026.4.3
+    validations:
+      required: true
+
+  - type: input
+    id: region
+    attributes:
+      label: LifeSmart API region
+      description: e.g. America, Europe, Asia Pacific, China old/new/VIP
+      placeholder: e.g. api.us.ilifesmart.com
+    validations:
+      required: true
+
+  - type: textarea
+    id: feature_summary
+    attributes:
+      label: Feature request summary
+      description: A short summary of the requested feature or enhancement
+      placeholder: Describe the feature in one or two sentences.
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case and benefit
+      description: Explain why this feature is needed and how it would help
+      placeholder: |
+        Example:
+        - I want to control XYZ automatically.
+        - This would help because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Proposed implementation or examples
+      description: If you have ideas for how the feature should work, include them here
+      placeholder: |
+        Example:
+        - Add configurable support for device ABC
+        - Expose a new service or entity option
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add screenshots, device model, related integrations, or anything else helpful
+      placeholder: |
+        Optional extra details that may help us understand or validate the request.
