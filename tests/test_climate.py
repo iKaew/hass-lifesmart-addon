@@ -18,7 +18,9 @@ class FakeConfigEntry:
 
 
 class FakeHass:
-    def __init__(self, entry_id, devices, exclude_devices=None, exclude_hubs=None, client=None):
+    def __init__(
+        self, entry_id, devices, exclude_devices=None, exclude_hubs=None, client=None
+    ):
         self.data = {
             climate_module.DOMAIN: {
                 entry_id: {
@@ -79,8 +81,12 @@ def make_thermostat_device(device_id="THERM1"):
 
 
 def make_climate_entity(raw_device, epset_results=None):
-    fake_device = FakeLifeSmartDevice(raw_device, client=object(), epset_results=epset_results)
-    entity = climate_module.LifeSmartClimateDevice(fake_device, raw_device, client=object())
+    fake_device = FakeLifeSmartDevice(
+        raw_device, client=object(), epset_results=epset_results
+    )
+    entity = climate_module.LifeSmartClimateDevice(
+        fake_device, raw_device, client=object()
+    )
     updates = []
     entity.async_schedule_update_ha_state = lambda: updates.append("scheduled")
     return entity, fake_device, updates
@@ -102,8 +108,22 @@ def test_async_setup_entry_filters_devices_and_adds_supported_climates(monkeypat
     devices = [
         make_air_device("AIR1"),
         make_thermostat_device("THERM1"),
-        {"name": "Bad Air", "devtype": climate_module.AIR_TYPES[0], "agt": "HUB1", "me": "BAD", "ver": "1.0", "data": {"O": {"type": 1}}},
-        {"name": "Switch", "devtype": "SL_OL", "agt": "HUB1", "me": "SKIP", "ver": "1.0", "data": {}},
+        {
+            "name": "Bad Air",
+            "devtype": climate_module.AIR_TYPES[0],
+            "agt": "HUB1",
+            "me": "BAD",
+            "ver": "1.0",
+            "data": {"O": {"type": 1}},
+        },
+        {
+            "name": "Switch",
+            "devtype": "SL_OL",
+            "agt": "HUB1",
+            "me": "SKIP",
+            "ver": "1.0",
+            "data": {},
+        },
         make_air_device("EXCLUDED_DEVICE"),
         dict(make_thermostat_device("EXCLUDED_HUB"), agt="HUBX"),
     ]
@@ -128,17 +148,41 @@ def test_async_setup_entry_filters_devices_and_adds_supported_climates(monkeypat
     assert len(added_entities) == 2
     assert {entity.unique_id for entity in added_entities} == {
         "climate." + f"{make_air_device('AIR1')['devtype']}_hub1_air1".lower(),
-        "climate." + f"{make_thermostat_device('THERM1')['devtype']}_hub1_therm1".lower(),
+        "climate."
+        + f"{make_thermostat_device('THERM1')['devtype']}_hub1_therm1".lower(),
     }
 
 
 def test_async_setup_platform_handles_none_incomplete_and_valid_discovery():
     added_entities = []
 
-    asyncio.run(climate_module.async_setup_platform(None, None, added_entities.extend, None))
-    asyncio.run(climate_module.async_setup_platform(None, None, added_entities.extend, {"dev": None, "param": object()}))
-    asyncio.run(climate_module.async_setup_platform(None, None, added_entities.extend, {"dev": {"devtype": climate_module.AIR_TYPES[0], "data": {}}, "param": object()}))
-    asyncio.run(climate_module.async_setup_platform(None, None, added_entities.extend, {"dev": make_air_device("AIR2"), "param": object()}))
+    asyncio.run(
+        climate_module.async_setup_platform(None, None, added_entities.extend, None)
+    )
+    asyncio.run(
+        climate_module.async_setup_platform(
+            None, None, added_entities.extend, {"dev": None, "param": object()}
+        )
+    )
+    asyncio.run(
+        climate_module.async_setup_platform(
+            None,
+            None,
+            added_entities.extend,
+            {
+                "dev": {"devtype": climate_module.AIR_TYPES[0], "data": {}},
+                "param": object(),
+            },
+        )
+    )
+    asyncio.run(
+        climate_module.async_setup_platform(
+            None,
+            None,
+            added_entities.extend,
+            {"dev": make_air_device("AIR2"), "param": object()},
+        )
+    )
 
     assert len(added_entities) == 1
     assert added_entities[0].name == "Air"
@@ -158,7 +202,10 @@ def test_air_climate_initialization_and_properties():
     assert entity.fan_mode == FAN_MEDIUM
     assert entity.fan_modes == climate_module.FAN_MODES
     assert entity.supported_features == (
-        ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.FAN_MODE
+        ClimateEntityFeature.TARGET_TEMPERATURE
+        | ClimateEntityFeature.FAN_MODE
+        | ClimateEntityFeature.TURN_ON
+        | ClimateEntityFeature.TURN_OFF
     )
     assert entity.device_info["model"] == make_air_device()["devtype"]
     assert entity._attributes["last_mode"] == HVACMode.COOL
@@ -180,8 +227,12 @@ def test_thermostat_initialization_and_properties():
 
 
 def test_async_set_temperature_and_fan_mode_update_state_when_successful():
-    air_entity, air_device, air_updates = make_climate_entity(make_air_device(), epset_results=[0, 0])
-    therm_entity, therm_device, therm_updates = make_climate_entity(make_thermostat_device(), epset_results=[0])
+    air_entity, air_device, air_updates = make_climate_entity(
+        make_air_device(), epset_results=[0, 0]
+    )
+    therm_entity, therm_device, therm_updates = make_climate_entity(
+        make_thermostat_device(), epset_results=[0]
+    )
 
     asyncio.run(air_entity.async_set_temperature(temperature=25))
     asyncio.run(therm_entity.async_set_temperature(temperature=23))
@@ -197,6 +248,39 @@ def test_async_set_temperature_and_fan_mode_update_state_when_successful():
     assert therm_updates == ["scheduled"]
 
 
+def test_async_turn_on_and_off_use_air_power_endpoint_without_changing_mode():
+    entity, device, updates = make_climate_entity(
+        make_air_device(), epset_results=[0, 0]
+    )
+    entity._mode = HVACMode.OFF
+
+    asyncio.run(entity.async_turn_on())
+    asyncio.run(entity.async_turn_off())
+
+    assert device.epset_calls == [("0x81", 1, "O"), ("0x80", 0, "O")]
+    assert entity.hvac_mode == HVACMode.OFF
+    assert entity._last_mode == HVACMode.COOL
+    assert entity._attributes["last_mode"] == HVACMode.COOL
+    assert updates == ["scheduled", "scheduled"]
+
+
+def test_async_turn_on_and_off_do_not_update_state_when_command_fails():
+    entity, device, updates = make_climate_entity(
+        make_air_device(), epset_results=[1, 1]
+    )
+    entity._mode = HVACMode.OFF
+
+    asyncio.run(entity.async_turn_on())
+    assert entity.hvac_mode == HVACMode.OFF
+
+    entity._mode = HVACMode.HEAT
+    asyncio.run(entity.async_turn_off())
+    assert entity.hvac_mode == HVACMode.HEAT
+
+    assert device.epset_calls == [("0x81", 1, "O"), ("0x80", 0, "O")]
+    assert updates == []
+
+
 def test_async_set_hvac_mode_for_air_and_thermostat(monkeypatch):
     sleep_calls = []
 
@@ -205,26 +289,38 @@ def test_async_set_hvac_mode_for_air_and_thermostat(monkeypatch):
 
     monkeypatch.setattr(climate_module.asyncio, "sleep", fake_sleep)
 
-    air_off_entity, air_off_device, air_off_updates = make_climate_entity(make_air_device(), epset_results=[0])
+    air_off_entity, air_off_device, air_off_updates = make_climate_entity(
+        make_air_device(), epset_results=[0]
+    )
     air_off_entity._mode = HVACMode.HEAT
     asyncio.run(air_off_entity.async_set_hvac_mode(HVACMode.OFF))
 
-    air_from_off_entity, air_from_off_device, air_from_off_updates = make_climate_entity(make_air_device(), epset_results=[0, 0])
+    air_from_off_entity, air_from_off_device, air_from_off_updates = (
+        make_climate_entity(make_air_device(), epset_results=[0, 0])
+    )
     air_from_off_entity._mode = HVACMode.OFF
     asyncio.run(air_from_off_entity.async_set_hvac_mode(HVACMode.DRY))
 
-    air_fail_entity, air_fail_device, air_fail_updates = make_climate_entity(make_air_device(), epset_results=[1])
+    air_fail_entity, air_fail_device, air_fail_updates = make_climate_entity(
+        make_air_device(), epset_results=[1]
+    )
     air_fail_entity._mode = HVACMode.OFF
     asyncio.run(air_fail_entity.async_set_hvac_mode(HVACMode.HEAT))
 
-    therm_off_entity, therm_off_device, therm_off_updates = make_climate_entity(make_thermostat_device(), epset_results=[0, 0])
+    therm_off_entity, therm_off_device, therm_off_updates = make_climate_entity(
+        make_thermostat_device(), epset_results=[0, 0]
+    )
     asyncio.run(therm_off_entity.async_set_hvac_mode(HVACMode.OFF))
 
-    therm_heat_entity, therm_heat_device, therm_heat_updates = make_climate_entity(make_thermostat_device(), epset_results=[0])
+    therm_heat_entity, therm_heat_device, therm_heat_updates = make_climate_entity(
+        make_thermostat_device(), epset_results=[0]
+    )
     therm_heat_entity._mode = HVACMode.OFF
     asyncio.run(therm_heat_entity.async_set_hvac_mode(HVACMode.HEAT))
 
-    therm_fail_entity, therm_fail_device, therm_fail_updates = make_climate_entity(make_thermostat_device(), epset_results=[1])
+    therm_fail_entity, therm_fail_device, therm_fail_updates = make_climate_entity(
+        make_thermostat_device(), epset_results=[1]
+    )
     therm_fail_entity._mode = HVACMode.OFF
     asyncio.run(therm_fail_entity.async_set_hvac_mode(HVACMode.HEAT))
 
@@ -232,7 +328,10 @@ def test_async_set_hvac_mode_for_air_and_thermostat(monkeypatch):
     assert air_off_entity.hvac_mode == HVACMode.OFF
     assert air_off_updates == ["scheduled"]
 
-    assert air_from_off_device.epset_calls == [("0x81", 1, "O"), ("0xCE", climate_module.LIFESMART_STATE_LIST.index(HVACMode.DRY), "MODE")]
+    assert air_from_off_device.epset_calls == [
+        ("0x81", 1, "O"),
+        ("0xCE", climate_module.LIFESMART_STATE_LIST.index(HVACMode.DRY), "MODE"),
+    ]
     assert air_from_off_entity.hvac_mode == HVACMode.DRY
     assert air_from_off_entity._last_mode == HVACMode.DRY
     assert air_from_off_updates == ["scheduled"]
@@ -269,7 +368,9 @@ def test_update_state_handles_air_and_thermostat_events():
     ]:
         asyncio.run(air_entity._update_state(data))
 
-    therm_entity, _therm_device, therm_updates = make_climate_entity(make_thermostat_device())
+    therm_entity, _therm_device, therm_updates = make_climate_entity(
+        make_thermostat_device()
+    )
     for data in [
         {"idx": "P1", "type": 0},
         {"idx": "P2", "type": 1},
@@ -308,7 +409,10 @@ def test_async_added_to_hass_registers_dispatcher_callback(monkeypatch):
     asyncio.run(entity.async_added_to_hass())
 
     assert dispatcher_calls[0][0] is entity.hass
-    assert dispatcher_calls[0][1] == f"{climate_module.LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity.unique_id}"
+    assert (
+        dispatcher_calls[0][1]
+        == f"{climate_module.LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity.unique_id}"
+    )
     assert dispatcher_calls[0][2] == entity._update_state
     assert removers == ["remove-token"]
 
@@ -319,17 +423,36 @@ def test_climate_helper_functions():
     assert climate_module._get_fan_mode(45) == FAN_MEDIUM
     assert climate_module._get_fan_mode(75) == FAN_HIGH
 
-    assert climate_module.LifeSmartClimateDevice._mode_from_mode_value(None) == HVACMode.AUTO
-    assert climate_module.LifeSmartClimateDevice._mode_from_mode_value(-1) == HVACMode.AUTO
-    assert climate_module.LifeSmartClimateDevice._mode_from_mode_value(99) == HVACMode.AUTO
-    assert climate_module.LifeSmartClimateDevice._mode_from_mode_value(4) == HVACMode.HEAT
+    assert (
+        climate_module.LifeSmartClimateDevice._mode_from_mode_value(None)
+        == HVACMode.AUTO
+    )
+    assert (
+        climate_module.LifeSmartClimateDevice._mode_from_mode_value(-1) == HVACMode.AUTO
+    )
+    assert (
+        climate_module.LifeSmartClimateDevice._mode_from_mode_value(99) == HVACMode.AUTO
+    )
+    assert (
+        climate_module.LifeSmartClimateDevice._mode_from_mode_value(4) == HVACMode.HEAT
+    )
 
     air = make_air_device()
     therm = make_thermostat_device()
     assert climate_module._has_required_climate_data(air) is True
     assert climate_module._has_required_climate_data(therm) is True
-    assert climate_module._has_required_climate_data({"devtype": climate_module.AIR_TYPES[0], "data": {"O": {"type": 1}}}) is False
-    assert climate_module._has_required_climate_data({"devtype": climate_module.THER_TYPES[0], "data": {"P1": {"type": 1}}}) is False
+    assert (
+        climate_module._has_required_climate_data(
+            {"devtype": climate_module.AIR_TYPES[0], "data": {"O": {"type": 1}}}
+        )
+        is False
+    )
+    assert (
+        climate_module._has_required_climate_data(
+            {"devtype": climate_module.THER_TYPES[0], "data": {"P1": {"type": 1}}}
+        )
+        is False
+    )
     assert climate_module._temperature_value(22, 210) == 22
     assert climate_module._temperature_value(None, 215) == 21.5
     assert climate_module._temperature_value(None, None) is None
@@ -338,5 +461,11 @@ def test_climate_helper_functions():
 def test_mode_from_air_data_uses_power_state():
     entity, _device, _updates = make_climate_entity(make_air_device())
 
-    assert entity._mode_from_air_data({"O": {"type": 0}, "MODE": {"val": 4}}) == HVACMode.OFF
-    assert entity._mode_from_air_data({"O": {"type": 1}, "MODE": {"val": 4}}) == HVACMode.HEAT
+    assert (
+        entity._mode_from_air_data({"O": {"type": 0}, "MODE": {"val": 4}})
+        == HVACMode.OFF
+    )
+    assert (
+        entity._mode_from_air_data({"O": {"type": 1}, "MODE": {"val": 4}})
+        == HVACMode.HEAT
+    )

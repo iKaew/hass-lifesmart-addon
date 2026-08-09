@@ -15,7 +15,13 @@ from homeassistant.const import PRECISION_WHOLE, UnitOfTemperature
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 
-from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
+from . import (
+    LifeSmartDevice,
+    configure_entity_identity,
+    device_identifier,
+    device_via_info,
+    generate_entity_id,
+)
 from .const import (
     DOMAIN as DOMAIN,
     AIR_CONDITIONER_TYPES,
@@ -279,14 +285,29 @@ class LifeSmartClimateDevice(LifeSmartDevice, ClimateEntity):
             self._fanspeed = GET_FAN_SPEED[fan_mode]
             self.async_schedule_update_ha_state()
 
+    async def async_turn_on(self, **kwargs):
+        """Turn on an air conditioner without changing its retained mode."""
+        if self._devtype not in AIR_TYPES:
+            return
+        result = await self._device.async_lifesmart_epset("0x81", 1, "O")
+        if result == 0:
+            self._mode = self._last_mode
+            self.async_schedule_update_ha_state()
+
+    async def async_turn_off(self, **kwargs):
+        """Turn off an air conditioner without changing its retained mode."""
+        if self._devtype not in AIR_TYPES:
+            return
+        result = await self._device.async_lifesmart_epset("0x80", 0, "O")
+        if result == 0:
+            self._mode = HVACMode.OFF
+            self.async_schedule_update_ha_state()
+
     async def async_set_hvac_mode(self, hvac_mode):
         """Set new target operation mode."""
         if self._devtype in AIR_TYPES:
             if hvac_mode == HVACMode.OFF:
-                result = await self._device.async_lifesmart_epset("0x80", 0, "O")
-                if result == 0:
-                    self._mode = HVACMode.OFF
-                    self.async_schedule_update_ha_state()
+                await self.async_turn_off()
                 return
             if self._mode == HVACMode.OFF:
                 if await self._device.async_lifesmart_epset("0x81", 1, "O") == 0:
@@ -320,7 +341,10 @@ class LifeSmartClimateDevice(LifeSmartDevice, ClimateEntity):
         """Return the list of supported features."""
         if self._devtype in AIR_TYPES:
             return (
-                ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.FAN_MODE
+                ClimateEntityFeature.TARGET_TEMPERATURE
+                | ClimateEntityFeature.FAN_MODE
+                | ClimateEntityFeature.TURN_ON
+                | ClimateEntityFeature.TURN_OFF
             )
         else:
             return ClimateEntityFeature.TARGET_TEMPERATURE
