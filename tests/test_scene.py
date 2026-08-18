@@ -72,7 +72,10 @@ def test_scene_activation_calls_lifesmart(response):
     assert client.calls == [("HUB1", "SCENE1")]
 
 
-@pytest.mark.parametrize("response", [{"code": 1}, 1, None, "invalid"])
+@pytest.mark.parametrize(
+    "response",
+    [{"code": 1}, {"code": False}, 1, False, None, "invalid"],
+)
 def test_scene_activation_reports_rejected_request(response):
     client = FakeClient(response=response)
     scene = make_scene(client)

@@ -46,13 +46,12 @@ class LifeSmartScene(Scene):
                 translation_key="scene_activation_failed",
             ) from err
 
-        if isinstance(response, int):
+        if type(response) is int:
             accepted = response == 0
         else:
-            accepted = isinstance(response, dict) and response.get("code") in (
-                0,
-                "success",
-            )
+            response_code = response.get("code") if isinstance(response, dict) else None
+            accepted = type(response_code) is int and response_code == 0
+            accepted = accepted or response_code == "success"
         if not accepted:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
