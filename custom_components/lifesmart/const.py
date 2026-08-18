@@ -18,15 +18,6 @@ IR_CATEGORY_AC = "ac"
 # Internal key used to link child devices to their Home Assistant hub device.
 HUB_DEVICE_REGISTRY_ID_KEY = "_ha_hub_device_registry_id"
 
-CON_AI_TYPE_SCENE = "scene"
-CON_AI_TYPE_AIB = "aib"
-CON_AI_TYPE_GROUP = "grouphw"
-CON_AI_TYPES = [
-    CON_AI_TYPE_SCENE,
-    CON_AI_TYPE_AIB,
-    CON_AI_TYPE_GROUP,
-]
-AI_TYPES = ["ai"]
 SUPPORTED_SWTICH_TYPES = [
     "OD_WE_OT1",
     "SL_MC_ND1",
@@ -219,6 +210,7 @@ SUPPORTED_PLATFORMS = [
     Platform.INFRARED,
     Platform.CLIMATE,
     Platform.BUTTON,
+    Platform.SCENE,
 ]
 AIR_CONDITIONER_TYPES = [
     "V_AIR_P",

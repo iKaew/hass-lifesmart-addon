@@ -115,6 +115,12 @@
     "hub_restart_rejected": {
       "message": "LifeSmart 拒绝了网关重启请求。"
     },
+    "scene_activation_failed": {
+      "message": "无法激活 LifeSmart 场景。"
+    },
+    "scene_activation_rejected": {
+      "message": "LifeSmart 拒绝了场景激活请求。"
+    },
     "service_target_not_found": {
       "message": "目标未明确属于一个已加载的 LifeSmart 账号。"
     },

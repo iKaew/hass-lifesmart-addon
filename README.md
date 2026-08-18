@@ -58,7 +58,7 @@ Use manual installation only if you cannot use HACS.
    - **LifeSmart Account Country/Region**: Select the country or region shown in the LifeSmart mobile app account/profile screen (see below)
 1. Click `Submit` and wait for device discovery.
 
-The integration will automatically discover and create entities for all your LifeSmart devices.
+The integration will automatically discover and create entities for all your LifeSmart devices and scenes.
 
 ### Finding Your LifeSmart Email/User ID And Country/Region
 
@@ -89,6 +89,18 @@ Support is based on the attributes returned by the LifeSmart API. Some models cr
 | Nature series | `SL_NATURE` | Switch-board variants create `P1-P3` switches; thermostat variants create a climate entity; `P4` temperature is exposed when reported | Variant is detected from the reported attributes. |
 | Native A/C panels | `V_AIR_P`, `V_SZJSXR_P`, `V_T8600_P`, `SL_CP_DN` | Climate entities | These use LifeSmart native `EpSet` control, not SPOT IR profiles. |
 | SPOT and IR remotes | `SL_SPOT`, `MSL_IRCTL`, `OD_WE_IRCTL`, `SL_P_IR`, `SL_P_IR_V2` | Infrared emitter entities for Home Assistant IR device integrations; existing remote entities for IR command storage/sending; optional A/C climate entities; light entities only on SPOT models with light attributes | Requires Home Assistant 2026.6 or newer. `SL_P_IR` and `SL_P_IR_V2` do not create light entities. `SL_P_IR_V2` exposes pairing-button `P2` as a binary sensor when reported. |
+
+## LifeSmart Scenes
+
+Scenes configured in the LifeSmart app are discovered automatically for each included hub and exposed as native Home Assistant `scene` entities. Activate one from a dashboard, script, or automation with `scene.turn_on`:
+
+```yaml
+action: scene.turn_on
+target:
+  entity_id: scene.movie_night
+```
+
+LifeSmart remains responsible for executing the scene actions. Scene changes made in the LifeSmart app appear after reloading the LifeSmart integration. The legacy `lifesmart.scene_set` action remains available for automations that use raw hub and scene IDs.
 
 ## FAQ
 

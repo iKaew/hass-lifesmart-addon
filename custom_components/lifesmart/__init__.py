@@ -138,11 +138,16 @@ def _runtime_for_service(hass: HomeAssistant, data: dict) -> LifeSmartRuntimeDat
         runtime = getattr(entry, "runtime_data", None)
         if not isinstance(runtime, LifeSmartRuntimeData):
             continue
-        if any(
+        device_matches = any(
             device.get(HUB_ID_KEY) == hub_id
             and (device_id is None or device.get(DEVICE_ID_KEY) == device_id)
             for device in runtime.devices
-        ):
+        )
+        hub_matches = device_id is None and (
+            any(hub.get(HUB_ID_KEY) == hub_id for hub in runtime.hubs)
+            or any(scene.get(HUB_ID_KEY) == hub_id for scene in runtime.scenes)
+        )
+        if device_matches or hub_matches:
             matches.append(runtime)
     if len(matches) != 1:
         raise ServiceValidationError(
@@ -286,6 +291,75 @@ async def _async_refresh_device_availability(
         runtime_data.set_device_available(hub_id, device_id, status == 1)
 
 
+async def _async_discover_scenes(
+    client: LifeSmartClient,
+    hub_ids: set[str],
+    exclude_hubs: list[str],
+) -> list[dict]:
+    """Discover and normalize scenes without blocking normal device setup."""
+
+    async def async_get_hub_scenes(hub_id: str) -> tuple[str, object]:
+        try:
+            return hub_id, await client.get_all_scene_async(hub_id)
+        except Exception as err:  # Scene support is optional for existing entries.
+            _LOGGER.warning(
+                "Unable to retrieve LifeSmart scenes for hub %s: %s",
+                hub_id,
+                type(err).__name__,
+            )
+            return hub_id, None
+
+    included_hubs = sorted(hub_ids - set(exclude_hubs))
+    responses = await asyncio.gather(
+        *(async_get_hub_scenes(hub_id) for hub_id in included_hubs)
+    )
+    scenes = []
+    seen_scene_keys = set()
+    for hub_id, response in responses:
+        if response is None:
+            continue
+        if not isinstance(response, list):
+            _LOGGER.warning(
+                "LifeSmart scene discovery returned an invalid response for hub %s",
+                hub_id,
+            )
+            continue
+        for raw_scene in response:
+            if not isinstance(raw_scene, dict):
+                _LOGGER.debug(
+                    "Ignoring invalid LifeSmart scene entry for hub %s", hub_id
+                )
+                continue
+            raw_scene_id = raw_scene.get("id")
+            if raw_scene_id is None:
+                _LOGGER.debug(
+                    "Ignoring LifeSmart scene without an ID for hub %s", hub_id
+                )
+                continue
+            scene_id = str(raw_scene_id).strip()
+            if not scene_id:
+                continue
+            scene_key = (hub_id, scene_id)
+            if scene_key in seen_scene_keys:
+                _LOGGER.debug(
+                    "Ignoring duplicate LifeSmart scene %s for hub %s",
+                    scene_id,
+                    hub_id,
+                )
+                continue
+            seen_scene_keys.add(scene_key)
+            raw_name = raw_scene.get("name")
+            name = str(raw_name).strip() if raw_name is not None else ""
+            scenes.append(
+                {
+                    HUB_ID_KEY: hub_id,
+                    "id": scene_id,
+                    "name": name or f"LifeSmart Scene {scene_id}",
+                }
+            )
+    return scenes
+
+
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # noqa: C901
     """Initialize a setup of the lifesamrt addon."""
     hass.data.setdefault(DOMAIN, {})
@@ -398,6 +472,8 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
 
     await asyncio.gather(*(async_enrich_hub(hub) for hub in hubs_by_id.values()))
 
+    scenes = await _async_discover_scenes(lifesmart_client, hub_ids, exclude_hubs)
+
     hub_device_registry_ids = {}
     for hub_id in hub_ids:
         hub = hubs_by_id[hub_id]
@@ -434,6 +510,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         client=lifesmart_client,
         devices=devices,
         hubs=list(hubs_by_id.values()),
+        scenes=scenes,
         exclude_devices=exclude_devices,
         exclude_hubs=exclude_hubs,
         ai_include_hubs=ai_include_hubs,
@@ -958,13 +1035,6 @@ class LifeSmartDevice(LifeSmartAvailabilityMixin, Entity):
         agt = self._agt
         me = self._me
         return await self._client.get_epget_async(agt, me)
-
-    async def async_lifesmart_sceneset(self, type, rgbw):
-        """Set the scene."""
-        agt = self._agt
-        id = self._me
-        response = self._client.set_scene_async(agt, id)
-        return response["code"]
 
 
 class LifeSmartStatesManager(threading.Thread):

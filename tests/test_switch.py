@@ -39,11 +39,6 @@ class FakeClient:
         return self.off_results.pop(0) if self.off_results else 0
 
 
-class FakeSceneClient(FakeClient):
-    async def set_scene_async(self, agt, scene_id):
-        return {"code": 0}
-
-
 def make_device(device_type, data, device_id="DEV1", hub_id="HUB1"):
     return {
         "name": "Switch Device",
@@ -220,23 +215,3 @@ def test_switch_async_added_to_hass_registers_dispatcher(monkeypatch):
 
     assert calls[0][1] == f"{switch_module.LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity.unique_id}"
     assert removers == ["remove-token"]
-
-
-def test_scene_switch_turns_on_and_off(monkeypatch):
-    raw = make_device("ai", {})
-    scene = switch_module.LifeSmartSceneSwitch(None, raw, FakeSceneClient())
-    updates = []
-    scene.async_schedule_update_ha_state = lambda: updates.append("scheduled")
-
-    async def fake_scene_set(*args):
-        return 0
-
-    monkeypatch.setattr(switch_module.LifeSmartDevice, "async_lifesmart_sceneset", fake_scene_set)
-
-    asyncio.run(scene.async_turn_on())
-    asyncio.run(scene.async_turn_off())
-
-    assert scene.device_info["model"] == "ai"
-    assert scene.entity_id is None
-    assert scene._get_state() is False
-    assert updates == ["scheduled", "scheduled"]

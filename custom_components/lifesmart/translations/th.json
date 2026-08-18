@@ -115,6 +115,12 @@
     "hub_restart_rejected": {
       "message": "LifeSmart ปฏิเสธคำขอรีสตาร์ทฮับ"
     },
+    "scene_activation_failed": {
+      "message": "ไม่สามารถเปิดใช้งานซีน LifeSmart ได้"
+    },
+    "scene_activation_rejected": {
+      "message": "LifeSmart ปฏิเสธคำขอเปิดใช้งานซีน"
+    },
     "service_target_not_found": {
       "message": "เป้าหมายไม่ได้อยู่ในบัญชี LifeSmart ที่โหลดไว้เพียงบัญชีเดียว"
     },

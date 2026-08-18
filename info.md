@@ -26,6 +26,7 @@ Current supported features:
 - SPOT A/C climate control through LifeSmart A/C remote profiles
 - Native A/C control panel climate entities
 - Nature Series switch, temperature, and thermostat support
+- Native Home Assistant scene entities for scenes configured in LifeSmart
 
 SPOT support currently includes:
 - `SL_SPOT`
@@ -131,6 +132,7 @@ Important notes:
 
 Main setup/configuration capabilities:
 - Standard integration setup through the Home Assistant UI
+- Automatic LifeSmart scene discovery for each included hub
 - SPOT A/C assignment through the integration options flow
 - Use of the existing A/C remote assignment returned by LifeSmart `GetRemoteList`
 

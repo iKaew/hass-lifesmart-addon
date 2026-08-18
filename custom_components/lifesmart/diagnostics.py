@@ -46,4 +46,5 @@ async def async_get_config_entry_diagnostics(
             "excluded_device_count": len(runtime.exclude_devices),
             "excluded_hub_count": len(runtime.exclude_hubs),
         },
+        "scenes": {"count": len(runtime.scenes)},
     }
