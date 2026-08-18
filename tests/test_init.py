@@ -483,9 +483,10 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     assert client.scene_calls == ["HUB1", "HUB2"]
     assert config_entry.update_listener is lifesmart_init._async_update_listener
     assert len(device_reg.created) == 2
-    assert {entry["name"] for entry in device_reg.created} == {
-        "LifeSmart Hub HUB1",
-        "LifeSmart Hub HUB2",
+    assert all(entry["name"] == "LifeSmart Hub" for entry in device_reg.created)
+    assert {next(iter(entry["identifiers"])) for entry in device_reg.created} == {
+        (DOMAIN, "HUB1"),
+        (DOMAIN, "HUB2"),
     }
     assert [name for _, name, _, _ in hass.services.registrations] == [
         "send_ir_code",

@@ -486,7 +486,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         hub_device = dev_reg.async_get_or_create(
             config_entry_id=config_entry.entry_id,
             identifiers={(DOMAIN, hub_id)},
-            name=hub.get("name") or f"LifeSmart Hub {hub_id}",
+            name=hub.get("name") or "LifeSmart Hub",
             manufacturer="LifeSmart",
             model="Hub",
             sw_version=hub.get("agt_ver"),

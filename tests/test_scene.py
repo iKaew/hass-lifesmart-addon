@@ -59,7 +59,10 @@ def test_scene_setup_creates_native_entities():
         "HUB1_SCENE1",
         "HUB2_SCENE1",
     ]
-    assert added[0].device_info["identifiers"] == {(DOMAIN, "HUB1")}
+    assert [entity.device_info["identifiers"] for entity in added] == [
+        {(DOMAIN, "HUB1")},
+        {(DOMAIN, "HUB2")},
+    ]
 
 
 @pytest.mark.parametrize("response", [{"code": 0}, {"code": "success"}, 0])
