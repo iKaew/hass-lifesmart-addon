@@ -115,6 +115,12 @@
     "hub_restart_rejected": {
       "message": "LifeSmart rejected the hub restart request."
     },
+    "scene_activation_failed": {
+      "message": "Unable to activate the LifeSmart scene."
+    },
+    "scene_activation_rejected": {
+      "message": "LifeSmart rejected the scene activation request."
+    },
     "service_target_not_found": {
       "message": "The target does not belong to exactly one loaded LifeSmart account."
     },

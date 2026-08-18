@@ -17,6 +17,7 @@ class LifeSmartRuntimeData:
     client: LifeSmartClient
     devices: list[dict[str, Any]]
     hubs: list[dict[str, Any]] = field(default_factory=list)
+    scenes: list[dict[str, Any]] = field(default_factory=list)
     hub_coordinator: Any | None = None
     exclude_devices: list[str] = field(default_factory=list)
     exclude_hubs: list[str] = field(default_factory=list)
@@ -119,6 +120,7 @@ def get_runtime_data(hass, entry) -> LifeSmartRuntimeData:
         client=legacy.get("client"),
         devices=legacy["devices"],
         hubs=legacy.get("hubs", []),
+        scenes=legacy.get("scenes", []),
         hub_coordinator=legacy.get("hub_coordinator"),
         exclude_devices=legacy.get("exclude_devices", []),
         exclude_hubs=legacy.get("exclude_hubs", []),

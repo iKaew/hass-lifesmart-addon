@@ -26,6 +26,7 @@ def test_diagnostics_redacts_credentials_and_summarizes_devices():
         runtime_data=LifeSmartRuntimeData(
             client=None,
             devices=[{"devtype": "SL_SPOT"}, {"devtype": "SL_SPOT"}],
+            scenes=[{"agt": "HUB1", "id": "SCENE1", "name": "Movie Night"}],
             connected=False,
             last_error="offline",
         ),
@@ -40,3 +41,4 @@ def test_diagnostics_redacts_credentials_and_summarizes_devices():
     assert result["connection"] == {"connected": False, "last_error": "offline"}
     assert result["devices"]["count"] == 2
     assert result["devices"]["types"] == {"SL_SPOT": 2}
+    assert result["scenes"] == {"count": 1}

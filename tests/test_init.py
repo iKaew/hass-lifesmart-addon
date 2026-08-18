@@ -72,6 +72,38 @@ def test_refresh_device_availability_uses_cloud_status():
     }
 
 
+def test_scene_discovery_normalizes_filters_and_deduplicates(caplog):
+    class SceneClient:
+        def __init__(self):
+            self.calls = []
+
+        async def get_all_scene_async(self, hub_id):
+            self.calls.append(hub_id)
+            if hub_id == "HUB2":
+                raise RuntimeError("private API failure")
+            return [
+                {"id": "SCENE1", "name": " Movie Night ", "ignored": "raw"},
+                {"id": "SCENE1", "name": "Duplicate"},
+                {"id": 7},
+                {"name": "Missing ID"},
+                "invalid",
+            ]
+
+    client = SceneClient()
+    scenes = asyncio.run(
+        lifesmart_init._async_discover_scenes(
+            client, {"HUB3", "HUB2", "HUB1"}, ["HUB3"]
+        )
+    )
+
+    assert client.calls == ["HUB1", "HUB2"]
+    assert scenes == [
+        {HUB_ID_KEY: "HUB1", "id": "SCENE1", "name": "Movie Night"},
+        {HUB_ID_KEY: "HUB1", "id": "7", "name": "LifeSmart Scene 7"},
+    ]
+    assert "Unable to retrieve LifeSmart scenes for hub HUB2" in caplog.text
+
+
 class FakeConfigEntriesManager:
     def __init__(self):
         self.forward_calls = []
@@ -207,6 +239,7 @@ class FakeLifeSmartClient:
         self.userpassword = userpassword
         self.login_calls = 0
         self.device_calls = 0
+        self.scene_calls = []
         self.service_calls = []
         FakeLifeSmartClient.instances.append(self)
 
@@ -220,6 +253,10 @@ class FakeLifeSmartClient:
 
     async def get_all_hubs_async(self):
         return self.hubs_response
+
+    async def get_all_scene_async(self, hub_id):
+        self.scene_calls.append(hub_id)
+        return []
 
     async def get_hub_system_info_async(self, hub_id):
         return self.system_info_response
@@ -440,8 +477,10 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     assert runtime.exclude_hubs == []
     assert runtime.ai_include_hubs == []
     assert runtime.ai_include_items == []
+    assert runtime.scenes == []
     assert runtime.update_listener == "listener-token"
     assert {hub[HUB_ID_KEY] for hub in runtime.hubs} == {"HUB1", "HUB2"}
+    assert client.scene_calls == ["HUB1", "HUB2"]
     assert config_entry.update_listener is lifesmart_init._async_update_listener
     assert len(device_reg.created) == 2
     assert {entry["name"] for entry in device_reg.created} == {
@@ -588,6 +627,23 @@ def test_central_service_handler_rejects_ambiguous_target():
         lifesmart_init._runtime_for_service(
             hass, {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEVICE1"}
         )
+
+
+def test_central_scene_service_resolves_hub_without_devices():
+    entry = make_config_entry()
+    entry.runtime_data = lifesmart_init.LifeSmartRuntimeData(
+        client=object(),
+        devices=[],
+        hubs=[{HUB_ID_KEY: "HUB1"}],
+        scenes=[{HUB_ID_KEY: "HUB1", "id": "SCENE1"}],
+    )
+    hass = FakeHass()
+    hass.config_entries.entries = [entry]
+
+    assert (
+        lifesmart_init._runtime_for_service(hass, {HUB_ID_KEY: "HUB1"})
+        is entry.runtime_data
+    )
 
 
 @pytest.mark.parametrize(
@@ -1605,7 +1661,6 @@ class FakeBaseClient:
     def __init__(self):
         self.epset_calls = []
         self.epget_calls = []
-        self.scene_calls = []
 
     async def send_epset_async(self, type, val, idx, agt, me):
         self.epset_calls.append((type, val, idx, agt, me))
@@ -1614,10 +1669,6 @@ class FakeBaseClient:
     async def get_epget_async(self, agt, me):
         self.epget_calls.append((agt, me))
         return {"value": 1}
-
-    def set_scene_async(self, agt, scene_id):
-        self.scene_calls.append((agt, scene_id))
-        return {"code": 0}
 
 
 def test_lifesmart_device_exposes_metadata_and_proxies_client_calls():
@@ -1642,10 +1693,8 @@ def test_lifesmart_device_exposes_metadata_and_proxies_client_calls():
     assert device.should_poll is False
     assert asyncio.run(device.async_lifesmart_epset("0x81", 1, "P1")) == "epset-ok"
     assert asyncio.run(device.async_lifesmart_epget()) == {"value": 1}
-    assert asyncio.run(device.async_lifesmart_sceneset("ignored", "ignored")) == 0
     assert client.epset_calls == [("0x81", 1, "P1", "HUB1", "DEV1")]
     assert client.epget_calls == [("HUB1", "DEV1")]
-    assert client.scene_calls == [("HUB1", "DEV1")]
 
 
 def test_states_manager_run_start_and_stop(monkeypatch):

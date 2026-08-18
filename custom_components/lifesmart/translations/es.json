@@ -115,6 +115,12 @@
     "hub_restart_rejected": {
       "message": "LifeSmart rechazó la solicitud de reinicio del concentrador."
     },
+    "scene_activation_failed": {
+      "message": "No se pudo activar la escena de LifeSmart."
+    },
+    "scene_activation_rejected": {
+      "message": "LifeSmart rechazó la solicitud de activación de la escena."
+    },
     "service_target_not_found": {
       "message": "El destino no pertenece exactamente a una cuenta de LifeSmart cargada."
     },

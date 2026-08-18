@@ -33,15 +33,6 @@ from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
 
 _LOGGER = logging.getLogger(__name__)
 
-CON_AI_TYPE_SCENE = "scene"
-CON_AI_TYPE_AIB = "aib"
-CON_AI_TYPE_GROUP = "grouphw"
-CON_AI_TYPES = [
-    CON_AI_TYPE_SCENE,
-    CON_AI_TYPE_AIB,
-    CON_AI_TYPE_GROUP,
-]
-AI_TYPES = ["ai"]
 VIRTUAL_SWITCH_TYPE = "V_IND_S"
 
 
@@ -91,9 +82,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                 client,
             )
 
-            if device_type in AI_TYPES:
-                switch_devices.append(LifeSmartSceneSwitch(ha_device, device, client))
-            elif device_type in AIR_PURIFIER_TYPES:
+            if device_type in AIR_PURIFIER_TYPES:
                 sub_device_key = "O"
                 switch_devices.append(
                     LifeSmartSwitch(
@@ -292,72 +281,6 @@ class LifeSmartSwitch(LifeSmartAvailabilityMixin, SwitchEntity):
             self.async_schedule_update_ha_state()
         else:
             _LOGGER.warning("Switch {self._me} - {self._idx} status changed failed")
-
-    @property
-    def unique_id(self):
-        """A unique identifier for this entity."""
-        return self._attr_unique_id
-
-
-class LifeSmartSceneSwitch(LifeSmartDevice, SwitchEntity):
-    def __init__(self, device, raw_device_data, client) -> None:
-        """Initialize the switch."""
-
-        device_type = raw_device_data[DEVICE_TYPE_KEY]
-        hub_id = raw_device_data[HUB_ID_KEY]
-        device_id = raw_device_data[DEVICE_ID_KEY]
-
-        super().__init__(raw_device_data, client)
-
-        self._device = device
-        self._raw_device_data = raw_device_data
-        configure_entity_identity(
-            self,
-            generate_entity_id(device_type, hub_id, device_id)
-            or f"switch.{device_type}_{hub_id}_{device_id}".lower(),
-        )
-
-        self.hub_id = hub_id
-        self.device_id = device_id
-        self.device_type = device_type
-        self.switch_name = raw_device_data[DEVICE_NAME_KEY]
-
-        self._state = False
-
-    @property
-    def is_on(self):
-        """Return true if device is on."""
-        return self._state
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return the device info."""
-        return DeviceInfo(
-            identifiers={device_identifier(self.hub_id, self.device_id)},
-            name=self.switch_name,
-            manufacturer=MANUFACTURER,
-            model=self.device_type,
-            # sw_version=self.light.swversion,
-            **device_via_info(self._raw_device_data, self.hub_id),
-        )
-
-    async def async_added_to_hass(self):
-        """Call when entity is added to hass."""
-
-    def _get_state(self):
-        """Get lifesmart switch state."""
-        return self._state
-
-    async def async_turn_on(self, **kwargs):
-        """Set scene."""
-        if await super().async_lifesmart_sceneset(None, None) == 0:
-            self._state = True
-            self.async_schedule_update_ha_state()
-
-    async def async_turn_off(self, **kwargs):
-        """TODO: Set scene off ?."""
-        self._state = False
-        self.async_schedule_update_ha_state()
 
     @property
     def unique_id(self):
