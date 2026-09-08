@@ -388,6 +388,72 @@ def test_websocket_device_status_updates_availability(monkeypatch):
     assert dispatch_calls == []
 
 
+def test_ts0121_routes_outputs_energy_and_availability(monkeypatch):
+    device_type = "ZG#TS0121"
+    _hass, entry, ws, dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch,
+        devices=[
+            {
+                HUB_ID_KEY: "HUB1",
+                DEVICE_ID_KEY: "PLUG1",
+                "devtype": device_type,
+                "stat": 0,
+            }
+        ],
+    )
+
+    assert entry.runtime_data.device_availability[("HUB1", "PLUG1")] is False
+    assert lifesmart_init.generate_entity_id(
+        device_type, "HUB1", "PLUG1", "O1"
+    ) == "switch.zg_ts0121_hub1_plug1_o1"
+    assert lifesmart_init.generate_entity_id(
+        device_type, "HUB1", "PLUG1", "EE1"
+    ) == "sensor.zg_ts0121_hub1_plug1_ee1"
+
+    for sub_device_key, payload in [
+        ("O1", {"type": 129, "val": 1}),
+        ("EE1", {"type": 2, "val": 1128847770}),
+    ]:
+        send_ws_device_update(
+            ws,
+            {
+                "devtype": device_type,
+                HUB_ID_KEY: "HUB1",
+                DEVICE_ID_KEY: "PLUG1",
+                SUBDEVICE_INDEX_KEY: sub_device_key,
+                **payload,
+            },
+        )
+
+    send_ws_device_update(
+        ws,
+        {
+            "devtype": device_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "PLUG1",
+            SUBDEVICE_INDEX_KEY: "EE2",
+            "type": 2,
+            "val": 0,
+        },
+    )
+    send_ws_device_update(
+        ws,
+        {
+            "devtype": device_type,
+            HUB_ID_KEY: "HUB1",
+            DEVICE_ID_KEY: "PLUG1",
+            SUBDEVICE_INDEX_KEY: "s",
+            "v": 1,
+        },
+    )
+
+    assert entry.runtime_data.device_availability[("HUB1", "PLUG1")] is True
+    assert [call[0] for call in dispatch_calls] == [
+        f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_switch.zg_ts0121_hub1_plug1_o1",
+        f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_sensor.zg_ts0121_hub1_plug1_ee1",
+    ]
+
+
 def test_websocket_hub_offline_marks_child_devices_unavailable(monkeypatch):
     _hass, entry, ws, _dispatch_calls = setup_entry_for_ws_tests(
         monkeypatch,
@@ -1794,8 +1860,14 @@ def test_get_fan_mode(speed, expected):
         ("SL_LK_YL", "HISLK", lifesmart_init.Platform.SENSOR),
         ("SL_OE_DE", "P1", lifesmart_init.Platform.SWITCH),
         ("SL_OE_DE", "P2", lifesmart_init.Platform.SENSOR),
+        ("ZG#TS011F", "O2", lifesmart_init.Platform.SWITCH),
+        ("ZG#TS011F", "EE1", lifesmart_init.Platform.SENSOR),
+        ("ZG#TS0121", "P1", lifesmart_init.Platform.SWITCH),
+        ("ZG#TS0121", "P2", lifesmart_init.Platform.SENSOR),
+        ("ZG#TS0121", "P3", lifesmart_init.Platform.SENSOR),
         ("ZG#TS0121", "O1", lifesmart_init.Platform.SWITCH),
         ("ZG#TS0121", "EE1", lifesmart_init.Platform.SENSOR),
+        ("ZG#TS0121", "EE2", ""),
         ("V_IND_S", "P8", lifesmart_init.Platform.SWITCH),
         ("UNKNOWN", None, ""),
     ],
@@ -1826,6 +1898,20 @@ def test_get_platform_by_device(device_type, sub_device, expected):
         ("SL_SC_G", "HUB-1", "DEV1", "G", "binary_sensor.sl_sc_g_hub_1_dev1_g"),
         ("SL_SC_BM", "HUB-1", "DEV1", "V", "sensor.sl_sc_bm_hub_1_dev1_v"),
         ("SL_CAM", "HUB-1", "CAM1", "M", "binary_sensor.sl_cam_hub_1_cam1_m"),
+        (
+            "ZG#TS011F",
+            "HUB-1",
+            "PLUG:1",
+            "EE1",
+            "sensor.zg_ts011f_hub_1_plug_1_ee1",
+        ),
+        (
+            "ZG#TS0121",
+            "HUB-1",
+            "PLUG:2",
+            "O1",
+            "switch.zg_ts0121_hub_1_plug_2_o1",
+        ),
         (
             "SL_CAM",
             "HUB-1",
