@@ -67,6 +67,7 @@ def test_async_setup_entry_creates_supported_switch_entities(monkeypatch):
         make_device("SL_JEMA", {"P8": {"type": 1, "val": 1}, "P6": {"type": 1, "val": 1}}, device_id="CTRL1"),
         make_device("V_485_P", {"O": {"type": 1, "val": 1}, "L1": {"type": 1, "val": 1}}, device_id="MOD1"),
         make_device("SL_OE_DE", {"P1": {"type": 1, "val": 1}}, device_id="PLUG1"),
+        make_device("ZG#TS0121", {"O1": {"type": 128, "val": 0}}, device_id="PLUG2"),
         make_device("SL_NATURE", {"P1": {"type": 1, "val": 1}, "P2": {"type": 0, "val": 0}}, device_id="NAT1"),
         make_device("SL_SPOT", {"P1": {"type": 1, "val": 1}}, device_id="SKIP"),
         make_device("SL_OL", {"P1": {"type": 1, "val": 1}}, device_id="EXCLUDED"),
@@ -76,12 +77,13 @@ def test_async_setup_entry_creates_supported_switch_entities(monkeypatch):
 
     asyncio.run(switch_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
 
-    assert len(added) == 8
+    assert len(added) == 9
     assert any(entity.unique_id == "switch.sl_ol_hub1_dev1_p1" for entity in added)
     assert any(entity.unique_id == "switch.od_mfresh_m8088_hub1_air1_o" for entity in added)
     assert any(entity.unique_id == "switch.sl_jema_hub1_ctrl1_p8" for entity in added)
     assert any(entity.unique_id == "switch.v_485_p_hub1_mod1_l1" for entity in added)
     assert any(entity.unique_id == "switch.sl_oe_de_hub1_plug1_p1" for entity in added)
+    assert any(entity.unique_id == "switch.zg_ts0121_hub1_plug2_o1" for entity in added)
     assert any(entity.unique_id == "switch.sl_nature_hub1_nat1_p1" for entity in added)
 
 

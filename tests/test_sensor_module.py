@@ -47,6 +47,34 @@ def make_sensor_entity(device_type, sub_device_key, sub_device_data):
     return entity, updates
 
 
+def test_ts0121_exposes_ieee754_ee1_energy_sensor():
+    device = make_device(
+        "ZG#TS0121", {"O1": {"type": 128, "val": 0}, "EE1": {"type": 2, "val": 1128847770}}
+    )
+    hass = FakeHass("entry-1", [device])
+    added = []
+
+    asyncio.run(
+        sensor_module.async_setup_entry(
+            hass, FakeConfigEntry(), lambda entities: added.extend(entities)
+        )
+    )
+
+    assert len(added) == 1
+    assert added[0].unique_id == "sensor.zg_ts0121_hub1_dev1_ee1"
+    assert added[0].device_class == sensor_module.SensorDeviceClass.ENERGY
+    assert added[0].unit_of_measurement == sensor_module.UnitOfEnergy.KILO_WATT_HOUR
+    assert added[0].state_class == sensor_module.SensorStateClass.TOTAL_INCREASING
+    assert added[0].state == 200.85000610351562
+
+    updates = []
+    added[0].schedule_update_ha_state = lambda: updates.append("scheduled")
+    asyncio.run(added[0]._update_value({"type": 2, "val": 1120403456}))
+
+    assert added[0].state == 100.0
+    assert updates == ["scheduled"]
+
+
 def test_sensor_async_setup_entry_creates_supported_entities():
     devices = [
         make_device("SL_SC_CH", {"P1": {"val": 11}, "P2": {"val": 12}}),
