@@ -137,6 +137,7 @@ SCENE_SET_SCHEMA = vol.Schema(
 )
 
 _LOGGER = logging.getLogger(__name__)
+LEGACY_LOCAL_HUB_IDS = ("me", "all")
 
 
 def _platforms_for_client(client) -> list[Platform]:
@@ -461,6 +462,12 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         if is_local:
             await lifesmart_client.async_close()
         raise ConfigEntryAuthFailed("LifeSmart rejected the configured credentials")
+    if is_local and getattr(config_entry, "unique_id", None) in {
+        f"local-{hub_id}" for hub_id in LEGACY_LOCAL_HUB_IDS
+    }:
+        hass.config_entries.async_update_entry(
+            config_entry, unique_id=f"local-{lifesmart_client.hub_id}"
+        )
 
     try:
         devices = await lifesmart_client.get_all_device_async()
@@ -496,6 +503,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
     hub_ids = set(device[HUB_ID_KEY] for device in devices) | set(hubs_by_id)
     for hub_id in hub_ids:
         hubs_by_id.setdefault(hub_id, {HUB_ID_KEY: hub_id})
+
+    if is_local and len(hub_ids) == 1:
+        _migrate_local_hub_identity(
+            dev_reg,
+            entity_registry.async_get(hass),
+            config_entry.entry_id,
+            next(iter(hub_ids)),
+        )
 
     async def async_enrich_hub(hub):
         """Add non-sensitive cloud metadata without blocking hub discovery."""
@@ -1041,6 +1056,88 @@ def _migrate_legacy_device_identifiers(
             dev_reg.async_update_device(
                 device_entry.id, new_identifiers=migrated_identifiers
             )
+
+
+def _registry_entry_belongs_to_config_entry(entry, config_entry_id: str) -> bool:
+    """Return whether a registry entry belongs to this config entry."""
+    owner = getattr(entry, "config_entry_id", None)
+    if owner is not None:
+        return owner == config_entry_id
+    return config_entry_id in getattr(entry, "config_entries", set())
+
+
+def _migrate_local_hub_identity(
+    dev_reg, ent_reg, config_entry_id: str, hub_id: str
+) -> None:
+    """Migrate local registry entries created with a truncated hub ID."""
+    if hub_id in LEGACY_LOCAL_HUB_IDS:
+        return
+
+    owned_devices = [
+        entry
+        for entry in getattr(dev_reg, "devices", {}).values()
+        if _registry_entry_belongs_to_config_entry(entry, config_entry_id)
+    ]
+    if any((DOMAIN, hub_id) in entry.identifiers for entry in owned_devices):
+        return
+
+    old_hub_id = next(
+        (
+            candidate
+            for candidate in LEGACY_LOCAL_HUB_IDS
+            if any(
+                any(
+                    identifier[:2] == (DOMAIN, candidate)
+                    or len(identifier) == 2
+                    and identifier[0] == DOMAIN
+                    and identifier[1].startswith(f"{candidate}:")
+                    for identifier in entry.identifiers
+                )
+                for entry in owned_devices
+            )
+        ),
+        None,
+    )
+    if old_hub_id is None:
+        return
+
+    for entry in owned_devices:
+        migrated_identifiers = set()
+        for identifier in entry.identifiers:
+            if identifier[:2] == (DOMAIN, old_hub_id):
+                migrated_identifiers.add((DOMAIN, hub_id, *identifier[2:]))
+            elif (
+                len(identifier) == 2
+                and identifier[0] == DOMAIN
+                and identifier[1].startswith(f"{old_hub_id}:")
+            ):
+                migrated_identifiers.add(
+                    (DOMAIN, f"{hub_id}:{identifier[1].split(':', 1)[1]}")
+                )
+            else:
+                migrated_identifiers.add(identifier)
+        if migrated_identifiers != entry.identifiers:
+            dev_reg.async_update_device(
+                entry.id, new_identifiers=migrated_identifiers
+            )
+
+    old_token = _sanitize_entity_id_part(old_hub_id).lower()
+    new_token = _sanitize_entity_id_part(hub_id).lower()
+    for entry in list(getattr(ent_reg, "entities", {}).values()):
+        if not _registry_entry_belongs_to_config_entry(entry, config_entry_id):
+            continue
+        unique_id = entry.unique_id
+        if unique_id == f"{old_hub_id}_status":
+            new_unique_id = f"{hub_id}_status"
+        elif f"_{old_token}_" in unique_id:
+            new_unique_id = unique_id.replace(
+                f"_{old_token}_", f"_{new_token}_", 1
+            )
+        else:
+            continue
+        ent_reg.async_update_entity(
+            entry.entity_id, new_unique_id=new_unique_id
+        )
 
 
 class LifeSmartDevice(LifeSmartAvailabilityMixin, Entity):

@@ -40,6 +40,7 @@ class FakeConfigEntry:
         self.data = data
         self.options = options or {}
         self.entry_id = entry_id
+        self.unique_id = None
         self.update_listener = None
         self.runtime_data = None
 
@@ -112,6 +113,7 @@ class FakeConfigEntriesManager:
         self.reload_calls = []
         self.unload_calls = []
         self.entries = []
+        self.update_entry_calls = []
 
     def async_entries(self, domain):
         return self.entries
@@ -125,6 +127,11 @@ class FakeConfigEntriesManager:
     async def async_unload_platforms(self, entry, platforms):
         self.unload_calls.append((entry, tuple(platforms)))
         return True
+
+    def async_update_entry(self, config_entry, **changes):
+        self.update_entry_calls.append((config_entry, changes))
+        for key, value in changes.items():
+            setattr(config_entry, key, value)
 
 
 class FakeServices:
@@ -581,6 +588,7 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
 def test_async_setup_entry_uses_local_client_without_cloud_websocket(monkeypatch):
     class FakeLocalClient:
         is_local = True
+        hub_id = "HUB1"
         instances = []
 
         def __init__(self, host, port, password):
@@ -623,6 +631,7 @@ def test_async_setup_entry_uses_local_client_without_cloud_websocket(monkeypatch
             CONF_LOCAL_PASSWORD: "admin",
         }
     )
+    entry.unique_id = "local-me"
     device_reg = FakeDeviceRegistry()
     patch_setup_dependencies(monkeypatch, device_reg)
     monkeypatch.setattr(lifesmart_init, "LocalLifeSmartClient", FakeLocalClient)
@@ -634,6 +643,10 @@ def test_async_setup_entry_uses_local_client_without_cloud_websocket(monkeypatch
     assert client.listener_started is True
     assert entry.runtime_data.connected is True
     assert entry.runtime_data.state_manager is None
+    assert entry.unique_id == "local-HUB1"
+    assert hass.config_entries.update_entry_calls == [
+        (entry, {"unique_id": "local-HUB1"})
+    ]
     assert FakeWebSocketApp.instances == []
     assert len(hass.config_entries.forward_calls) == 1
     local_platforms = hass.config_entries.forward_calls[0][1]
@@ -974,6 +987,113 @@ def test_migrate_legacy_device_identifiers_preserves_registry_device():
                 }
             },
         )
+    ]
+
+
+def test_migrate_local_hub_identity_preserves_devices_and_entity_ids():
+    hub = SimpleNamespace(
+        id="hub-device",
+        config_entries={"entry-1"},
+        identifiers={(DOMAIN, "me")},
+    )
+    child = SimpleNamespace(
+        id="child-device",
+        config_entries={"entry-1"},
+        identifiers={(DOMAIN, "me:4075")},
+    )
+    legacy_child = SimpleNamespace(
+        id="legacy-child-device",
+        config_entries={"entry-1"},
+        identifiers={(DOMAIN, "me", "4076")},
+    )
+    unrelated = SimpleNamespace(
+        id="unrelated-device",
+        config_entries={"entry-2"},
+        identifiers={(DOMAIN, "me:4075")},
+    )
+
+    class DeviceMigrationRegistry:
+        devices = {
+            entry.id: entry for entry in (hub, child, legacy_child, unrelated)
+        }
+
+        def __init__(self):
+            self.updated = []
+
+        def async_update_device(self, device_id, **changes):
+            self.updated.append((device_id, changes))
+
+    status = SimpleNamespace(
+        entity_id="sensor.lifesmart_hub_status",
+        unique_id="me_status",
+        config_entry_id="entry-1",
+    )
+    switch = SimpleNamespace(
+        entity_id="switch.stairway",
+        unique_id="switch.sl_sw_mj1_me_4075_p1",
+        config_entry_id="entry-1",
+    )
+    unrelated_entity = SimpleNamespace(
+        entity_id="switch.other",
+        unique_id="switch.sl_sw_mj1_me_4075_p1",
+        config_entry_id="entry-2",
+    )
+
+    class EntityMigrationRegistry:
+        entities = {
+            entry.entity_id: entry for entry in (status, switch, unrelated_entity)
+        }
+
+        def __init__(self):
+            self.updated = []
+
+        def async_update_entity(self, entity_id, **changes):
+            self.updated.append((entity_id, changes))
+
+    device_registry = DeviceMigrationRegistry()
+    entity_registry = EntityMigrationRegistry()
+    lifesmart_init._migrate_local_hub_identity(
+        device_registry,
+        entity_registry,
+        "entry-1",
+        "AzIAAMiWdwEAAAs-UAz__w",
+    )
+
+    assert device_registry.updated == [
+        (
+            "hub-device",
+            {"new_identifiers": {(DOMAIN, "AzIAAMiWdwEAAAs-UAz__w")}},
+        ),
+        (
+            "child-device",
+            {
+                "new_identifiers": {
+                    (DOMAIN, "AzIAAMiWdwEAAAs-UAz__w:4075")
+                }
+            },
+        ),
+        (
+            "legacy-child-device",
+            {
+                "new_identifiers": {
+                    (DOMAIN, "AzIAAMiWdwEAAAs-UAz__w", "4076")
+                }
+            },
+        ),
+    ]
+    assert entity_registry.updated == [
+        (
+            "sensor.lifesmart_hub_status",
+            {"new_unique_id": "AzIAAMiWdwEAAAs-UAz__w_status"},
+        ),
+        (
+            "switch.stairway",
+            {
+                "new_unique_id": (
+                    "switch.sl_sw_mj1_aziaamiwdweaaas_uaz_w_4075_p1"
+                )
+            },
+        ),
     ]
 
 
