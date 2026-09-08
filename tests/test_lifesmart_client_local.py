@@ -8,9 +8,12 @@ import logging
 import struct
 
 from custom_components.lifesmart.lifesmart_client_local import (
+    EnumValue,
     FrameBuffer,
     LocalLifeSmartClient,
     build_control_packet,
+    build_scene_query_packet,
+    build_scene_run_packet,
     decode_payload,
     encode_packet,
     find_first,
@@ -86,6 +89,110 @@ def test_control_packet_uses_verified_even_wire_type():
     assert find_first(message, "key") == "P1"
     assert find_first(message, "val") == 1
     assert find_first(message, "type") == 0x80
+
+
+def test_local_scene_query_packet_uses_ai_object_tree():
+    packet = build_scene_query_packet("node/HUB1/me")
+    frames = FrameBuffer()
+    frames.feed(packet)
+    message = decode_payload(frames.pop())
+
+    assert find_first(message, "node") == "node/HUB1/me/ai"
+    action = find_first(message, "act")
+    assert isinstance(action, EnumValue)
+    assert action.code == 91
+    assert find_first(message, "cron_name") is False
+    assert find_first(message, "cls") is False
+    assert find_first(message, "name") is False
+
+
+def test_local_scene_run_packet_uses_verified_runa_shape():
+    packet = build_scene_run_packet("node/HUB1/me", "AI1787037704")
+    frames = FrameBuffer()
+    frames.feed(packet)
+    message = decode_payload(frames.pop())
+
+    assert find_first(message, "node") == "node/HUB1/me/ai"
+    assert find_first(message, "act") == "RunA"
+    assert find_first(message, "cron_name") == "AI1787037704"
+
+
+def test_local_scene_discovery_filters_and_normalizes_ai_records():
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+        client._agent_node = "node/HUB1/me"
+        client._hub_id = "HUB1"
+        packets = []
+        response = [
+            {
+                "ret": {
+                    1: {
+                        "ai": {
+                            "AI1": {"cls": "scene", "name": " Coffee Scene "},
+                            "AI2": {
+                                "cls": "groupirc",
+                                "name": "Watch television",
+                            },
+                            "AI_IR_1": {"cls": "irkey", "name": "Remote"},
+                            "TRIGGER1": {"cls": "trigger", "name": "Alarm"},
+                            "AI3": {"cls": "scene", "name": ""},
+                        }
+                    }
+                }
+            }
+        ]
+
+        async def capture(packet):
+            packets.append(packet)
+
+        async def read_until(predicate):
+            assert predicate(response)
+            return response
+
+        client._send = capture
+        client._read_until = read_until
+        scenes = await client.get_all_scene_async("HUB1")
+        return client, packets, scenes
+
+    client, packets, scenes = asyncio.run(scenario())
+
+    assert scenes == [
+        {"id": "AI1", "name": "Coffee Scene"},
+        {"id": "AI2", "name": "Watch television"},
+        {"id": "AI3", "name": "LifeSmart Scene AI3"},
+    ]
+    assert client._scene_ids == {"AI1", "AI2", "AI3"}
+    assert len(packets) == 1
+
+
+def test_local_scene_activation_sends_only_discovered_scene():
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+        client._agent_node = "node/HUB1/me"
+        client._hub_id = "HUB1"
+        client._scene_ids = {"AI1"}
+        packets = []
+
+        async def capture(packet):
+            packets.append(packet)
+
+        client._send = capture
+        accepted = await client.set_scene_async("HUB1", "AI1")
+        unknown = await client.set_scene_async("HUB1", "AI_IR_1")
+        wrong_hub = await client.set_scene_async("HUB2", "AI1")
+        return packets, accepted, unknown, wrong_hub
+
+    packets, accepted, unknown, wrong_hub = asyncio.run(scenario())
+    frames = FrameBuffer()
+    frames.feed(packets[0])
+    message = decode_payload(frames.pop())
+
+    assert accepted == 0
+    assert unknown["code"] == "failure"
+    assert wrong_hub["code"] == "failure"
+    assert len(packets) == 1
+    assert find_first(message, "act") == "RunA"
+    assert find_first(message, "cron_name") == "AI1"
 
 
 def test_local_switch_on_and_off_send_expected_endpoint_packets():
@@ -223,13 +330,7 @@ def test_local_push_message_is_converted_to_cloud_event_shape():
     ]
 
     message = [
-        {
-            "_schg": {
-                "node/HUB1/ep/DEVICE1/m/P1": {
-                    "chg": {"type": 129, "val": 1}
-                }
-            }
-        }
+        {"_schg": {"node/HUB1/ep/DEVICE1/m/P1": {"chg": {"type": 129, "val": 1}}}}
     ]
     events = client._events_from_message(message)
 

@@ -4,7 +4,7 @@ Connection modes:
 - Direct local hub connection using the hub IP, port (default `8888`), and local password (default `admin`)
 - LifeSmart Open Platform cloud connection
 
-LifeSmart scenes and online IR profile features require the cloud connection.
+Scenes stored on the connected hub are supported locally. Online IR profile features require the cloud connection.
 
 Current supported features:
 - Switches
@@ -133,8 +133,8 @@ Nature thermostat support currently provides:
 Important notes:
 - SPOT A/C entities do not expose `current_temperature`, because SPOT devices do not include a temperature sensor
 - Native A/C control panel entities expose `current_temperature` when the device reports the `T` attribute
-- All communication is cloud-based through the LifeSmart API and websocket updates
-- There is no direct local LAN communication with the LifeSmart hub
+- Communication uses either the direct local TCP connection or the LifeSmart cloud API and websocket, according to the configured connection mode
+- Local mode discovers devices and hub scenes and sends controls directly over the LAN
 
 Main setup/configuration capabilities:
 - Standard integration setup through the Home Assistant UI

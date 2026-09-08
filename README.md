@@ -65,7 +65,7 @@ Use manual installation only if you cannot use HACS.
    - **LifeSmart Account Country/Region**: Select the country or region shown in the LifeSmart mobile app account/profile screen (see below)
 1. Click `Submit` and wait for device discovery.
 
-The integration automatically discovers and creates entities for the devices returned by the selected connection. Scenes and LifeSmart's online IR profile catalog require cloud mode.
+The integration automatically discovers and creates entities for the devices returned by the selected connection. Scenes stored on the connected hub are available in local mode. LifeSmart's online IR profile catalog requires cloud mode.
 
 ### Finding Your LifeSmart Email/User ID And Country/Region
 
@@ -107,7 +107,7 @@ target:
   entity_id: scene.movie_night
 ```
 
-LifeSmart remains responsible for executing the scene actions. Scene changes made in the LifeSmart app appear after reloading the LifeSmart integration. The legacy `lifesmart.scene_set` action remains available for automations that use raw hub and scene IDs.
+LifeSmart remains responsible for executing the scene actions. In local mode, executable scenes stored on the connected hub are discovered over the LAN and run without the cloud. Scene changes made in the LifeSmart app appear after reloading the LifeSmart integration. The legacy `lifesmart.scene_set` action remains available for automations that use raw hub and scene IDs.
 
 ## FAQ
 

@@ -48,6 +48,7 @@ KEY_NAMES = {
     9: "act",
     10: "node",
     11: "ret",
+    13: "cron_name",
     16: "name",
     21: "ts",
     22: "devid",
@@ -76,6 +77,8 @@ VERSIONED_DEVICE_TYPES = {
     "SL_P_IR_V2",
     "SL_P_V2",
 }
+
+LOCAL_SCENE_CLASSES = {"scene", "groupirc"}
 
 
 class LocalProtocolError(RuntimeError):
@@ -418,6 +421,46 @@ def build_control_packet(
     )
 
 
+def build_scene_query_packet(agent_node: str) -> bytes:
+    """Create the read-only query for locally stored hub scenes."""
+    fields = {
+        "cron_name": False,
+        "name": False,
+        "cls": False,
+        "desc": False,
+        "_": "ai",
+        "_chd": 1,
+    }
+    return encode_packet(
+        [
+            {"req": False, "timestamp": 10},
+            {
+                "args": {
+                    EnumValue(14): {EnumValue(98): fields},
+                    EnumValue(12): {EnumValue(13): False},
+                    "_chd": 1,
+                },
+                "node": f"{agent_node}/ai",
+                "act": EnumValue(91),
+            },
+        ]
+    )
+
+
+def build_scene_run_packet(agent_node: str, scene_id: str) -> bytes:
+    """Create the verified RunA request for one locally stored scene."""
+    return encode_packet(
+        [
+            {"_sel": 1, "timestamp": 10, "req": False},
+            {
+                "args": {"cron_name": scene_id},
+                "node": f"{agent_node}/ai",
+                "act": "RunA",
+            },
+        ]
+    )
+
+
 class LocalLifeSmartClient:
     """Persistent client for one LifeSmart hub on the local network."""
 
@@ -437,6 +480,8 @@ class LocalLifeSmartClient:
         self._agent_node: str | None = None
         self._hub_id = host
         self._devices: list[dict[str, Any]] = []
+        self._scenes: list[dict[str, str]] = []
+        self._scene_ids: set[str] = set()
         self._listener_task: asyncio.Task | None = None
         self._write_lock = asyncio.Lock()
 
@@ -528,11 +573,7 @@ class LocalLifeSmartClient:
                 continue
             device_type = self._normalize_device_type(device_type)
             hub_id = raw.get("agtid")
-            if (
-                not isinstance(hub_id, str)
-                or not hub_id
-                or hub_id.lower() == "all"
-            ):
+            if not isinstance(hub_id, str) or not hub_id or hub_id.lower() == "all":
                 hub_id = self._hub_id
             self._hub_id = hub_id
             children = raw.get("_chd", {})
@@ -603,21 +644,70 @@ class LocalLifeSmartClient:
     async def get_hub_timezone_async(self, _hub_id: str) -> dict[str, Any]:
         return {}
 
-    async def get_all_scene_async(self, _hub_id: str) -> list:
-        return []
+    async def get_all_scene_async(self, _hub_id: str) -> list[dict[str, str]]:
+        """Discover scenes stored on the locally connected hub."""
+        if self._agent_node is None:
+            raise ConnectionError("local hub is not authenticated")
+        await self._send(build_scene_query_packet(self._agent_node))
+        message = await self._read_until(
+            lambda msg: (
+                find_first(msg, "ai") is not MISSING
+                or find_first(msg, "err") is not MISSING
+            )
+        )
+        ai = find_first(message, "ai")
+        if ai is MISSING:
+            error = find_first(message, "err")
+            raise LocalProtocolError(
+                "local scene discovery was rejected"
+                if error is MISSING
+                else f"local scene discovery was rejected: {error}"
+            )
+        self._scenes = self._normalize_scenes(ai)
+        self._scene_ids = {scene["id"] for scene in self._scenes}
+        return [dict(scene) for scene in self._scenes]
 
-    async def set_scene_async(self, _hub_id: str, _scene_id: str) -> dict[str, Any]:
-        raise NotImplementedError("Scenes are not available through the local protocol")
+    @staticmethod
+    def _normalize_scenes(ai: Any) -> list[dict[str, str]]:
+        """Normalize executable scene records from the hub's AI object tree."""
+        if not isinstance(ai, Mapping):
+            return []
+        scenes = []
+        for raw_id, raw_scene in ai.items():
+            if not isinstance(raw_scene, Mapping):
+                continue
+            scene_class = raw_scene.get("cls")
+            if scene_class not in LOCAL_SCENE_CLASSES:
+                continue
+            scene_id = str(raw_scene.get("cron_name") or raw_id).strip()
+            if not scene_id:
+                continue
+            raw_name = raw_scene.get("name")
+            scene_name = str(raw_name).strip() if raw_name is not None else ""
+            scenes.append(
+                {
+                    "id": scene_id,
+                    "name": scene_name or f"LifeSmart Scene {scene_id}",
+                }
+            )
+        return scenes
 
-    async def turn_on_light_swith_async(
-        self, idx: str, agt: str, me: str
-    ) -> int:
+    async def set_scene_async(self, hub_id: str, scene_id: str) -> int | dict[str, Any]:
+        """Activate a discovered local scene through the hub's RunA action."""
+        if self._agent_node is None:
+            raise ConnectionError("local hub is not authenticated")
+        if hub_id != self._hub_id or scene_id not in self._scene_ids:
+            return {"code": "failure", "message": "unknown local scene"}
+        await self._send(build_scene_run_packet(self._agent_node, scene_id))
+        # The listener owns the TCP reader after setup. Match endpoint control
+        # semantics and report successful dispatch without racing it for the ack.
+        return 0
+
+    async def turn_on_light_swith_async(self, idx: str, agt: str, me: str) -> int:
         """Turn on a switch-compatible local endpoint."""
         return await self.send_epset_async("0x81", 1, idx, agt, me)
 
-    async def turn_off_light_swith_async(
-        self, idx: str, agt: str, me: str
-    ) -> int:
+    async def turn_off_light_swith_async(self, idx: str, agt: str, me: str) -> int:
         """Turn off a switch-compatible local endpoint."""
         return await self.send_epset_async("0x80", 0, idx, agt, me)
 
@@ -697,8 +787,7 @@ class LocalLifeSmartClient:
     def _cloud_events_from_message(self, message: Any) -> list[dict[str, Any]]:
         """Convert local changes to the same envelope as cloud WebSocket events."""
         return [
-            {"type": "io", "msg": event}
-            for event in self._events_from_message(message)
+            {"type": "io", "msg": event} for event in self._events_from_message(message)
         ]
 
     def _events_from_message(self, message: Any) -> list[dict[str, Any]]:
