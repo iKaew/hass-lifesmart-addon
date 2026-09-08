@@ -7,14 +7,13 @@ from typing import Any, Callable
 from weakref import WeakSet
 
 from .const import DEVICE_ID_KEY, HUB_ID_KEY
-from .lifesmart_client import LifeSmartClient
 
 
 @dataclass(slots=True)
 class LifeSmartRuntimeData:
     """Objects and state owned by one LifeSmart config entry."""
 
-    client: LifeSmartClient
+    client: Any
     devices: list[dict[str, Any]]
     hubs: list[dict[str, Any]] = field(default_factory=list)
     scenes: list[dict[str, Any]] = field(default_factory=list)

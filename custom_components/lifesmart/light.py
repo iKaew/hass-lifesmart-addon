@@ -17,6 +17,7 @@ from homeassistant.components.light import (
     LightEntity,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.const import Platform
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 import homeassistant.util.color as color_util
@@ -225,7 +226,11 @@ class LifeSmartSLSPOTLight(LifeSmartAvailabilityMixin, LightEntity):
         self._entity_id = configure_entity_identity(
             self,
             generate_entity_id(
-                self._device_type, self._hub_id, self._device_id, self._sub_device_key
+                self._device_type,
+                self._hub_id,
+                self._device_id,
+                self._sub_device_key,
+                fallback_platform=Platform.LIGHT,
             ),
         )
 
@@ -298,6 +303,9 @@ class LifeSmartSLSPOTLight(LifeSmartAvailabilityMixin, LightEntity):
                 self._update_state,
             )
         )
+
+        if getattr(self._client, "is_local", False):
+            return
 
         rmdata = {}
         rmlist = await self._client.get_ir_remote_list_async(self._hub_id)
@@ -420,7 +428,14 @@ class LifeSmartLight(LifeSmartAvailabilityMixin, LightEntity):
         self._device = device
         self._client = client
         self._signal_entity_id = configure_entity_identity(
-            self, generate_entity_id(device_type, hub_id, device_id, sub_device_key)
+            self,
+            generate_entity_id(
+                device_type,
+                hub_id,
+                device_id,
+                sub_device_key,
+                fallback_platform=Platform.LIGHT,
+            ),
         )
 
         self._brightness = None
@@ -553,6 +568,8 @@ class LifeSmartLight(LifeSmartAvailabilityMixin, LightEntity):
             )
         )
         if self.device_type not in SPOT_TYPES:
+            return
+        if getattr(self._client, "is_local", False):
             return
         rmdata = {}
         rmlist = await self._client.get_ir_remote_list_async(self.hub_id)

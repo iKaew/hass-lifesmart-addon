@@ -4,6 +4,13 @@
     "step": {
       "user": {
         "title": "LifeSmart 集成设置",
+        "menu_options": {
+          "local": "本地连接",
+          "cloud": "云端连接"
+        }
+      },
+      "cloud": {
+        "title": "LifeSmart 云端设置",
         "description": "输入 LifeSmart Platform 凭据和用户信息以完成连接。",
         "data": {
           "appkey": "App Key",
@@ -11,6 +18,15 @@
           "userpassword": "用户密码",
           "userid": "邮箱/用户 ID",
           "region": "LifeSmart 账号国家/地区"
+        }
+      },
+      "local": {
+        "title": "LifeSmart 本地设置",
+        "description": "直接连接到 LifeSmart 网关。本地用户名为 admin。",
+        "data": {
+          "host": "网关 IP 地址",
+          "port": "网关端口",
+          "local_password": "本地密码"
         }
       },
       "reauth_confirm": {
@@ -21,7 +37,10 @@
           "apptoken": "App Token",
           "userpassword": "用户密码",
           "userid": "邮箱/用户 ID",
-          "region": "LifeSmart 账号国家/地区"
+          "region": "LifeSmart 账号国家/地区",
+          "host": "网关 IP 地址",
+          "port": "网关端口",
+          "local_password": "本地密码"
         }
       }
     },
@@ -56,6 +75,15 @@
           "userpassword": "用户密码",
           "userid": "邮箱/用户 ID",
           "region": "LifeSmart 账号国家/地区"
+        }
+      },
+      "local": {
+        "title": "LifeSmart 本地连接设置",
+        "description": "更新网关直连设置。本地用户名为 admin。",
+        "data": {
+          "host": "网关 IP 地址",
+          "port": "网关端口",
+          "local_password": "本地密码"
         }
       },
       "ac_device": {

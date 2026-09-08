@@ -4,6 +4,13 @@
     "step": {
       "user": {
         "title": "ตั้งค่าการเชื่อมต่อ LifeSmart",
+        "menu_options": {
+          "local": "การเชื่อมต่อภายใน",
+          "cloud": "การเชื่อมต่อคลาวด์"
+        }
+      },
+      "cloud": {
+        "title": "ตั้งค่าคลาวด์ LifeSmart",
         "description": "กรอกข้อมูล LifeSmart Platform และข้อมูลบัญชีผู้ใช้เพื่อเชื่อมต่อ",
         "data": {
           "appkey": "App Key",
@@ -11,6 +18,15 @@
           "userpassword": "รหัสผ่านผู้ใช้",
           "userid": "อีเมล/รหัสผู้ใช้",
           "region": "ประเทศ/ภูมิภาคของบัญชี LifeSmart"
+        }
+      },
+      "local": {
+        "title": "ตั้งค่าการเชื่อมต่อภายใน LifeSmart",
+        "description": "เชื่อมต่อโดยตรงกับฮับ LifeSmart ชื่อผู้ใช้ภายในคือ admin",
+        "data": {
+          "host": "ที่อยู่ IP ของฮับ",
+          "port": "พอร์ตของฮับ",
+          "local_password": "รหัสผ่านภายใน"
         }
       },
       "reauth_confirm": {
@@ -21,7 +37,10 @@
           "apptoken": "App Token",
           "userpassword": "รหัสผ่านผู้ใช้",
           "userid": "อีเมล/รหัสผู้ใช้",
-          "region": "ประเทศ/ภูมิภาคของบัญชี LifeSmart"
+          "region": "ประเทศ/ภูมิภาคของบัญชี LifeSmart",
+          "host": "ที่อยู่ IP ของฮับ",
+          "port": "พอร์ตของฮับ",
+          "local_password": "รหัสผ่านภายใน"
         }
       }
     },
@@ -56,6 +75,15 @@
           "userpassword": "รหัสผ่านผู้ใช้",
           "userid": "อีเมล/รหัสผู้ใช้",
           "region": "ประเทศ/ภูมิภาคของบัญชี LifeSmart"
+        }
+      },
+      "local": {
+        "title": "การตั้งค่าการเชื่อมต่อภายใน LifeSmart",
+        "description": "อัปเดตการเชื่อมต่อโดยตรงกับฮับ ชื่อผู้ใช้ภายในคือ admin",
+        "data": {
+          "host": "ที่อยู่ IP ของฮับ",
+          "port": "พอร์ตของฮับ",
+          "local_password": "รหัสผ่านภายใน"
         }
       },
       "ac_device": {

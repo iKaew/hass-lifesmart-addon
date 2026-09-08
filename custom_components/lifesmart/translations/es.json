@@ -4,6 +4,13 @@
     "step": {
       "user": {
         "title": "Configuración de la integración LifeSmart",
+        "menu_options": {
+          "local": "Conexión local",
+          "cloud": "Conexión en la nube"
+        }
+      },
+      "cloud": {
+        "title": "Configuración en la nube de LifeSmart",
         "description": "Introduce las credenciales de LifeSmart Platform y los datos de usuario para conectarte.",
         "data": {
           "appkey": "App Key",
@@ -11,6 +18,15 @@
           "userpassword": "Contraseña de usuario",
           "userid": "Correo electrónico/ID de usuario",
           "region": "País/región de la cuenta LifeSmart"
+        }
+      },
+      "local": {
+        "title": "Configuración local de LifeSmart",
+        "description": "Conéctate directamente a tu hub LifeSmart. El usuario local es admin.",
+        "data": {
+          "host": "Dirección IP del hub",
+          "port": "Puerto del hub",
+          "local_password": "Contraseña local"
         }
       },
       "reauth_confirm": {
@@ -21,7 +37,10 @@
           "apptoken": "App Token",
           "userpassword": "Contraseña de usuario",
           "userid": "Correo electrónico/ID de usuario",
-          "region": "País/región de la cuenta LifeSmart"
+          "region": "País/región de la cuenta LifeSmart",
+          "host": "Dirección IP del hub",
+          "port": "Puerto del hub",
+          "local_password": "Contraseña local"
         }
       }
     },
@@ -56,6 +75,15 @@
           "userpassword": "Contraseña de usuario",
           "userid": "Correo electrónico/ID de usuario",
           "region": "País/región de la cuenta LifeSmart"
+        }
+      },
+      "local": {
+        "title": "Ajustes de conexión local de LifeSmart",
+        "description": "Actualiza la conexión directa al hub. El usuario local es admin.",
+        "data": {
+          "host": "Dirección IP del hub",
+          "port": "Puerto del hub",
+          "local_password": "Contraseña local"
         }
       },
       "ac_device": {

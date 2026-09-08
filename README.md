@@ -7,11 +7,13 @@
 
 # LifeSmart for Home Assistant
 
-Cloud-based Home Assistant integration for LifeSmart devices. The integration discovers your LifeSmart devices through the LifeSmart Open Platform API, creates Home Assistant entities, and receives ongoing updates through the LifeSmart WebSocket service.
-
-There is no direct local communication between Home Assistant and the LifeSmart hub at the moment, so internet access and valid LifeSmart cloud credentials are required.
+Home Assistant integration for LifeSmart devices with a choice of direct local hub communication or the LifeSmart Open Platform cloud API.
 
 ## Prerequisites
+
+For a local connection, Home Assistant must be able to reach the LifeSmart hub on your LAN. Have the hub IP address, TCP port (normally `8888`), and local password ready. The local username is `admin`, and the default local password is `admin`.
+
+For a cloud connection:
 
 1. Confirm your LifeSmart account email/user ID and country/region in the LifeSmart mobile app account/profile screen. See the screenshot below.
 1. Create an application in the [LifeSmart Open Platform](https://www.ilifesmart.com/open/login) to obtain an `app key` and `app token`.
@@ -50,7 +52,12 @@ Use manual installation only if you cannot use HACS.
 1. Go to `Settings` → `Devices & Services`.
 1. Click `Add Integration`.
 1. Search for `LifeSmart` and select it.
-1. Enter your LifeSmart Platform credentials:
+1. Choose **Local connection** or **Cloud connection**.
+1. For a local connection, enter:
+   - **Hub IP Address**: A static/reserved LAN address for the LifeSmart hub
+   - **Hub Port**: `8888` unless your hub uses another port
+   - **Local Password**: Defaults to `admin`
+1. For a cloud connection, enter your LifeSmart Platform credentials:
    - **App Key**: From your LifeSmart Open Platform application
    - **App Token**: From your LifeSmart Open Platform application  
    - **Email/User ID**: Your LifeSmart account email address or user ID (see below)
@@ -58,7 +65,7 @@ Use manual installation only if you cannot use HACS.
    - **LifeSmart Account Country/Region**: Select the country or region shown in the LifeSmart mobile app account/profile screen (see below)
 1. Click `Submit` and wait for device discovery.
 
-The integration will automatically discover and create entities for all your LifeSmart devices and scenes.
+The integration automatically discovers and creates entities for the devices returned by the selected connection. Scenes and LifeSmart's online IR profile catalog require cloud mode.
 
 ### Finding Your LifeSmart Email/User ID And Country/Region
 

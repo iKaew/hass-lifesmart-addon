@@ -161,8 +161,95 @@ def test_config_flow_async_step_user_success_and_error(monkeypatch):
 
     assert error_result["type"] == "form"
     assert error_result["errors"]["base"] == "unknown"
-    assert empty_result["type"] == "form"
+    assert empty_result["type"] == "menu"
     assert empty_result["step_id"] == "user"
+    assert empty_result["menu_options"] == ["local", "cloud"]
+
+
+def test_local_config_flow_validates_hub_and_stores_local_settings(monkeypatch):
+    instances = []
+
+    class FakeLocalClient:
+        def __init__(self, host, port, password):
+            self.args = (host, port, password)
+            self.closed = False
+            self.hub_id = "HUB1"
+            instances.append(self)
+
+        async def login_async(self):
+            return {"code": "success"}
+
+        async def get_all_device_async(self):
+            return [{"agt": "HUB1"}]
+
+        async def async_close(self):
+            self.closed = True
+
+    monkeypatch.setattr(config_flow_module, "LocalLifeSmartClient", FakeLocalClient)
+    flow = config_flow_module.LifeSmartConfigFlowHandler()
+    flow.hass = object()
+    unique_ids = []
+
+    async def set_unique_id(unique_id):
+        unique_ids.append(unique_id)
+
+    flow.async_set_unique_id = set_unique_id
+    flow._abort_if_unique_id_configured = lambda: None
+    flow.async_create_entry = lambda title, data: {
+        "type": "create_entry",
+        "title": title,
+        "data": data,
+    }
+
+    user_input = {
+        config_flow_module.CONF_HOST: "192.168.1.20",
+        config_flow_module.CONF_PORT: 8888,
+        config_flow_module.CONF_LOCAL_PASSWORD: "admin",
+    }
+    result = asyncio.run(flow.async_step_local(user_input))
+
+    assert result["title"] == "LifeSmart Hub 192.168.1.20"
+    assert result["data"][config_flow_module.CONF_CONNECTION_TYPE] == "local"
+    assert unique_ids == ["local-HUB1"]
+    assert instances[0].args == ("192.168.1.20", 8888, "admin")
+    assert instances[0].closed is True
+
+
+def test_local_config_flow_maps_bad_password_to_invalid_auth(monkeypatch):
+    class FakeLocalClient:
+        def __init__(self, *args):
+            pass
+
+        async def login_async(self):
+            return {"code": "failure"}
+
+        async def async_close(self):
+            return None
+
+    monkeypatch.setattr(config_flow_module, "LocalLifeSmartClient", FakeLocalClient)
+    flow = config_flow_module.LifeSmartConfigFlowHandler()
+    flow.hass = object()
+    flow.async_show_form = lambda **kwargs: {"type": "form", **kwargs}
+    result = asyncio.run(
+        flow.async_step_local(
+            {
+                config_flow_module.CONF_HOST: "192.168.1.20",
+                config_flow_module.CONF_PORT: 8888,
+                config_flow_module.CONF_LOCAL_PASSWORD: "wrong",
+            }
+        )
+    )
+
+    assert result["errors"] == {"base": "invalid_auth"}
+
+
+def test_local_schema_defaults_to_port_8888_and_admin_password():
+    validated = config_flow_module.vol.Schema(config_flow_module.LOCAL_DATA_SCHEMA)(
+        {config_flow_module.CONF_HOST: "192.168.1.20"}
+    )
+
+    assert validated[config_flow_module.CONF_PORT] == 8888
+    assert validated[config_flow_module.CONF_LOCAL_PASSWORD] == "admin"
 
 
 def test_config_flow_maps_connection_and_auth_errors(monkeypatch):
@@ -315,6 +402,18 @@ def test_options_flow_init_and_ac_device_steps(monkeypatch):
     init_result = asyncio.run(flow.async_step_init())
     assert init_result["type"] == "menu"
     assert "ac_remove" in init_result["menu_options"]
+
+    local_flow = make_options_flow(
+        FakeConfigEntry(
+            data={
+                config_flow_module.CONF_CONNECTION_TYPE: "local",
+                config_flow_module.CONF_HOST: "192.168.1.20",
+                config_flow_module.CONF_PORT: 8888,
+                config_flow_module.CONF_LOCAL_PASSWORD: "admin",
+            }
+        )
+    )
+    assert asyncio.run(local_flow.async_step_init())["menu_options"] == ["user"]
 
     no_spot_flow = make_options_flow()
     assert asyncio.run(no_spot_flow.async_step_ac_device()) == {"type": "abort", "reason": "no_spot_devices"}

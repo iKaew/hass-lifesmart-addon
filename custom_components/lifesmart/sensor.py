@@ -542,11 +542,15 @@ class LifeSmartSensor(LifeSmartAvailabilityMixin, SensorEntity):
         elif device_type in SMART_PLUG_TYPES and sub_device_key == "P2":
             self._device_class = SensorDeviceClass.ENERGY
             self._unit = UnitOfEnergy.KILO_WATT_HOUR
-            self._state = sub_device_data["v"]
+            self._state = _display_value(
+                sub_device_data, device_type, sub_device_key
+            )
         elif device_type in SMART_PLUG_TYPES and sub_device_key == "P3":
             self._device_class = SensorDeviceClass.POWER
             self._unit = UnitOfPower.WATT
-            self._state = sub_device_data["v"]
+            self._state = _display_value(
+                sub_device_data, device_type, sub_device_key
+            )
         elif sub_device_key == "EE1":
             self._device_class = SensorDeviceClass.ENERGY
             self._unit = UnitOfEnergy.KILO_WATT_HOUR
@@ -810,6 +814,8 @@ def _display_value(data, device_type=None, sub_device_key=None):
         return _doorlock_history_unlock_summary(data)
     if "v" in data:
         return data["v"]
+    if device_type in SMART_PLUG_TYPES and sub_device_key in ("P2", "P3"):
+        return _display_float_value(data)
     if (
         device_type in CO2_SENSOR_TYPES
         and sub_device_key == "P3"

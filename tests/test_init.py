@@ -10,17 +10,19 @@ from homeassistant.components.light import (
     ATTR_MAX_COLOR_TEMP_KELVIN,
     ATTR_MIN_COLOR_TEMP_KELVIN,
 )
-from homeassistant.const import CONF_REGION, STATE_OFF, STATE_ON
+from homeassistant.const import CONF_HOST, CONF_PORT, CONF_REGION, STATE_OFF, STATE_ON
 
 from custom_components.lifesmart.const import (
     CONF_AI_INCLUDE_AGTS,
     CONF_AI_INCLUDE_ITEMS,
+    CONF_CONNECTION_TYPE,
     CONF_EXCLUDE_AGTS,
     CONF_EXCLUDE_ITEMS,
     CONF_LIFESMART_APPKEY,
     CONF_LIFESMART_APPTOKEN,
     CONF_LIFESMART_USERID,
     CONF_LIFESMART_USERPASSWORD,
+    CONF_LOCAL_PASSWORD,
     DEVICE_ID_KEY,
     DOMAIN,
     HUB_ID_KEY,
@@ -574,6 +576,74 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     ws.on_error(ws, RuntimeError("offline"))
     assert runtime.connected is False
     assert runtime.last_error == "RuntimeError"
+
+
+def test_async_setup_entry_uses_local_client_without_cloud_websocket(monkeypatch):
+    class FakeLocalClient:
+        is_local = True
+        instances = []
+
+        def __init__(self, host, port, password):
+            self.args = (host, port, password)
+            self.closed = False
+            self.listener_started = False
+            self.__class__.instances.append(self)
+
+        async def login_async(self):
+            return {"code": "success"}
+
+        async def get_all_device_async(self):
+            return [{HUB_ID_KEY: "HUB1"}]
+
+        async def get_all_hubs_async(self):
+            return [{HUB_ID_KEY: "HUB1", "ip": self.args[0]}]
+
+        async def get_hub_system_info_async(self, hub_id):
+            return {"ip": self.args[0]}
+
+        async def get_hub_timezone_async(self, hub_id):
+            return {}
+
+        async def get_all_scene_async(self, hub_id):
+            return []
+
+        def start_listener(self, on_event, on_connection):
+            self.listener_started = True
+            on_connection(True, None)
+
+        async def async_close(self):
+            self.closed = True
+
+    hass = FakeHass()
+    entry = FakeConfigEntry(
+        data={
+            CONF_CONNECTION_TYPE: "local",
+            CONF_HOST: "192.168.1.20",
+            CONF_PORT: 8888,
+            CONF_LOCAL_PASSWORD: "admin",
+        }
+    )
+    device_reg = FakeDeviceRegistry()
+    patch_setup_dependencies(monkeypatch, device_reg)
+    monkeypatch.setattr(lifesmart_init, "LocalLifeSmartClient", FakeLocalClient)
+
+    assert asyncio.run(lifesmart_init.async_setup_entry(hass, entry)) is True
+
+    client = FakeLocalClient.instances[0]
+    assert client.args == ("192.168.1.20", 8888, "admin")
+    assert client.listener_started is True
+    assert entry.runtime_data.connected is True
+    assert entry.runtime_data.state_manager is None
+    assert FakeWebSocketApp.instances == []
+    assert len(hass.config_entries.forward_calls) == 1
+    local_platforms = hass.config_entries.forward_calls[0][1]
+    assert lifesmart_init.Platform.BUTTON not in local_platforms
+    assert lifesmart_init.Platform.INFRARED not in local_platforms
+    assert lifesmart_init.Platform.REMOTE not in local_platforms
+    assert lifesmart_init.Platform.SWITCH in local_platforms
+
+    assert asyncio.run(lifesmart_init.async_unload_entry(hass, entry)) is True
+    assert client.closed is True
 
 
 def test_async_setup_entry_adds_cloud_hub_metadata(monkeypatch):

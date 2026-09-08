@@ -1,5 +1,11 @@
 LifeSmart integration for Home Assistant.
 
+Connection modes:
+- Direct local hub connection using the hub IP, port (default `8888`), and local password (default `admin`)
+- LifeSmart Open Platform cloud connection
+
+LifeSmart scenes and online IR profile features require the cloud connection.
+
 Current supported features:
 - Switches
 - Door lock status/information

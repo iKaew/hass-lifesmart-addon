@@ -164,6 +164,28 @@ def test_light_async_setup_entry_creates_reported_strip_and_quantum_lights():
     assert quantum.brightness == 76
 
 
+def test_light_setup_uses_light_identity_for_unlisted_local_device_type():
+    device = make_device(
+        "LOCAL_RGB_LIGHT",
+        {"RGB": {"type": 255, "val": 0x00112233}},
+        device_id="LOCAL1",
+    )
+    hass = FakeHass("entry-1", [device], client=FakeClient())
+    added = []
+
+    asyncio.run(
+        light_module.async_setup_entry(
+            hass, FakeConfigEntry(), lambda entities: added.extend(entities)
+        )
+    )
+
+    assert len(added) == 1
+    assert added[0].unique_id == "light.local_rgb_light_hub1_local1_rgb"
+    assert added[0]._attr_suggested_object_id == (
+        "local_rgb_light_hub1_local1_rgb"
+    )
+
+
 def test_spot_light_behaviour_and_properties():
     client = FakeClient()
     client.remote_list = {
@@ -211,6 +233,32 @@ def test_spot_light_behaviour_and_properties():
     assert client.on_calls == [("RGB", "HUB1", "SPOT1")]
     assert client.off_calls == [("RGB", "HUB1", "SPOT1")]
     assert updates == ["scheduled"]
+
+
+def test_local_spot_light_does_not_request_cloud_ir_metadata():
+    client = FakeClient()
+    client.is_local = True
+
+    async def unexpected_cloud_call(*args):
+        raise AssertionError("local light must not request cloud IR metadata")
+
+    client.get_ir_remote_list_async = unexpected_cloud_call
+    raw = make_device(
+        "SL_SPOT", {"RGB": {"type": 254, "val": 19804569}}, device_id="SPOT1"
+    )
+    entity = light_module.LifeSmartSLSPOTLight(
+        None, raw, "RGB", raw["data"]["RGB"], client
+    )
+    entity.hass = object()
+    entity.async_on_remove = lambda remover: None
+    light_module.async_dispatcher_connect = lambda hass, signal, callback: (
+        "remove-token"
+    )
+
+    asyncio.run(entity.async_added_to_hass())
+
+    assert entity.rgb_color == (46, 49, 153)
+    assert entity.extra_state_attributes == {}
 
 
 def test_spot_light_accepts_string_type_and_missing_version():
