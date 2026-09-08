@@ -1794,6 +1794,8 @@ def test_get_fan_mode(speed, expected):
         ("SL_LK_YL", "HISLK", lifesmart_init.Platform.SENSOR),
         ("SL_OE_DE", "P1", lifesmart_init.Platform.SWITCH),
         ("SL_OE_DE", "P2", lifesmart_init.Platform.SENSOR),
+        ("ZG#TS0121", "O1", lifesmart_init.Platform.SWITCH),
+        ("ZG#TS0121", "EE1", lifesmart_init.Platform.SENSOR),
         ("V_IND_S", "P8", lifesmart_init.Platform.SWITCH),
         ("UNKNOWN", None, ""),
     ],

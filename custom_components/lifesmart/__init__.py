@@ -73,6 +73,7 @@ from .const import (
     OT_SENSOR_TYPES,
     RADAR_MOTION_SENSOR_TYPES,
     SMART_PLUG_TYPES,
+    SMART_PLUG_ENERGY_TYPES,
     SMART_ALARM_TYPES,
     SMART_CAMERA_STATUS_BINARY_KEYS,
     SMART_CAMERA_STATUS_EVENT_KEY,
@@ -824,7 +825,12 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
             ]:
                 dispatcher_send(hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data)
             elif device_type in SMART_PLUG_TYPES:
-                if sub_device_key in ["P1", "P2", "P3"]:
+                if (
+                    sub_device_key.startswith("O")
+                    or sub_device_key in ["P1", "P2", "P3"]
+                    or device_type in SMART_PLUG_ENERGY_TYPES
+                    and sub_device_key == "EE1"
+                ):
                     dispatcher_send(hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data)
             else:
                 _LOGGER.debug("Event is not supported")
@@ -1225,9 +1231,15 @@ def get_platform_by_device(device_type, sub_device=None):
         return Platform.SENSOR
     elif device_type in LOCK_TYPES and sub_device == "ALM_DESC":
         return Platform.SENSOR
-    elif device_type in SMART_PLUG_TYPES and sub_device == "P1":
+    elif device_type in SMART_PLUG_TYPES and (
+        sub_device == "P1"
+        or sub_device
+        and sub_device.startswith("O")
+    ):
         return Platform.SWITCH
     elif device_type in SMART_PLUG_TYPES and sub_device in ["P2", "P3"]:
+        return Platform.SENSOR
+    elif device_type in SMART_PLUG_ENERGY_TYPES and sub_device == "EE1":
         return Platform.SENSOR
     return ""
 
@@ -1277,6 +1289,8 @@ def configure_entity_identity(
 
 def generate_entity_id(device_type, hub_id, device_id, idx=None):
     """Generate unique id for entity in HA."""
+    raw_device_type = device_type
+    raw_sub_device = idx
     device_type = _sanitize_entity_id_part(device_type)
     hub_id = _sanitize_entity_id_part(hub_id)
     device_id = _sanitize_entity_id_part(device_id)
@@ -1300,7 +1314,7 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
             "." + device_type + "_" + hub_id + "_" + device_id + "_climate_ac"
         ).lower()
 
-    if device_type in [  # noqa: RET503
+    if raw_device_type in [  # noqa: RET503
         *SUPPORTED_SWTICH_TYPES,
         *AIR_PURIFIER_TYPES,
         *GENERIC_CONTROLLER_TYPES,
@@ -1326,7 +1340,7 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
     ]:
         if sub_device:
             return (
-                get_platform_by_device(device_type, sub_device)
+                get_platform_by_device(raw_device_type, raw_sub_device)
                 + (
                     "."
                     + device_type
@@ -1341,7 +1355,7 @@ def generate_entity_id(device_type, hub_id, device_id, idx=None):
 
         return (
             # no sub device (idx)
-            get_platform_by_device(device_type)
+            get_platform_by_device(raw_device_type)
             + ("." + device_type + "_" + hub_id + "_" + device_id).lower()
         )
 

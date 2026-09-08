@@ -3,7 +3,7 @@
 import logging
 import struct
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import (
     LIGHT_LUX,
     UnitOfElectricCurrent,
@@ -53,6 +53,7 @@ from .const import (
     NOISE_SENSOR_TYPES,
     OT_SENSOR_TYPES,
     SMART_PLUG_TYPES,
+    SMART_PLUG_ENERGY_TYPES,
     SMART_CAMERA_TYPES,
     SMOKE_SENSOR_TYPES,
     TVOC_CO2_SENSOR_TYPES,
@@ -252,7 +253,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         client,
                     )
                 )
-            elif device_type in SMART_PLUG_TYPES and sub_device_key in ["P2", "P3", "EE1"]:
+            elif device_type in SMART_PLUG_TYPES and (
+                sub_device_key in ["P2", "P3"]
+                or device_type in SMART_PLUG_ENERGY_TYPES and sub_device_key == "EE1"
+            ):
                 sensor_devices.append(
                     LifeSmartSensor(
                         ha_device,
@@ -546,7 +550,8 @@ class LifeSmartSensor(LifeSmartAvailabilityMixin, SensorEntity):
         elif sub_device_key == "EE1":
             self._device_class = SensorDeviceClass.ENERGY
             self._unit = UnitOfEnergy.KILO_WATT_HOUR
-            self._state = sub_device_data.get("val")
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+            self._state = _display_float_value(sub_device_data)
         elif device_type in CO2_SENSOR_TYPES:
             if sub_device_key == "P1":
                 self._device_class = SensorDeviceClass.TEMPERATURE
@@ -821,6 +826,8 @@ def _display_value(data, device_type=None, sub_device_key=None):
     if device_type in ELECTRICITY_METER_TYPES:
         return data.get("val")
     if device_type in DLT_METER_TYPES:
+        return _display_float_value(data)
+    if device_type in SMART_PLUG_ENERGY_TYPES and sub_device_key == "EE1":
         return _display_float_value(data)
     if device_type in MODBUS_CONTROLLER_TYPES:
         if sub_device_key in ["T", "H"]:
