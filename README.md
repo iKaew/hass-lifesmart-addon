@@ -14,6 +14,7 @@ Home Assistant integration for LifeSmart devices with a choice of direct local h
 | Feature | Local | Cloud |
 | --- | --- | --- |
 | Internet required | No; Home Assistant must reach the hub on your LAN | Yes |
+| API Key required | No | Yes |
 | Device control and live status updates | Yes, for supported devices | Yes, for supported devices |
 | LifeSmart scenes | Scenes stored on the connected hub | Scenes available through your account |
 | Multiple hubs | Add each hub separately | Access hubs through one account |
