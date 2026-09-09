@@ -6,6 +6,7 @@ import asyncio
 import gzip
 import logging
 import struct
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -30,6 +31,135 @@ from custom_components.lifesmart.lifesmart_client_local import (
     encode_packet,
     find_first,
 )
+
+
+@pytest.mark.parametrize("response", [[{"err": "denied"}], [{"ret": None}]])
+def test_local_login_rejects_invalid_credentials(response):
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "wrong")
+        client._writer = Mock()
+        client._send = AsyncMock()
+        client._read_until = AsyncMock(return_value=response)
+
+        assert (await client.login_async())["code"] == "failure"
+        assert client._agent_node is None
+        assert client.hub_id == "192.0.2.10"
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("nodes", [{}, {"base": {1: "hub"}}, {"base": 7, "agt": "hub/me"}])
+def test_local_login_rejects_missing_or_invalid_nodes(nodes):
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+        client._writer = Mock()
+        client._send = AsyncMock()
+        client._read_until = AsyncMock(return_value=[{"ret": nodes}])
+
+        with pytest.raises(local_module.LocalProtocolError, match="hub nodes"):
+            await client.login_async()
+        assert client._agent_node is None
+
+    asyncio.run(scenario())
+
+
+def test_local_reader_handles_split_and_consecutive_frames():
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+        first = encode_packet([{"ret": "first"}])
+        second = encode_packet([{"ret": "second"}])
+        client._reader = Mock(read=AsyncMock(side_effect=[first[:5], first[5:] + second, b""]))
+
+        assert await client._read_frame() == [{"ret": "first"}]
+        assert await client._read_frame() == [{"ret": "second"}]
+        assert client._reader.read.await_count == 2
+        with pytest.raises(ConnectionError, match="closed"):
+            await client._read_frame()
+
+    asyncio.run(scenario())
+
+
+def test_local_read_until_skips_notifications_and_times_out():
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "admin", timeout=0.01)
+        response = [{"ret": "ok"}]
+        client._read_frame = AsyncMock(side_effect=[[{"noti": "datachg"}], response])
+        assert await client._read_until(lambda msg: find_first(msg, "ret") is not local_module.MISSING) == response
+
+        async def pending_read():
+            await asyncio.Event().wait()
+
+        client._read_frame = pending_read
+        with pytest.raises(TimeoutError):
+            await client._read_until(lambda msg: True)
+
+    asyncio.run(scenario())
+
+
+def test_local_listener_recovers_after_rejected_reconnect(monkeypatch):
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+        original_writer = Mock()
+        rejected_writer = Mock()
+        recovered_writer = Mock()
+        client._writer = original_writer
+        client._read_frame = AsyncMock(side_effect=[ConnectionError("lost"), asyncio.CancelledError()])
+        client.get_all_device_async = AsyncMock(return_value=[])
+        attempts = 0
+
+        async def login():
+            nonlocal attempts
+            attempts += 1
+            client._writer = rejected_writer if attempts == 1 else recovered_writer
+            return {"code": "failure" if attempts == 1 else "success"}
+
+        client.login_async = login
+        monkeypatch.setattr(local_module, "RECONNECT_DELAY", 0)
+        on_connection = Mock()
+        with pytest.raises(asyncio.CancelledError):
+            await client._listen(Mock(), on_connection)
+
+        original_writer.close.assert_called_once()
+        rejected_writer.close.assert_called_once()
+        recovered_writer.close.assert_not_called()
+        assert attempts == 2
+        client.get_all_device_async.assert_awaited_once()
+        assert [call.args for call in on_connection.call_args_list] == [
+            (False, "ConnectionError"), (True, None)
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_local_listener_starts_once_and_close_cleans_up():
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+        writer = Mock(wait_closed=AsyncMock(side_effect=OSError("closed")))
+        client._writer = writer
+        started = asyncio.Event()
+
+        async def listen(*args):
+            started.set()
+            await asyncio.Event().wait()
+
+        client._listen = listen
+        connection = Mock()
+        client.start_listener(Mock(), connection)
+        task = client._listener_task
+        client.start_listener(Mock(), connection)
+        assert client._listener_task is task
+        connection.assert_called_once_with(True, None)
+        await started.wait()
+        await client.async_close()
+        await client.async_close()
+        assert task.cancelled()
+        assert client._listener_task is None
+        assert client._reader is None
+        assert client._writer is None
+        writer.close.assert_called_once()
+        writer.wait_closed.assert_awaited_once()
+
+    asyncio.run(scenario())
 
 
 def test_local_discovery_parses_and_merges_captured_advertisements():

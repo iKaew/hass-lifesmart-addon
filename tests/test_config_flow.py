@@ -1,9 +1,138 @@
 import asyncio
 import importlib
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 config_flow_module = importlib.import_module("custom_components.lifesmart.config_flow")
+
+
+def local_input():
+    return {"host": "192.0.2.10", "port": 8888, "local_password": "secret"}
+
+
+@pytest.mark.parametrize("failure", ["login", "auth", "devices", "invalid_devices", "cancel"])
+def test_local_validation_closes_client_on_every_failure(monkeypatch, failure):
+    client = Mock(
+        login_async=AsyncMock(return_value={"code": "success"}),
+        get_all_device_async=AsyncMock(return_value=[]),
+        async_close=AsyncMock(),
+    )
+    expected = config_flow_module.LifeSmartCannotConnect
+    if failure == "login":
+        client.login_async.side_effect = TimeoutError()
+    elif failure == "auth":
+        client.login_async.return_value = {"code": "failure"}
+        expected = config_flow_module.LifeSmartInvalidAuth
+    elif failure == "devices":
+        client.get_all_device_async.side_effect = ConnectionError()
+    elif failure == "invalid_devices":
+        client.get_all_device_async.return_value = {"error": "unavailable"}
+    else:
+        client.login_async.side_effect = asyncio.CancelledError()
+        expected = asyncio.CancelledError
+    monkeypatch.setattr(config_flow_module, "LocalLifeSmartClient", Mock(return_value=client))
+
+    with pytest.raises(expected):
+        asyncio.run(config_flow_module.validate_local_input(object(), local_input()))
+
+    client.async_close.assert_awaited_once()
+    if failure in {"login", "auth", "cancel"}:
+        client.get_all_device_async.assert_not_awaited()
+
+
+@pytest.mark.parametrize("error,code", [
+    (config_flow_module.LifeSmartCannotConnect, "cannot_connect"),
+    (RuntimeError, "unknown"),
+])
+def test_local_setup_maps_validation_errors(monkeypatch, error, code):
+    flow = config_flow_module.LifeSmartConfigFlowHandler()
+    flow.hass = object()
+    flow.async_show_form = lambda **kwargs: kwargs
+    flow.async_create_entry = Mock()
+    monkeypatch.setattr(config_flow_module, "validate_local_input", AsyncMock(side_effect=error()))
+
+    result = asyncio.run(flow.async_step_local(local_input()))
+
+    assert result["step_id"] == "local"
+    assert result["errors"] == {"base": code}
+    flow.async_create_entry.assert_not_called()
+
+
+def test_local_discovery_failure_still_allows_manual_setup(monkeypatch):
+    flow = config_flow_module.LifeSmartConfigFlowHandler()
+    flow.hass = object()
+    flow.async_show_form = lambda **kwargs: kwargs
+    monkeypatch.setattr(config_flow_module, "async_discover_local_hubs", AsyncMock(side_effect=OSError("broadcast unavailable")))
+
+    result = asyncio.run(flow.async_step_local())
+
+    assert result["errors"] == {}
+    validated = result["data_schema"]({"host": "192.0.2.10"})
+    assert validated["port"] == 8888
+    assert validated["local_password"] == "admin"
+
+
+@pytest.mark.parametrize("port", [0, -1, 65536, "invalid"])
+def test_local_schema_rejects_invalid_ports(port):
+    with pytest.raises(config_flow_module.vol.Invalid):
+        config_flow_module.vol.Schema(config_flow_module.LOCAL_DATA_SCHEMA)(local_input() | {"port": port})
+
+
+@pytest.mark.parametrize("error,code", [
+    (config_flow_module.LifeSmartInvalidAuth, "invalid_auth"),
+    (config_flow_module.LifeSmartCannotConnect, "cannot_connect"),
+])
+def test_local_options_failure_does_not_save_settings(monkeypatch, error, code):
+    flow = make_options_flow(FakeConfigEntry(data=local_input() | {"connection_type": "local"}))
+    flow.async_create_entry = Mock()
+    monkeypatch.setattr(config_flow_module, "validate_local_input", AsyncMock(side_effect=error()))
+
+    result = asyncio.run(flow.async_step_user(local_input()))
+
+    assert result["step_id"] == "local"
+    assert result["errors"] == {"base": code}
+    flow.async_create_entry.assert_not_called()
+
+
+def test_local_options_saves_validated_settings_without_cloud_validation(monkeypatch):
+    flow = make_options_flow(FakeConfigEntry(data=local_input() | {"connection_type": "local"}))
+    validator = AsyncMock(return_value={"title": "Local Hub", "unique_id": "local-HUB1"})
+    cloud_validator = AsyncMock(side_effect=AssertionError("unexpected cloud validation"))
+    monkeypatch.setattr(config_flow_module, "validate_local_input", validator)
+    monkeypatch.setattr(config_flow_module, "validate_input", cloud_validator)
+    updated = local_input() | {"host": "192.0.2.20", "port": 9999}
+
+    result = asyncio.run(flow.async_step_user(updated.copy()))
+
+    assert result["type"] == "create_entry"
+    assert result["data"] == updated | {"connection_type": "local", "name": "Local Hub"}
+    validator.assert_awaited_once()
+    cloud_validator.assert_not_awaited()
+
+
+def test_local_reauth_preserves_transport_and_checks_hub_identity(monkeypatch):
+    flow = config_flow_module.LifeSmartConfigFlowHandler()
+    entry = FakeConfigEntry(data=local_input() | {"connection_type": "local"})
+    flow._reauth_entry = entry
+    flow.hass = object()
+    flow.async_set_unique_id = AsyncMock()
+    flow._abort_if_unique_id_mismatch = Mock()
+    flow.async_update_and_abort = Mock(return_value={"reason": "reauth_successful"})
+    validator = AsyncMock(return_value={"title": "Local Hub", "unique_id": "local-HUB1"})
+    monkeypatch.setattr(config_flow_module, "validate_local_input", validator)
+    cloud_validator = AsyncMock(side_effect=AssertionError("unexpected cloud validation"))
+    monkeypatch.setattr(config_flow_module, "validate_input", cloud_validator)
+
+    result = asyncio.run(flow.async_step_reauth_confirm(local_input()))
+
+    assert result["reason"] == "reauth_successful"
+    flow.async_set_unique_id.assert_awaited_once_with("local-HUB1")
+    flow._abort_if_unique_id_mismatch.assert_called_once()
+    flow.async_update_and_abort.assert_called_once_with(
+        entry, data_updates=local_input() | {"connection_type": "local", "name": "Local Hub"}
+    )
+    cloud_validator.assert_not_awaited()
 
 
 class FakeConfigEntry:
