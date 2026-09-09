@@ -651,8 +651,8 @@ def test_async_setup_entry_uses_local_client_without_cloud_websocket(monkeypatch
     assert len(hass.config_entries.forward_calls) == 1
     local_platforms = hass.config_entries.forward_calls[0][1]
     assert lifesmart_init.Platform.BUTTON not in local_platforms
-    assert lifesmart_init.Platform.INFRARED not in local_platforms
-    assert lifesmart_init.Platform.REMOTE not in local_platforms
+    assert lifesmart_init.Platform.INFRARED in local_platforms
+    assert lifesmart_init.Platform.REMOTE in local_platforms
     assert lifesmart_init.Platform.SWITCH in local_platforms
 
     assert asyncio.run(lifesmart_init.async_unload_entry(hass, entry)) is True

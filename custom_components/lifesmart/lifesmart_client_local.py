@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import logging
 import re
 import socket
@@ -25,6 +26,7 @@ from .const import (
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
     HUB_ID_KEY,
+    SPOT_TYPES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,6 +40,7 @@ DEFAULT_LOCAL_PASSWORD = "admin"
 DEFAULT_TIMEOUT = 5.0
 RECONNECT_DELAY = 10.0
 DEFAULT_MAX_FRAME = 8 * 1024 * 1024
+MAX_LOCAL_IR_CODE_LENGTH = 256 * 1024
 DEFAULT_DISCOVERY_TIMEOUT = 3.0
 DISCOVERY_BROADCAST_HOST = "255.255.255.255"
 DISCOVERY_BROADCAST_PORT = 12345
@@ -624,6 +627,70 @@ def build_control_packet(
     )
 
 
+def build_ir_code_packet(agent_node: str, device_id: str, ir_code: str) -> bytes:
+    """Create the SPOT ``sendcode`` command used by the local hub protocol."""
+    return encode_packet(
+        [
+            {"_sel": 1, "req": False, "timestamp": 10},
+            {
+                "args": {
+                    "ctrlcmd": "sendcode",
+                    "valtag": "m",
+                    "cmd": "ctrl",
+                    "devid": device_id,
+                    "param": {"type": 1, "data": ir_code},
+                },
+                "node": f"{agent_node}/ep",
+                "act": "epCmdA",
+            },
+        ]
+    )
+
+
+def _normalize_local_ir_codes(keys: Any) -> list[str]:
+    """Extract raw IR strings from direct values or SendCodes JSON wrappers."""
+    values: Any = keys
+    if isinstance(keys, str):
+        stripped = keys.strip()
+        if not stripped:
+            raise ValueError("IR code must not be empty")
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            values = [stripped]
+        else:
+            if isinstance(parsed, list):
+                values = parsed
+            elif isinstance(parsed, (Mapping, str)):
+                values = [parsed]
+            else:
+                # A digit-only IR code is valid data, not a JSON number.
+                values = [stripped]
+    elif not isinstance(keys, Sequence) or isinstance(keys, (bytes, bytearray)):
+        values = [keys]
+
+    codes: list[str] = []
+    for value in values:
+        if isinstance(value, Mapping):
+            param = value.get("param")
+            if isinstance(param, Mapping) and "data" in param:
+                value = param["data"]
+            elif "data" in value:
+                value = value["data"]
+        if not isinstance(value, str):
+            raise TypeError("local SPOT IR codes must be strings")
+        code = value.strip()
+        if not code:
+            raise ValueError("IR code must not be empty")
+        if len(code.encode()) > MAX_LOCAL_IR_CODE_LENGTH:
+            raise ValueError("IR code exceeds the local protocol safety limit")
+        codes.append(code)
+
+    if not codes:
+        raise ValueError("at least one IR code is required")
+    return codes
+
+
 def build_scene_query_packet(agent_node: str) -> bytes:
     """Create the read-only query for locally stored hub scenes."""
     fields = {
@@ -924,6 +991,30 @@ class LocalLifeSmartClient:
         await self._send(
             build_control_packet(self._agent_node, me, idx, val, value_type)
         )
+        return 0
+
+    async def send_ir_code_async(self, agt: str, me: str, keys: Any) -> int:
+        """Send one or more raw/Pronto IR codes through a local SPOT endpoint."""
+        if self._agent_node is None:
+            raise ConnectionError("local hub is not authenticated")
+        if agt != self._hub_id:
+            raise ValueError(f"unknown local hub {agt!r}")
+        device = next(
+            (
+                item
+                for item in self._devices
+                if item[HUB_ID_KEY] == agt and item[DEVICE_ID_KEY] == me
+            ),
+            None,
+        )
+        if device is None:
+            raise ValueError(f"unknown local IR device {me!r}")
+        if device[DEVICE_TYPE_KEY] not in SPOT_TYPES:
+            raise ValueError(f"device {me!r} is not a supported SPOT IR endpoint")
+
+        for ir_code in _normalize_local_ir_codes(keys):
+            await self._send(build_ir_code_packet(self._agent_node, me, ir_code))
+        # The push channel does not report IR transmission acknowledgements.
         return 0
 
     async def get_epget_async(self, agt: str, me: str) -> dict[str, Any]:

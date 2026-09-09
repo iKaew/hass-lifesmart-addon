@@ -147,7 +147,7 @@ def _platforms_for_client(client) -> list[Platform]:
     return [
         platform
         for platform in SUPPORTED_PLATFORMS
-        if platform not in (Platform.BUTTON, Platform.INFRARED, Platform.REMOTE)
+        if platform is not Platform.BUTTON
     ]
 
 

@@ -95,7 +95,7 @@ Support is based on the attributes returned by the LifeSmart API. Some models cr
 | Air purifier | `OD_MFRESH_M8088` | Switch plus mode, temperature, humidity, PM2.5, filter life, and UV sensors | Mode sensor is an enum. |
 | Nature series | `SL_NATURE` | Switch-board variants create `P1-P3` switches; thermostat variants create a climate entity; `P4` temperature is exposed when reported | Variant is detected from the reported attributes. |
 | Native A/C panels | `V_AIR_P`, `V_SZJSXR_P`, `V_T8600_P`, `SL_CP_DN` | Climate entities | These use LifeSmart native `EpSet` control, not SPOT IR profiles. |
-| SPOT and IR remotes | `SL_SPOT`, `MSL_IRCTL`, `OD_WE_IRCTL`, `SL_P_IR`, `SL_P_IR_V2` | Infrared emitter entities for Home Assistant IR device integrations; existing remote entities for IR command storage/sending; optional A/C climate entities; light entities only on SPOT models with light attributes | Requires Home Assistant 2026.6 or newer. `SL_P_IR` and `SL_P_IR_V2` do not create light entities. `SL_P_IR_V2` exposes pairing-button `P2` as a binary sensor when reported. |
+| SPOT and IR remotes | `SL_SPOT`, `MSL_IRCTL`, `OD_WE_IRCTL`, `SL_P_IR`, `SL_P_IR_V2` | Infrared emitter entities for Home Assistant IR device integrations; existing remote entities for IR command storage/sending; optional A/C climate entities; light entities only on SPOT models with light attributes | Raw and Pronto IR sending supports cloud connections and experimental local connections; LifeSmart A/C profile lookup remains cloud-only. Requires Home Assistant 2026.6 or newer. `SL_P_IR` and `SL_P_IR_V2` do not create light entities. `SL_P_IR_V2` exposes pairing-button `P2` as a binary sensor when reported. |
 
 ## LifeSmart Scenes
 

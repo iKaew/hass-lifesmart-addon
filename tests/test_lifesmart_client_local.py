@@ -7,6 +7,8 @@ import gzip
 import logging
 import struct
 
+import pytest
+
 import custom_components.lifesmart.lifesmart_client_local as local_module
 from custom_components.lifesmart.lifesmart_client_local import (
     DISCOVERY_BROADCAST_HOST,
@@ -20,6 +22,7 @@ from custom_components.lifesmart.lifesmart_client_local import (
     LocalLifeSmartClient,
     async_discover_local_hubs,
     build_control_packet,
+    build_ir_code_packet,
     build_login_packet,
     build_scene_query_packet,
     build_scene_run_packet,
@@ -221,6 +224,24 @@ def test_control_packet_uses_verified_even_wire_type():
     assert find_first(message, "type") == 0x80
 
 
+def test_ir_code_packet_uses_upstream_local_sendcode_shape():
+    packet = build_ir_code_packet("node/HUB1/me", "SPOT1", "0000 006D 0001 0000")
+    frames = FrameBuffer()
+    frames.feed(packet)
+    message = decode_payload(frames.pop())
+
+    assert find_first(message, "node") == "node/HUB1/me/ep"
+    assert find_first(message, "act") == "epCmdA"
+    assert find_first(message, "ctrlcmd") == "sendcode"
+    assert find_first(message, "valtag") == "m"
+    assert find_first(message, "cmd") == "ctrl"
+    assert find_first(message, "devid") == "SPOT1"
+    assert find_first(message, "param") == {
+        "type": 1,
+        "data": "0000 006D 0001 0000",
+    }
+
+
 def test_local_scene_query_packet_uses_ai_object_tree():
     packet = build_scene_query_packet("node/HUB1/me")
     frames = FrameBuffer()
@@ -358,6 +379,60 @@ def test_local_switch_on_and_off_send_expected_endpoint_packets():
     assert [find_first(message, "key") for message in messages] == ["P1", "P1"]
     assert [find_first(message, "val") for message in messages] == [1, 0]
     assert [find_first(message, "type") for message in messages] == [0x80, 0x80]
+
+
+def test_local_ir_send_accepts_sendcodes_wrapper_and_rejects_non_spot():
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+        client._agent_node = "node/HUB1/me"
+        client._hub_id = "HUB1"
+        client._devices = [
+            {
+                "agt": "HUB1",
+                "me": "SPOT1",
+                "devtype": "SL_SPOT",
+                "name": "SPOT",
+                "data": {},
+            },
+            {
+                "agt": "HUB1",
+                "me": "LOCK1",
+                "devtype": "SL_LK_LS",
+                "name": "Lock",
+                "data": {},
+            },
+        ]
+        packets = []
+
+        async def capture(packet):
+            packets.append(packet)
+
+        client._send = capture
+        result = await client.send_ir_code_async(
+            "HUB1",
+            "SPOT1",
+            '[{"param": {"data": "CODE_ONE", "type": 1}}, '
+            '{"param": {"data": "CODE_TWO", "type": 1}}]',
+        )
+        direct_result = await client.send_ir_code_async("HUB1", "SPOT1", "123")
+        with pytest.raises(ValueError, match="not a supported SPOT"):
+            await client.send_ir_code_async("HUB1", "LOCK1", "CODE")
+        return result, direct_result, packets
+
+    result, direct_result, packets = asyncio.run(scenario())
+    messages = []
+    for packet in packets:
+        frames = FrameBuffer()
+        frames.feed(packet)
+        messages.append(decode_payload(frames.pop()))
+
+    assert result == 0
+    assert direct_result == 0
+    assert [find_first(message, "data") for message in messages] == [
+        "CODE_ONE",
+        "CODE_TWO",
+        "123",
+    ]
 
 
 def test_local_client_authenticates_discovers_and_normalizes_devices(monkeypatch):
