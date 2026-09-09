@@ -9,6 +9,21 @@
 
 Home Assistant integration for LifeSmart devices with a choice of direct local hub communication or the LifeSmart Open Platform cloud API.
 
+## Local or cloud?
+
+| Feature | Local | Cloud |
+| --- | --- | --- |
+| Internet required | No; Home Assistant must reach the hub on your LAN | Yes |
+| Device control and live status updates | Yes, for supported devices | Yes, for supported devices |
+| LifeSmart scenes | Scenes stored on the connected hub | Scenes available through your account |
+| Multiple hubs | Add each hub separately | Access hubs through one account |
+| Send saved infrared commands | Experimental | Yes |
+| Online infrared profiles and profile-based A/C control | No | Yes |
+| Hub status and information | Connection status and IP address | Status and additional hub details |
+| Restart hub from Home Assistant | No | Yes |
+
+Device and scene availability depends on what your hub or LifeSmart account exposes.
+
 ## Prerequisites
 
 For a local connection, Home Assistant must be able to reach the LifeSmart hub on your LAN. The setup flow automatically searches the local network and still allows manual entry if broadcast discovery is unavailable. Have the TCP port (normally `8888`) and local password ready. The local username is `admin`, and the default local password is `admin`.
