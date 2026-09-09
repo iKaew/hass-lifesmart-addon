@@ -7,11 +7,28 @@
 
 # LifeSmart for Home Assistant
 
-Cloud-based Home Assistant integration for LifeSmart devices. The integration discovers your LifeSmart devices through the LifeSmart Open Platform API, creates Home Assistant entities, and receives ongoing updates through the LifeSmart WebSocket service.
+Home Assistant integration for LifeSmart devices with a choice of direct local hub communication or the LifeSmart Open Platform cloud API.
 
-There is no direct local communication between Home Assistant and the LifeSmart hub at the moment, so internet access and valid LifeSmart cloud credentials are required.
+## Local or cloud?
+
+| Feature | Local | Cloud |
+| --- | --- | --- |
+| Internet required | No; Home Assistant must reach the hub on your LAN | Yes |
+| Device control and live status updates | Yes, for supported devices | Yes, for supported devices |
+| LifeSmart scenes | Scenes stored on the connected hub | Scenes available through your account |
+| Multiple hubs | Add each hub separately | Access hubs through one account |
+| Send saved infrared commands | Experimental | Yes |
+| Online infrared profiles and profile-based A/C control | No | Yes |
+| Hub status and information | Connection status and IP address | Status and additional hub details |
+| Restart hub from Home Assistant | No | Yes |
+
+Device and scene availability depends on what your hub or LifeSmart account exposes.
 
 ## Prerequisites
+
+For a local connection, Home Assistant must be able to reach the LifeSmart hub on your LAN. The setup flow automatically searches the local network and still allows manual entry if broadcast discovery is unavailable. Have the TCP port (normally `8888`) and local password ready. The local username is `admin`, and the default local password is `admin`.
+
+For a cloud connection:
 
 1. Confirm your LifeSmart account email/user ID and country/region in the LifeSmart mobile app account/profile screen. See the screenshot below.
 1. Create an application in the [LifeSmart Open Platform](https://www.ilifesmart.com/open/login) to obtain an `app key` and `app token`.
@@ -50,7 +67,12 @@ Use manual installation only if you cannot use HACS.
 1. Go to `Settings` → `Devices & Services`.
 1. Click `Add Integration`.
 1. Search for `LifeSmart` and select it.
-1. Enter your LifeSmart Platform credentials:
+1. Choose **Local connection** or **Cloud connection**.
+1. For a local connection, select an automatically discovered hub or enter:
+   - **Hub IP Address**: A static/reserved LAN address for the LifeSmart hub when automatic discovery is unavailable
+   - **Hub Port**: `8888` unless your hub uses another port
+   - **Local Password**: Defaults to `admin`
+1. For a cloud connection, enter your LifeSmart Platform credentials:
    - **App Key**: From your LifeSmart Open Platform application
    - **App Token**: From your LifeSmart Open Platform application  
    - **Email/User ID**: Your LifeSmart account email address or user ID (see below)
@@ -58,7 +80,7 @@ Use manual installation only if you cannot use HACS.
    - **LifeSmart Account Country/Region**: Select the country or region shown in the LifeSmart mobile app account/profile screen (see below)
 1. Click `Submit` and wait for device discovery.
 
-The integration will automatically discover and create entities for all your LifeSmart devices and scenes.
+The integration automatically discovers and creates entities for the devices returned by the selected connection. Scenes stored on the connected hub are available in local mode. LifeSmart's online IR profile catalog requires cloud mode.
 
 ### Finding Your LifeSmart Email/User ID And Country/Region
 
@@ -88,7 +110,7 @@ Support is based on the attributes returned by the LifeSmart API. Some models cr
 | Air purifier | `OD_MFRESH_M8088` | Switch plus mode, temperature, humidity, PM2.5, filter life, and UV sensors | Mode sensor is an enum. |
 | Nature series | `SL_NATURE` | Switch-board variants create `P1-P3` switches; thermostat variants create a climate entity; `P4` temperature is exposed when reported | Variant is detected from the reported attributes. |
 | Native A/C panels | `V_AIR_P`, `V_SZJSXR_P`, `V_T8600_P`, `SL_CP_DN` | Climate entities | These use LifeSmart native `EpSet` control, not SPOT IR profiles. |
-| SPOT and IR remotes | `SL_SPOT`, `MSL_IRCTL`, `OD_WE_IRCTL`, `SL_P_IR`, `SL_P_IR_V2` | Infrared emitter entities for Home Assistant IR device integrations; existing remote entities for IR command storage/sending; optional A/C climate entities; light entities only on SPOT models with light attributes | Requires Home Assistant 2026.6 or newer. `SL_P_IR` and `SL_P_IR_V2` do not create light entities. `SL_P_IR_V2` exposes pairing-button `P2` as a binary sensor when reported. |
+| SPOT and IR remotes | `SL_SPOT`, `MSL_IRCTL`, `OD_WE_IRCTL`, `SL_P_IR`, `SL_P_IR_V2` | Infrared emitter entities for Home Assistant IR device integrations; existing remote entities for IR command storage/sending; optional A/C climate entities; light entities only on SPOT models with light attributes | Raw and Pronto IR sending supports cloud connections and experimental local connections; LifeSmart A/C profile lookup remains cloud-only. Requires Home Assistant 2026.6 or newer. `SL_P_IR` and `SL_P_IR_V2` do not create light entities. `SL_P_IR_V2` exposes pairing-button `P2` as a binary sensor when reported. |
 
 ## LifeSmart Scenes
 
@@ -100,7 +122,7 @@ target:
   entity_id: scene.movie_night
 ```
 
-LifeSmart remains responsible for executing the scene actions. Scene changes made in the LifeSmart app appear after reloading the LifeSmart integration. The legacy `lifesmart.scene_set` action remains available for automations that use raw hub and scene IDs.
+LifeSmart remains responsible for executing the scene actions. In local mode, executable scenes stored on the connected hub are discovered over the LAN and run without the cloud. Scene changes made in the LifeSmart app appear after reloading the LifeSmart integration. The legacy `lifesmart.scene_set` action remains available for automations that use raw hub and scene IDs.
 
 ## FAQ
 

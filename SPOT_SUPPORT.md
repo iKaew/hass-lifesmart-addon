@@ -14,6 +14,9 @@ The climate entity is optional and must be configured through the integration op
 The infrared emitter entity requires Home Assistant 2026.6 or newer. It is created
 automatically and appears as an emitter when configuring integrations that use Home
 Assistant's Infrared panel. The existing remote and climate entities remain available.
+Raw and Pronto IR codes can be transmitted through a cloud connection or the
+experimental local connection. LifeSmart A/C profile discovery and code generation
+still require a cloud connection.
 
 ## Supported SPOT Devices
 
@@ -220,8 +223,8 @@ This writes a JSON file under `config/` that helps identify which `GetACCodes` c
 
 - **Platform**: Remote control uses the standard Home Assistant `remote` platform
 - **IR Protocol**: Supports standard IR remote control protocols
-- **Storage**: Learned IR codes are stored locally on the SPOT device
-- **Communication**: All control goes through the LifeSmart Cloud API
+- **Storage**: Named IR codes saved with `remote.learn_command` are stored in Home Assistant
+- **Communication**: Raw and Pronto codes can use the LifeSmart cloud API or the hub's local `sendcode` command
 
 ## API Integration
 
@@ -229,7 +232,7 @@ The SPOT implementation uses the following LifeSmart API endpoints:
 
 - `get_ir_remote_list_async()` - Retrieve available IR remote configurations
 - `get_ir_remote_async()` - Get detailed IR remote information
-- `send_ir_code_async()` - Send IR codes to control devices
+- `send_ir_code_async()` - Send raw or Pronto IR codes through cloud or local transport
 - `get_ac_codes_async()` - Generate IR codes for A/C state changes
 - `learn_ir_code_async()` - Learn new IR codes (future enhancement)
 

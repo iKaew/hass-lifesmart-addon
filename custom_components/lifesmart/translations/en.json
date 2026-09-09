@@ -4,6 +4,13 @@
     "step": {
       "user": {
         "title": "LifeSmart Integration Setup",
+        "menu_options": {
+          "local": "Local connection",
+          "cloud": "Cloud connection"
+        }
+      },
+      "cloud": {
+        "title": "LifeSmart Cloud Setup",
         "description": "Enter your LifeSmart Platform credentials and user details to connect.",
         "data": {
           "appkey": "App Key",
@@ -11,6 +18,15 @@
           "userpassword": "User Password",
           "userid": "Email/User ID",
           "region": "LifeSmart Account Country/Region"
+        }
+      },
+      "local": {
+        "title": "LifeSmart Local Setup",
+        "description": "Nearby hubs are discovered automatically. Select a discovered hub or enter its IP address manually. The local username is admin.",
+        "data": {
+          "host": "Hub IP Address",
+          "port": "Hub Port",
+          "local_password": "Local Password"
         }
       },
       "reauth_confirm": {
@@ -21,7 +37,10 @@
           "apptoken": "App Token",
           "userpassword": "User Password",
           "userid": "Email/User ID",
-          "region": "LifeSmart Account Country/Region"
+          "region": "LifeSmart Account Country/Region",
+          "host": "Hub IP Address",
+          "port": "Hub Port",
+          "local_password": "Local Password"
         }
       }
     },
@@ -56,6 +75,15 @@
           "userpassword": "User Password",
           "userid": "Email/User ID",
           "region": "LifeSmart Account Country/Region"
+        }
+      },
+      "local": {
+        "title": "LifeSmart Local Connection Settings",
+        "description": "Update the direct hub connection. The local username is admin.",
+        "data": {
+          "host": "Hub IP Address",
+          "port": "Hub Port",
+          "local_password": "Local Password"
         }
       },
       "ac_device": {

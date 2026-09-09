@@ -4,17 +4,21 @@ import logging
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.const import CONF_NAME, CONF_REGION
+from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, CONF_REGION
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.selector import selector
 
 from .const import (
     CONF_AC_CONFIG,
+    CONF_CONNECTION_TYPE,
     CONF_LIFESMART_APPKEY,
     CONF_LIFESMART_APPTOKEN,
     CONF_LIFESMART_USERID,
     CONF_LIFESMART_USERPASSWORD,
+    CONF_LOCAL_PASSWORD,
+    CONNECTION_TYPE_CLOUD,
+    CONNECTION_TYPE_LOCAL,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
     DEVICE_TYPE_KEY,
@@ -26,6 +30,14 @@ from .const import (
     normalize_lifesmart_region,
 )
 from .lifesmart_client import LifeSmartClient
+from .lifesmart_client_local import (
+    DEFAULT_DISCOVERY_TIMEOUT,
+    DEFAULT_LOCAL_PASSWORD,
+    DEFAULT_LOCAL_PORT,
+    DiscoveredLifeSmartHub,
+    LocalLifeSmartClient,
+    async_discover_local_hubs,
+)
 from .runtime_data import get_runtime_data
 from .exceptions import LifeSmartCannotConnect, LifeSmartInvalidAuth
 
@@ -37,6 +49,14 @@ DATA_SCHEMA = {
     vol.Required(CONF_LIFESMART_USERID): str,
     vol.Required(CONF_LIFESMART_USERPASSWORD): str,
     vol.Required(CONF_REGION): selector(LIFESMART_REGION_OPTIONS),
+}
+
+LOCAL_DATA_SCHEMA = {
+    vol.Required(CONF_HOST): str,
+    vol.Required(CONF_PORT, default=DEFAULT_LOCAL_PORT): vol.All(
+        vol.Coerce(int), vol.Range(min=1, max=65535)
+    ),
+    vol.Required(CONF_LOCAL_PASSWORD, default=DEFAULT_LOCAL_PASSWORD): str,
 }
 
 
@@ -74,6 +94,32 @@ async def validate_input(hass, data):
     return {"title": f"User Id {user_id}", "unique_id": app_key}
 
 
+async def validate_local_input(hass, data):
+    """Validate direct local hub credentials and device discovery."""
+    client = LocalLifeSmartClient(
+        data[CONF_HOST], data[CONF_PORT], data[CONF_LOCAL_PASSWORD]
+    )
+    try:
+        response = await client.login_async()
+        if response.get("code") != "success":
+            raise LifeSmartInvalidAuth
+        devices = await client.get_all_device_async()
+        if not isinstance(devices, list):
+            raise LifeSmartCannotConnect
+    except LifeSmartInvalidAuth:
+        raise
+    except Exception as err:
+        raise LifeSmartCannotConnect from err
+    finally:
+        await client.async_close()
+
+    host = data[CONF_HOST]
+    return {
+        "title": f"LifeSmart Hub {host}",
+        "unique_id": f"local-{client.hub_id}",
+    }
+
+
 def get_unique_id(wiser_id: str):
     """Generate Unique ID for Hub."""
     return str(f"{DOMAIN}-{wiser_id}")
@@ -84,11 +130,14 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """LifeSmartConfigFlowHandler configuration method."""
 
     VERSION = 1
+    # The integration supports both transports; retain the legacy cloud class
+    # for existing cloud entries because ConfigFlow has no hybrid value.
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_PUSH
 
     def __init__(self) -> None:
         """Initialize the config flow."""
         self.discovery_info = {}
+        self._discovered_local_hubs: dict[str, DiscoveredLifeSmartHub] = {}
 
     @staticmethod
     @callback
@@ -99,7 +148,19 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return LifeSmartOptionsFlowHandler(config_entry)
 
     async def async_step_user(self, user_input=None) -> FlowResult:
-        """Handle a config flow."""
+        """Choose between cloud and direct local setup."""
+        if user_input is not None:
+            # Compatibility with flows started before connection selection was
+            # introduced, and with imported/test data.
+            if user_input.get(CONF_CONNECTION_TYPE) == CONNECTION_TYPE_LOCAL:
+                return await self.async_step_local()
+            return await self.async_step_cloud(user_input)
+        return self.async_show_menu(
+            step_id="user", menu_options=[CONNECTION_TYPE_LOCAL, CONNECTION_TYPE_CLOUD]
+        )
+
+    async def async_step_cloud(self, user_input=None) -> FlowResult:
+        """Configure a LifeSmart Open Platform cloud connection."""
         errors = {}
         if user_input is not None:
             try:
@@ -118,6 +179,7 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
                 # Add hub name to config
                 user_input[CONF_NAME] = validated["title"]
+                user_input[CONF_CONNECTION_TYPE] = CONNECTION_TYPE_CLOUD
 
                 return self.async_create_entry(
                     title=validated["title"], data=user_input
@@ -158,8 +220,101 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         return self.async_show_form(
-            step_id="user",
+            step_id="cloud",
             data_schema=data_schema,
+            errors=errors,
+        )
+
+    async def async_step_local(self, user_input=None) -> FlowResult:
+        """Configure a direct connection to one LifeSmart hub."""
+        errors = {}
+        if user_input is None:
+            try:
+                discovered_hubs = await async_discover_local_hubs(
+                    DEFAULT_DISCOVERY_TIMEOUT
+                )
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug("LifeSmart local hub discovery failed", exc_info=True)
+                discovered_hubs = []
+            _LOGGER.debug(
+                "LifeSmart local discovery found %d hub(s)", len(discovered_hubs)
+            )
+            self._discovered_local_hubs = {
+                hub.host: hub for hub in discovered_hubs
+            }
+        elif (
+            CONF_PORT not in user_input
+            and user_input.get(CONF_HOST) in self._discovered_local_hubs
+        ):
+            user_input = dict(user_input)
+            user_input[CONF_PORT] = self._discovered_local_hubs[
+                user_input[CONF_HOST]
+            ].port
+
+        if user_input is not None:
+            try:
+                validated = await validate_local_input(self.hass, user_input)
+            except LifeSmartInvalidAuth:
+                errors["base"] = "invalid_auth"
+            except LifeSmartCannotConnect:
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected local input validation error")
+                errors["base"] = "unknown"
+            else:
+                await self.async_set_unique_id(validated["unique_id"])
+                self._abort_if_unique_id_configured()
+                user_input[CONF_NAME] = validated["title"]
+                user_input[CONF_CONNECTION_TYPE] = CONNECTION_TYPE_LOCAL
+                return self.async_create_entry(
+                    title=validated["title"], data=user_input
+                )
+
+        defaults = user_input or {}
+        if self._discovered_local_hubs:
+            default_host = defaults.get(CONF_HOST) or next(
+                iter(self._discovered_local_hubs)
+            )
+            selected_hub = self._discovered_local_hubs.get(default_host)
+            default_port = defaults.get(
+                CONF_PORT,
+                selected_hub.port if selected_hub else DEFAULT_LOCAL_PORT,
+            )
+            local_schema = vol.Schema(
+                {
+                    vol.Required(CONF_HOST, default=default_host): selector(
+                        {
+                            "select": {
+                                "options": [
+                                    {
+                                        "value": hub.host,
+                                        "label": hub.display_name,
+                                    }
+                                    for hub in self._discovered_local_hubs.values()
+                                ],
+                                "custom_value": True,
+                                "mode": "dropdown",
+                            }
+                        }
+                    ),
+                    vol.Required(CONF_PORT, default=default_port): vol.All(
+                        vol.Coerce(int), vol.Range(min=1, max=65535)
+                    ),
+                    vol.Required(
+                        CONF_LOCAL_PASSWORD,
+                        default=defaults.get(
+                            CONF_LOCAL_PASSWORD, DEFAULT_LOCAL_PASSWORD
+                        ),
+                    ): str,
+                }
+            )
+        else:
+            local_schema = self.add_suggested_values_to_schema(
+                vol.Schema(LOCAL_DATA_SCHEMA), defaults
+            )
+        return self.async_show_form(
+            step_id="local",
+            data_schema=local_schema,
             errors=errors,
         )
 
@@ -173,9 +328,14 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_reauth_confirm(self, user_input=None) -> FlowResult:
         """Validate and store replacement credentials."""
         errors = {}
+        is_local = (
+            self._reauth_entry.data.get(CONF_CONNECTION_TYPE)
+            == CONNECTION_TYPE_LOCAL
+        )
         if user_input is not None:
             try:
-                validated = await validate_input(self.hass, user_input)
+                validator = validate_local_input if is_local else validate_input
+                validated = await validator(self.hass, user_input)
             except LifeSmartInvalidAuth:
                 errors["base"] = "invalid_auth"
             except LifeSmartCannotConnect:
@@ -184,6 +344,10 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected reauthentication error")
                 errors["base"] = "unknown"
             else:
+                user_input[CONF_CONNECTION_TYPE] = (
+                    CONNECTION_TYPE_LOCAL if is_local else CONNECTION_TYPE_CLOUD
+                )
+                user_input[CONF_NAME] = validated["title"]
                 await self.async_set_unique_id(validated["unique_id"])
                 self._abort_if_unique_id_mismatch()
                 return self.async_update_and_abort(
@@ -193,20 +357,23 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         defaults = dict(self._reauth_entry.data)
         defaults.pop(CONF_NAME, None)
-        schema = {
-            key: defaults.get(key, "")
-            for key in (
+        if is_local:
+            schema_def = LOCAL_DATA_SCHEMA
+            keys = (CONF_HOST, CONF_PORT, CONF_LOCAL_PASSWORD)
+        else:
+            schema_def = DATA_SCHEMA
+            keys = (
                 CONF_LIFESMART_APPKEY,
                 CONF_LIFESMART_APPTOKEN,
                 CONF_LIFESMART_USERID,
                 CONF_LIFESMART_USERPASSWORD,
                 CONF_REGION,
             )
-        }
+        schema = {key: defaults.get(key, "") for key in keys}
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=self.add_suggested_values_to_schema(
-                vol.Schema(DATA_SCHEMA), schema
+                vol.Schema(schema_def), schema
             ),
             errors=errors,
         )
@@ -343,6 +510,11 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_user(self, user_input=None) -> FlowResult:
         """Handle a config flow."""
+        if (
+            self._get_entry_value(CONF_CONNECTION_TYPE, CONNECTION_TYPE_CLOUD)
+            == CONNECTION_TYPE_LOCAL
+        ):
+            return await self.async_step_local(user_input)
         errors = {}
         if user_input is not None:
             try:
@@ -387,10 +559,50 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
             errors=errors,
         )
 
+    async def async_step_local(self, user_input=None) -> FlowResult:
+        """Update direct local hub connection settings."""
+        errors = {}
+        if user_input is not None:
+            try:
+                validated = await validate_local_input(self.hass, user_input)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.warning("Local input validation error: %s", err)
+                errors["base"] = (
+                    "invalid_auth"
+                    if isinstance(err, LifeSmartInvalidAuth)
+                    else "cannot_connect"
+                )
+            else:
+                user_input[CONF_NAME] = validated["title"]
+                user_input[CONF_CONNECTION_TYPE] = CONNECTION_TYPE_LOCAL
+                return self.async_create_entry(
+                    title=validated["title"], data=user_input
+                )
+
+        defaults = {
+            CONF_HOST: self._get_entry_value(CONF_HOST, ""),
+            CONF_PORT: self._get_entry_value(CONF_PORT, DEFAULT_LOCAL_PORT),
+            CONF_LOCAL_PASSWORD: self._get_entry_value(
+                CONF_LOCAL_PASSWORD, DEFAULT_LOCAL_PASSWORD
+            ),
+        }
+        return self.async_show_form(
+            step_id="local",
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(LOCAL_DATA_SCHEMA), user_input or defaults
+            ),
+            errors=errors,
+        )
+
     async def async_step_init(self, user_input=None):
         """Handle options flow."""
-        menu_options = ["user", "ac_device"]
-        if self._get_entry_value(CONF_AC_CONFIG, {}):
+        is_local = self._get_entry_value(
+            CONF_CONNECTION_TYPE, CONNECTION_TYPE_CLOUD
+        ) == CONNECTION_TYPE_LOCAL
+        menu_options = ["user"]
+        if not is_local:
+            menu_options.append("ac_device")
+        if not is_local and self._get_entry_value(CONF_AC_CONFIG, {}):
             menu_options.append("ac_remove")
 
         return self.async_show_menu(

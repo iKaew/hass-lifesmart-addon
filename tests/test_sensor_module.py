@@ -276,6 +276,28 @@ def test_sensor_entity_branches_and_properties():
     assert gas.device_info["model"] == "SL_SC_CH"
 
 
+def test_local_smart_plug_measurements_decode_raw_values_on_setup_and_update():
+    energy_raw = int.from_bytes(struct.pack("!f", 65.72626495361328), "big")
+    power_raw = int.from_bytes(struct.pack("!f", 100.0), "big")
+    energy, energy_updates = make_sensor_entity(
+        "SL_OE_DE", "P2", {"type": 3, "val": energy_raw}
+    )
+    power, power_updates = make_sensor_entity(
+        "SL_OE_DE", "P3", {"type": 3, "val": 0}
+    )
+
+    assert energy.state == 65.72626495361328
+    assert power.state == 0.0
+
+    asyncio.run(energy._update_value({"type": 3, "val": power_raw}))
+    asyncio.run(power._update_value({"type": 3, "val": power_raw}))
+
+    assert energy.state == 100.0
+    assert power.state == 100.0
+    assert energy_updates == ["scheduled"]
+    assert power_updates == ["scheduled"]
+
+
 def test_sensor_update_and_dispatcher_registration(monkeypatch):
     sensor, updates = make_sensor_entity("SL_SC_CH", "P1", {"val": 11, "type": 1})
     sensor.hass = object()

@@ -13,7 +13,7 @@ from .runtime_data import get_runtime_data
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities) -> None:
-    """Set up scenes discovered from the LifeSmart cloud API."""
+    """Set up scenes discovered through the configured LifeSmart connection."""
     runtime = get_runtime_data(hass, config_entry)
     async_add_entities(
         LifeSmartScene(runtime.client, scene) for scene in runtime.scenes
@@ -37,7 +37,7 @@ class LifeSmartScene(Scene):
         return DeviceInfo(identifiers={(DOMAIN, self._hub_id)})
 
     async def async_activate(self, **kwargs: Any) -> None:
-        """Activate the scene through the LifeSmart cloud API."""
+        """Activate the scene through the configured LifeSmart connection."""
         try:
             response = await self._client.set_scene_async(self._hub_id, self._scene_id)
         except Exception as err:
