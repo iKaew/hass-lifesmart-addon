@@ -215,6 +215,76 @@ def test_local_config_flow_validates_hub_and_stores_local_settings(monkeypatch):
     assert instances[0].closed is True
 
 
+def test_local_config_flow_discovers_hub_and_uses_advertised_port(monkeypatch):
+    discovered_hub = config_flow_module.DiscoveredLifeSmartHub(
+        host="192.168.1.115",
+        hub_id="hub_id",
+        port=9876,
+        model="LSJZX1K",
+    )
+
+    async def fake_discover(timeout):
+        assert timeout == config_flow_module.DEFAULT_DISCOVERY_TIMEOUT
+        return [discovered_hub]
+
+    validated_inputs = []
+
+    async def fake_validate(hass, data):
+        validated_inputs.append(dict(data))
+        return {"title": "LifeSmart Hub 192.168.1.115", "unique_id": "local-hub"}
+
+    monkeypatch.setattr(config_flow_module, "async_discover_local_hubs", fake_discover)
+    monkeypatch.setattr(config_flow_module, "validate_local_input", fake_validate)
+    flow = config_flow_module.LifeSmartConfigFlowHandler()
+    flow.hass = object()
+    flow.async_show_form = lambda **kwargs: {"type": "form", **kwargs}
+    flow.async_set_unique_id = lambda unique_id: asyncio.sleep(0)
+    flow._abort_if_unique_id_configured = lambda: None
+    flow.async_create_entry = lambda title, data: {
+        "type": "create_entry",
+        "title": title,
+        "data": data,
+    }
+
+    form = asyncio.run(flow.async_step_local())
+    defaults = form["data_schema"](
+        {config_flow_module.CONF_LOCAL_PASSWORD: "secret"}
+    )
+    result = asyncio.run(
+        flow.async_step_local(
+            {
+                config_flow_module.CONF_HOST: "192.168.1.115",
+                config_flow_module.CONF_LOCAL_PASSWORD: "secret",
+            }
+        )
+    )
+
+    assert defaults[config_flow_module.CONF_HOST] == "192.168.1.115"
+    assert defaults[config_flow_module.CONF_PORT] == 9876
+    assert validated_inputs[0][config_flow_module.CONF_PORT] == 9876
+    assert result["type"] == "create_entry"
+
+
+def test_local_config_flow_falls_back_to_manual_schema(monkeypatch):
+    async def fake_discover(timeout):
+        return []
+
+    monkeypatch.setattr(config_flow_module, "async_discover_local_hubs", fake_discover)
+    flow = config_flow_module.LifeSmartConfigFlowHandler()
+    flow.hass = object()
+    flow.async_show_form = lambda **kwargs: {"type": "form", **kwargs}
+
+    form = asyncio.run(flow.async_step_local())
+    values = form["data_schema"](
+        {
+            config_flow_module.CONF_HOST: "192.168.1.115",
+            config_flow_module.CONF_LOCAL_PASSWORD: "secret",
+        }
+    )
+
+    assert values[config_flow_module.CONF_PORT] == 8888
+
+
 def test_local_config_flow_maps_bad_password_to_invalid_auth(monkeypatch):
     class FakeLocalClient:
         def __init__(self, *args):

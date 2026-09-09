@@ -7,17 +7,147 @@ import gzip
 import logging
 import struct
 
+import custom_components.lifesmart.lifesmart_client_local as local_module
 from custom_components.lifesmart.lifesmart_client_local import (
+    DISCOVERY_BROADCAST_HOST,
+    DISCOVERY_BROADCAST_PORT,
+    DISCOVERY_FIND_AGENT,
+    DISCOVERY_MULTICAST_HOST,
+    DISCOVERY_MULTICAST_PORT,
+    DISCOVERY_SEARCH,
     EnumValue,
     FrameBuffer,
     LocalLifeSmartClient,
+    async_discover_local_hubs,
     build_control_packet,
+    build_login_packet,
     build_scene_query_packet,
     build_scene_run_packet,
     decode_payload,
     encode_packet,
     find_first,
 )
+
+
+def test_local_discovery_parses_and_merges_captured_advertisements():
+    hubs = {}
+    protocol = local_module._LifeSmartDiscoveryProtocol(hubs)
+    protocol.datagram_received(
+        b"AGT=hub_id;NAME=?;URL=GL://*:9876",
+        ("192.168.1.115", DISCOVERY_BROADCAST_PORT),
+    )
+    protocol.datagram_received(
+        b"LSID=hub_id\nMGAMOD=LSJZX1K\nWLAN=WPA\nNAME=?\n"
+        b"MGAFWVER=1317\nVER=1.0.94p10",
+        ("192.168.1.115", DISCOVERY_BROADCAST_PORT),
+    )
+
+    assert list(hubs.values()) == [
+        local_module.DiscoveredLifeSmartHub(
+            host="192.168.1.115",
+            hub_id="hub_id",
+            port=9876,
+            model="LSJZX1K",
+            firmware="1317",
+            protocol_version="1.0.94p10",
+        )
+    ]
+    assert list(hubs.values())[0].display_name == "LSJZX1K (192.168.1.115:9876)"
+
+
+def test_local_discovery_rejects_untrusted_or_unrelated_datagrams():
+    assert (
+        local_module.parse_local_discovery_response(
+            DISCOVERY_SEARCH, "192.168.1.115"
+        )
+        is None
+    )
+    assert (
+        local_module.parse_local_discovery_response(
+            b"AGT=../../bad;URL=GL://*:8888", "192.168.1.115"
+        )
+        is None
+    )
+    assert (
+        local_module.parse_local_discovery_response(
+            b"AGT=valid;URL=GL://attacker.example:1234", "not-an-ip"
+        )
+        is None
+    )
+
+
+def test_local_discovery_sends_packet_confirmed_probes_and_closes(monkeypatch):
+    sent = []
+    transports = []
+
+    class FakeTransport:
+        def __init__(self, source_port):
+            self.source_port = source_port
+            self.closed = False
+            transports.append(self)
+
+        def sendto(self, payload, destination):
+            sent.append((self.source_port, payload, destination))
+
+        def close(self):
+            self.closed = True
+
+    async def fake_open(source_port, hubs):
+        if source_port == 60021:
+            protocol = local_module._LifeSmartDiscoveryProtocol(hubs)
+            protocol.datagram_received(
+                b"LSID=hub_id\nMGAMOD=LSJZX1K\nVER=1.0.94p10",
+                ("192.168.1.115", DISCOVERY_BROADCAST_PORT),
+            )
+        return FakeTransport(source_port)
+
+    monkeypatch.setattr(local_module, "_async_open_discovery_transport", fake_open)
+
+    hubs = asyncio.run(async_discover_local_hubs(timeout=0))
+
+    assert hubs[0].host == "192.168.1.115"
+    assert set(sent) == {
+        (
+            60021,
+            DISCOVERY_SEARCH,
+            (DISCOVERY_BROADCAST_HOST, DISCOVERY_BROADCAST_PORT),
+        ),
+        (
+            60021,
+            DISCOVERY_SEARCH,
+            (DISCOVERY_MULTICAST_HOST, DISCOVERY_MULTICAST_PORT),
+        ),
+        (
+            60001,
+            DISCOVERY_FIND_AGENT,
+            (DISCOVERY_BROADCAST_HOST, DISCOVERY_BROADCAST_PORT),
+        ),
+        (
+            60001,
+            DISCOVERY_SEARCH,
+            (DISCOVERY_BROADCAST_HOST, DISCOVERY_BROADCAST_PORT),
+        ),
+        (
+            60001,
+            DISCOVERY_FIND_AGENT,
+            (DISCOVERY_MULTICAST_HOST, DISCOVERY_MULTICAST_PORT),
+        ),
+        (
+            60001,
+            DISCOVERY_SEARCH,
+            (DISCOVERY_MULTICAST_HOST, DISCOVERY_MULTICAST_PORT),
+        ),
+    }
+    assert all(transport.closed for transport in transports)
+
+
+def test_local_login_uses_stable_homeassistant_node():
+    packet = build_login_packet("secret")
+    frames = FrameBuffer()
+    frames.feed(packet)
+    message = decode_payload(frames.pop())
+
+    assert find_first(message, "node") == "homeassistant"
 
 
 def test_runtime_frame_decoder_accepts_compressed_protocol_frames():

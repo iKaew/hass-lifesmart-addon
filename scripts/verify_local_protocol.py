@@ -1028,7 +1028,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--login-node",
-        default="A3MAAABaAEkBRzQ0Mzc0OA/ac",
+        default="homeassistant",
         help=argparse.SUPPRESS,
     )
     parser.add_argument(

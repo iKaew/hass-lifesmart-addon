@@ -22,7 +22,7 @@
       },
       "local": {
         "title": "LifeSmart 本地设置",
-        "description": "直接连接到 LifeSmart 网关。本地用户名为 admin。",
+        "description": "系统会自动发现附近的网关。请选择已发现的网关或手动输入其 IP 地址。本地用户名为 admin。",
         "data": {
           "host": "网关 IP 地址",
           "port": "网关端口",

@@ -22,7 +22,7 @@
       },
       "local": {
         "title": "LifeSmart Local Setup",
-        "description": "Connect directly to your LifeSmart hub. The local username is admin.",
+        "description": "Nearby hubs are discovered automatically. Select a discovered hub or enter its IP address manually. The local username is admin.",
         "data": {
           "host": "Hub IP Address",
           "port": "Hub Port",

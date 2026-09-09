@@ -8,15 +8,16 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
+import re
+import socket
+import struct
+import uuid
+import zlib
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
-import logging
-import re
-import struct
-from typing import Any
-import uuid
-import zlib
+from typing import Any, cast
 
 from .const import (
     DEVICE_DATA_KEY,
@@ -37,7 +38,16 @@ DEFAULT_LOCAL_PASSWORD = "admin"
 DEFAULT_TIMEOUT = 5.0
 RECONNECT_DELAY = 10.0
 DEFAULT_MAX_FRAME = 8 * 1024 * 1024
-LOGIN_NODE = "A3MAAABaAEkBRzQ0Mzc0OA/ac"
+DEFAULT_DISCOVERY_TIMEOUT = 3.0
+DISCOVERY_BROADCAST_HOST = "255.255.255.255"
+DISCOVERY_BROADCAST_PORT = 12345
+DISCOVERY_MULTICAST_HOST = "224.0.0.110"
+DISCOVERY_MULTICAST_PORT = 12375
+DISCOVERY_SOURCE_PORTS = (60021, 60001)
+DISCOVERY_SEARCH = b"Z-SEARCH * \r\n"
+DISCOVERY_FIND_AGENT = b"find mga"
+MAX_DISCOVERY_PACKET = 2048
+LOGIN_NODE = "homeassistant"
 CLIENT_VERSION = "1.0.48p1"
 
 KEY_NAMES = {
@@ -83,6 +93,199 @@ LOCAL_SCENE_CLASSES = {"scene", "groupirc"}
 
 class LocalProtocolError(RuntimeError):
     """The local hub returned malformed or unsupported protocol data."""
+
+
+@dataclass(frozen=True, slots=True)
+class DiscoveredLifeSmartHub:
+    """A LifeSmart hub advertisement received from the local network."""
+
+    host: str
+    hub_id: str
+    port: int = DEFAULT_LOCAL_PORT
+    name: str | None = None
+    model: str | None = None
+    firmware: str | None = None
+    protocol_version: str | None = None
+
+    @property
+    def display_name(self) -> str:
+        """Return a concise config-flow label without exposing the hub ID."""
+        label = self.name or self.model or "LifeSmart Hub"
+        return f"{label} ({self.host}:{self.port})"
+
+
+def _clean_discovery_value(value: str, *, limit: int = 128) -> str | None:
+    """Normalize one untrusted text value from a hub advertisement."""
+    cleaned = "".join(character for character in value if character.isprintable())
+    cleaned = cleaned.strip()[:limit]
+    return None if not cleaned or cleaned == "?" else cleaned
+
+
+def parse_local_discovery_response(
+    payload: bytes, host: str
+) -> DiscoveredLifeSmartHub | None:
+    """Decode a packet-confirmed LifeSmart UDP discovery response."""
+    if not payload or len(payload) > MAX_DISCOVERY_PACKET:
+        return None
+
+    try:
+        socket.inet_aton(host)
+    except OSError:
+        return None
+
+    text = payload.decode("utf-8", errors="replace")
+    fields: dict[str, str] = {}
+    for item in re.split(r"[;\r\n]+", text):
+        key, separator, value = item.partition("=")
+        if separator:
+            fields[key.strip().upper()] = value.strip()
+
+    hub_id = _clean_discovery_value(fields.get("AGT") or fields.get("LSID", ""))
+    if hub_id is None or re.fullmatch(r"[A-Za-z0-9_-]{1,128}", hub_id) is None:
+        return None
+
+    port = DEFAULT_LOCAL_PORT
+    local_url = fields.get("URL", "")
+    url_match = re.fullmatch(r"GL://\*:(\d{1,5})", local_url, flags=re.IGNORECASE)
+    if url_match:
+        advertised_port = int(url_match.group(1))
+        if 1 <= advertised_port <= 65535:
+            port = advertised_port
+
+    return DiscoveredLifeSmartHub(
+        host=host,
+        hub_id=hub_id,
+        port=port,
+        name=_clean_discovery_value(fields.get("NAME", "")),
+        model=_clean_discovery_value(fields.get("MGAMOD", "")),
+        firmware=_clean_discovery_value(fields.get("MGAFWVER", "")),
+        protocol_version=_clean_discovery_value(fields.get("VER", "")),
+    )
+
+
+def _merge_discovered_hub(
+    current: DiscoveredLifeSmartHub | None, incoming: DiscoveredLifeSmartHub
+) -> DiscoveredLifeSmartHub:
+    """Combine the short AGT and detailed LSID advertisements from one hub."""
+    if current is None:
+        return incoming
+    return DiscoveredLifeSmartHub(
+        host=current.host,
+        hub_id=current.hub_id,
+        port=(
+            incoming.port
+            if incoming.port != DEFAULT_LOCAL_PORT or current.port == DEFAULT_LOCAL_PORT
+            else current.port
+        ),
+        name=incoming.name or current.name,
+        model=incoming.model or current.model,
+        firmware=incoming.firmware or current.firmware,
+        protocol_version=incoming.protocol_version or current.protocol_version,
+    )
+
+
+class _LifeSmartDiscoveryProtocol(asyncio.DatagramProtocol):
+    """Collect valid hub advertisements for one UDP listener."""
+
+    def __init__(self, hubs: dict[tuple[str, str], DiscoveredLifeSmartHub]) -> None:
+        self._hubs = hubs
+
+    def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
+        """Parse one datagram without trusting an advertised network address."""
+        hub = parse_local_discovery_response(data, addr[0])
+        if hub is None:
+            return
+        key = (hub.hub_id, hub.host)
+        self._hubs[key] = _merge_discovered_hub(self._hubs.get(key), hub)
+
+    def error_received(self, exc: Exception) -> None:
+        """Log non-fatal UDP errors at debug level."""
+        _LOGGER.debug("LifeSmart local discovery socket error: %s", exc)
+
+
+async def _async_open_discovery_transport(
+    preferred_port: int,
+    hubs: dict[tuple[str, str], DiscoveredLifeSmartHub],
+) -> asyncio.DatagramTransport | None:
+    """Open one broadcast-capable listener, falling back to an ephemeral port."""
+    loop = asyncio.get_running_loop()
+    for local_port in (preferred_port, 0):
+        discovery_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            discovery_socket.setblocking(False)
+            discovery_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            discovery_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
+            discovery_socket.bind(("", local_port))
+            transport, _ = await loop.create_datagram_endpoint(
+                lambda: _LifeSmartDiscoveryProtocol(hubs), sock=discovery_socket
+            )
+        except OSError as err:
+            discovery_socket.close()
+            if local_port == preferred_port:
+                _LOGGER.debug(
+                    "Unable to bind LifeSmart discovery port %s; using an "
+                    "ephemeral port: %s",
+                    preferred_port,
+                    err,
+                )
+                continue
+            _LOGGER.debug("Unable to open LifeSmart discovery socket: %s", err)
+            return None
+        return cast(asyncio.DatagramTransport, transport)
+    return None
+
+
+def _send_discovery_probes(
+    transports: dict[int, asyncio.DatagramTransport],
+) -> None:
+    """Send the broadcast and multicast probes observed from the mobile app."""
+    destinations = (
+        (DISCOVERY_BROADCAST_HOST, DISCOVERY_BROADCAST_PORT),
+        (DISCOVERY_MULTICAST_HOST, DISCOVERY_MULTICAST_PORT),
+    )
+    for source_port, transport in transports.items():
+        payloads = (DISCOVERY_SEARCH,)
+        if source_port == 60001:
+            payloads = (DISCOVERY_FIND_AGENT, DISCOVERY_SEARCH)
+        for destination in destinations:
+            for payload in payloads:
+                try:
+                    transport.sendto(payload, destination)
+                except OSError as err:
+                    _LOGGER.debug(
+                        "Unable to send LifeSmart discovery probe to %s: %s",
+                        destination,
+                        err,
+                    )
+
+
+async def async_discover_local_hubs(
+    timeout: float = DEFAULT_DISCOVERY_TIMEOUT,
+) -> list[DiscoveredLifeSmartHub]:
+    """Discover LifeSmart hubs using the mobile app's verified UDP exchange."""
+    if timeout < 0:
+        raise ValueError("discovery timeout must not be negative")
+
+    hubs: dict[tuple[str, str], DiscoveredLifeSmartHub] = {}
+    transports: dict[int, asyncio.DatagramTransport] = {}
+    try:
+        for preferred_port in DISCOVERY_SOURCE_PORTS:
+            transport = await _async_open_discovery_transport(preferred_port, hubs)
+            if transport is not None:
+                transports[preferred_port] = transport
+        if not transports:
+            return []
+
+        _send_discovery_probes(transports)
+        await asyncio.sleep(timeout / 2)
+        if timeout:
+            _send_discovery_probes(transports)
+            await asyncio.sleep(timeout - timeout / 2)
+    finally:
+        for transport in transports.values():
+            transport.close()
+
+    return sorted(hubs.values(), key=lambda hub: (hub.display_name, hub.host))
 
 
 @dataclass(frozen=True, slots=True)

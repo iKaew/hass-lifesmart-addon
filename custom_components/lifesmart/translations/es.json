@@ -22,7 +22,7 @@
       },
       "local": {
         "title": "Configuración local de LifeSmart",
-        "description": "Conéctate directamente a tu hub LifeSmart. El usuario local es admin.",
+        "description": "Los hubs cercanos se detectan automáticamente. Selecciona un hub detectado o introduce su dirección IP manualmente. El usuario local es admin.",
         "data": {
           "host": "Dirección IP del hub",
           "port": "Puerto del hub",

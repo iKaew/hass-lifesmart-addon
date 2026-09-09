@@ -11,7 +11,7 @@ Home Assistant integration for LifeSmart devices with a choice of direct local h
 
 ## Prerequisites
 
-For a local connection, Home Assistant must be able to reach the LifeSmart hub on your LAN. Have the hub IP address, TCP port (normally `8888`), and local password ready. The local username is `admin`, and the default local password is `admin`.
+For a local connection, Home Assistant must be able to reach the LifeSmart hub on your LAN. The setup flow automatically searches the local network and still allows manual entry if broadcast discovery is unavailable. Have the TCP port (normally `8888`) and local password ready. The local username is `admin`, and the default local password is `admin`.
 
 For a cloud connection:
 
@@ -53,8 +53,8 @@ Use manual installation only if you cannot use HACS.
 1. Click `Add Integration`.
 1. Search for `LifeSmart` and select it.
 1. Choose **Local connection** or **Cloud connection**.
-1. For a local connection, enter:
-   - **Hub IP Address**: A static/reserved LAN address for the LifeSmart hub
+1. For a local connection, select an automatically discovered hub or enter:
+   - **Hub IP Address**: A static/reserved LAN address for the LifeSmart hub when automatic discovery is unavailable
    - **Hub Port**: `8888` unless your hub uses another port
    - **Local Password**: Defaults to `admin`
 1. For a cloud connection, enter your LifeSmart Platform credentials:

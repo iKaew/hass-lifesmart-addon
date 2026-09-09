@@ -12,6 +12,7 @@ from scripts.verify_local_protocol import (
     FrameBuffer,
     ProtocolError,
     build_config_packet,
+    build_parser,
     build_state_packet,
     classify_event,
     decode_payload,
@@ -21,6 +22,12 @@ from scripts.verify_local_protocol import (
     find_first,
     observe_control_event,
 )
+
+
+def test_verifier_defaults_to_homeassistant_login_node():
+    args = build_parser().parse_args(["--host", "192.0.2.10"])
+
+    assert args.login_node == "homeassistant"
 
 
 def test_plain_frame_handles_fragmentation_and_utf8_lengths():

@@ -31,9 +31,12 @@ from .const import (
 )
 from .lifesmart_client import LifeSmartClient
 from .lifesmart_client_local import (
+    DEFAULT_DISCOVERY_TIMEOUT,
     DEFAULT_LOCAL_PASSWORD,
     DEFAULT_LOCAL_PORT,
+    DiscoveredLifeSmartHub,
     LocalLifeSmartClient,
+    async_discover_local_hubs,
 )
 from .runtime_data import get_runtime_data
 from .exceptions import LifeSmartCannotConnect, LifeSmartInvalidAuth
@@ -134,6 +137,7 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize the config flow."""
         self.discovery_info = {}
+        self._discovered_local_hubs: dict[str, DiscoveredLifeSmartHub] = {}
 
     @staticmethod
     @callback
@@ -224,6 +228,29 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_local(self, user_input=None) -> FlowResult:
         """Configure a direct connection to one LifeSmart hub."""
         errors = {}
+        if user_input is None:
+            try:
+                discovered_hubs = await async_discover_local_hubs(
+                    DEFAULT_DISCOVERY_TIMEOUT
+                )
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug("LifeSmart local hub discovery failed", exc_info=True)
+                discovered_hubs = []
+            _LOGGER.debug(
+                "LifeSmart local discovery found %d hub(s)", len(discovered_hubs)
+            )
+            self._discovered_local_hubs = {
+                hub.host: hub for hub in discovered_hubs
+            }
+        elif (
+            CONF_PORT not in user_input
+            and user_input.get(CONF_HOST) in self._discovered_local_hubs
+        ):
+            user_input = dict(user_input)
+            user_input[CONF_PORT] = self._discovered_local_hubs[
+                user_input[CONF_HOST]
+            ].port
+
         if user_input is not None:
             try:
                 validated = await validate_local_input(self.hass, user_input)
@@ -244,11 +271,50 @@ class LifeSmartConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
         defaults = user_input or {}
+        if self._discovered_local_hubs:
+            default_host = defaults.get(CONF_HOST) or next(
+                iter(self._discovered_local_hubs)
+            )
+            selected_hub = self._discovered_local_hubs.get(default_host)
+            default_port = defaults.get(
+                CONF_PORT,
+                selected_hub.port if selected_hub else DEFAULT_LOCAL_PORT,
+            )
+            local_schema = vol.Schema(
+                {
+                    vol.Required(CONF_HOST, default=default_host): selector(
+                        {
+                            "select": {
+                                "options": [
+                                    {
+                                        "value": hub.host,
+                                        "label": hub.display_name,
+                                    }
+                                    for hub in self._discovered_local_hubs.values()
+                                ],
+                                "custom_value": True,
+                                "mode": "dropdown",
+                            }
+                        }
+                    ),
+                    vol.Required(CONF_PORT, default=default_port): vol.All(
+                        vol.Coerce(int), vol.Range(min=1, max=65535)
+                    ),
+                    vol.Required(
+                        CONF_LOCAL_PASSWORD,
+                        default=defaults.get(
+                            CONF_LOCAL_PASSWORD, DEFAULT_LOCAL_PASSWORD
+                        ),
+                    ): str,
+                }
+            )
+        else:
+            local_schema = self.add_suggested_values_to_schema(
+                vol.Schema(LOCAL_DATA_SCHEMA), defaults
+            )
         return self.async_show_form(
             step_id="local",
-            data_schema=self.add_suggested_values_to_schema(
-                vol.Schema(LOCAL_DATA_SCHEMA), defaults
-            ),
+            data_schema=local_schema,
             errors=errors,
         )
 
