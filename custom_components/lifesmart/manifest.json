@@ -6,7 +6,8 @@
   ],
   "config_flow": true,
   "dependencies": [
-    "infrared"
+    "infrared",
+    "network"
   ],
   "documentation": "https://github.com/iKaew/hass-lifesmart-addon",
   "integration_type": "hub",
