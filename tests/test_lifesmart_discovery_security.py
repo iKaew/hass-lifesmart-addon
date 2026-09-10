@@ -68,12 +68,19 @@ def test_discovery_socket_binds_specific_interface(monkeypatch):
             assert isinstance(factory(), local_module._LifeSmartDiscoveryProtocol)
             return transport, Mock()
 
-    monkeypatch.setattr(local_module.socket, "socket", FakeSocket)
-    monkeypatch.setattr(local_module.asyncio, "get_running_loop", lambda: FakeLoop())
+    async def scenario():
+        # Patch socket creation only after asyncio.run() has created its own
+        # event-loop self-pipe; patching socket.socket before that would replace
+        # asyncio's internal sockets with FakeSocket too.
+        monkeypatch.setattr(local_module.socket, "socket", FakeSocket)
+        monkeypatch.setattr(
+            local_module.asyncio, "get_running_loop", lambda: FakeLoop()
+        )
+        return await local_module._async_open_discovery_socket(
+            "192.168.1.10", 60021, {}
+        )
 
-    result = asyncio.run(
-        local_module._async_open_discovery_socket("192.168.1.10", 60021, {})
-    )
+    result = asyncio.run(scenario())
 
     assert result is transport
     assert sockets[0].bound == ("192.168.1.10", 60021)
