@@ -18,7 +18,11 @@ import zlib
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
+from ipaddress import IPv4Address
 from typing import Any, cast
+
+from homeassistant.components import network
+from homeassistant.core import async_get_hass_or_none
 
 from .const import (
     DEVICE_DATA_KEY,
@@ -206,11 +210,58 @@ class _LifeSmartDiscoveryProtocol(asyncio.DatagramProtocol):
         _LOGGER.debug("LifeSmart local discovery socket error: %s", exc)
 
 
-async def _async_open_discovery_transport(
+class _LifeSmartDiscoveryTransport(asyncio.DatagramTransport):
+    """Fan discovery probes out through one socket per enabled IPv4 address."""
+
+    def __init__(
+        self, transports: Sequence[tuple[str, asyncio.DatagramTransport]]
+    ) -> None:
+        self._transports = tuple(transports)
+
+    def sendto(self, data: bytes, addr: tuple[str, int] | None = None) -> None:
+        """Send one probe through every enabled Home Assistant interface."""
+        for source_ip, transport in self._transports:
+            try:
+                transport.sendto(data, addr)
+            except OSError as err:
+                _LOGGER.debug(
+                    "Unable to send LifeSmart discovery probe from %s to %s: %s",
+                    source_ip,
+                    addr,
+                    err,
+                )
+
+    def close(self) -> None:
+        """Close every interface-specific discovery socket."""
+        for _source_ip, transport in self._transports:
+            transport.close()
+
+
+async def _async_get_discovery_source_ips() -> list[str]:
+    """Return enabled Home Assistant IPv4 addresses for local discovery."""
+    hass = async_get_hass_or_none()
+    if hass is None:
+        _LOGGER.debug(
+            "Skipping LifeSmart local discovery outside a Home Assistant context"
+        )
+        return []
+
+    source_ips = await network.async_get_enabled_source_ips(hass)
+    return list(
+        dict.fromkeys(
+            str(source_ip)
+            for source_ip in source_ips
+            if isinstance(source_ip, IPv4Address) and not source_ip.is_unspecified
+        )
+    )
+
+
+async def _async_open_discovery_socket(
+    source_ip: str,
     preferred_port: int,
     hubs: dict[tuple[str, str], DiscoveredLifeSmartHub],
 ) -> asyncio.DatagramTransport | None:
-    """Open one broadcast-capable listener, falling back to an ephemeral port."""
+    """Open one discovery listener bound to a specific IPv4 address."""
     loop = asyncio.get_running_loop()
     for local_port in (preferred_port, 0):
         discovery_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -218,7 +269,12 @@ async def _async_open_discovery_transport(
             discovery_socket.setblocking(False)
             discovery_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             discovery_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
-            discovery_socket.bind(("", local_port))
+            discovery_socket.setsockopt(
+                socket.IPPROTO_IP,
+                socket.IP_MULTICAST_IF,
+                socket.inet_aton(source_ip),
+            )
+            discovery_socket.bind((source_ip, local_port))
             transport, _ = await loop.create_datagram_endpoint(
                 lambda: _LifeSmartDiscoveryProtocol(hubs), sock=discovery_socket
             )
@@ -226,16 +282,39 @@ async def _async_open_discovery_transport(
             discovery_socket.close()
             if local_port == preferred_port:
                 _LOGGER.debug(
-                    "Unable to bind LifeSmart discovery port %s; using an "
+                    "Unable to bind LifeSmart discovery port %s on %s; using an "
                     "ephemeral port: %s",
                     preferred_port,
+                    source_ip,
                     err,
                 )
                 continue
-            _LOGGER.debug("Unable to open LifeSmart discovery socket: %s", err)
+            _LOGGER.debug(
+                "Unable to open LifeSmart discovery socket on %s: %s", source_ip, err
+            )
             return None
         return cast(asyncio.DatagramTransport, transport)
     return None
+
+
+async def _async_open_discovery_transport(
+    preferred_port: int,
+    hubs: dict[tuple[str, str], DiscoveredLifeSmartHub],
+) -> asyncio.DatagramTransport | None:
+    """Open discovery listeners on every enabled Home Assistant IPv4 address."""
+    source_ips = await _async_get_discovery_source_ips()
+    if not source_ips:
+        return None
+
+    transports: list[tuple[str, asyncio.DatagramTransport]] = []
+    for source_ip in source_ips:
+        transport = await _async_open_discovery_socket(source_ip, preferred_port, hubs)
+        if transport is not None:
+            transports.append((source_ip, transport))
+
+    if not transports:
+        return None
+    return _LifeSmartDiscoveryTransport(transports)
 
 
 def _send_discovery_probes(
