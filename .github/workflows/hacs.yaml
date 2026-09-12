@@ -1,5 +1,8 @@
 name: Validate for HACS
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:
