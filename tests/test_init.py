@@ -343,6 +343,43 @@ def send_ws_device_update(ws, payload):
     ws.on_message(ws, json.dumps({"type": "io", "msg": payload}))
 
 
+def test_websocket_reset_recovers_availability_and_refreshes_devices(monkeypatch):
+    hass, entry, ws, _ = setup_entry_for_ws_tests(monkeypatch, devices=[])
+    tasks = []
+    hass.loop = SimpleNamespace(call_soon_threadsafe=lambda callback: callback())
+    hass.async_create_task = lambda coro, name: tasks.append(coro)
+    ws.on_open(ws)
+    ws.on_error(ws, ConnectionResetError(104, "Connection reset by peer"))
+    ws.on_close(ws, None, None)
+    assert entry.runtime_data.connected is False
+
+    entry.runtime_data.client.devices_response = [
+        {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEV1", "stat": 1}
+    ]
+    ws.on_open(ws)
+    assert entry.runtime_data.connected is True
+    assert entry.runtime_data.last_error is None
+    assert len(ws.sent) == 2
+    assert len(tasks) == 1
+    asyncio.run(tasks[0])
+    assert entry.runtime_data.device_availability[("HUB1", "DEV1")] is True
+
+
+def test_websocket_auth_send_failure_closes_socket_for_retry(monkeypatch):
+    _, entry, ws, _ = setup_entry_for_ws_tests(monkeypatch, devices=[])
+    closed = []
+
+    def fail_send(payload):
+        raise ConnectionResetError(104, "Connection reset by peer")
+
+    ws.send = fail_send
+    ws.close = lambda: closed.append(True)
+    ws.on_open(ws)
+    assert entry.runtime_data.connected is False
+    assert entry.runtime_data.last_error == "ConnectionResetError"
+    assert closed == [True]
+
+
 def test_setup_initializes_device_availability_from_cloud_status(monkeypatch):
     _hass, entry, _ws, _dispatch_calls = setup_entry_for_ws_tests(
         monkeypatch,
@@ -1958,7 +1995,8 @@ def test_states_manager_run_start_and_stop(monkeypatch):
     events = []
 
     class FakeWS:
-        def run_forever(self):
+        def run_forever(self, **kwargs):
+            assert kwargs == {"ping_interval": 30, "ping_timeout": 10}
             events.append("run_forever")
             manager._stop_event.set()
 
@@ -1984,6 +2022,54 @@ def test_states_manager_run_start_and_stop(monkeypatch):
     manager.stop_keep_alive()
     assert manager._stop_event.is_set() is True
     assert events[-2:] == ["close", "join"]
+
+
+def test_states_manager_retries_resets_and_exceptions_with_capped_backoff(monkeypatch):
+    delays = []
+    errors = []
+    calls = []
+
+    class FakeWS:
+        on_error = staticmethod(lambda ws, err: errors.append(err))
+
+        def run_forever(self, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                raise ConnectionResetError(104, "Connection reset by peer")
+
+    manager = lifesmart_init.LifeSmartStatesManager(FakeWS())
+    monkeypatch.setattr(lifesmart_init.time, "monotonic", lambda: 0)
+
+    def wait(delay):
+        delays.append(delay)
+        return len(delays) == 17
+
+    monkeypatch.setattr(manager._stop_event, "wait", wait)
+    manager.run()
+
+    # Ten minute-spaced retries, followed by continued automatic recovery.
+    assert delays == [1, 2, 4, 8, 16, 30] + [60] * 11
+    assert len(calls) == 17
+    assert len(errors) == 1
+    assert isinstance(errors[0], ConnectionResetError)
+    assert all(call == {"ping_interval": 30, "ping_timeout": 10} for call in calls)
+
+
+def test_states_manager_resets_backoff_after_stable_connection(monkeypatch):
+    delays = []
+    times = iter([0, 0, 0, 0, 0, 120, 120, 120])
+    manager = lifesmart_init.LifeSmartStatesManager(
+        SimpleNamespace(run_forever=lambda **kwargs: None)
+    )
+    monkeypatch.setattr(lifesmart_init.time, "monotonic", lambda: next(times))
+
+    def wait(delay):
+        delays.append(delay)
+        return len(delays) == 4
+
+    monkeypatch.setattr(manager._stop_event, "wait", wait)
+    manager.run()
+    assert delays == [1, 2, 1, 2]
 
 
 @pytest.mark.parametrize(
