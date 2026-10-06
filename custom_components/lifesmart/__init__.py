@@ -7,6 +7,7 @@ import logging
 import re
 import sys
 import threading
+import time
 
 import voluptuous as vol
 import websocket
@@ -947,10 +948,15 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
 
     def on_open(ws):
         was_unavailable = runtime_data.last_error is not None
-        runtime_data.set_connected(True)
         client = runtime_data.client
-        send_data = client.generate_wss_auth()
-        ws.send(send_data)
+        try:
+            send_data = client.generate_wss_auth()
+            ws.send(send_data)
+        except Exception as err:  # noqa: BLE001
+            on_error(ws, err)
+            ws.close()
+            return
+        runtime_data.set_connected(True)
         if was_unavailable:
             _LOGGER.info("LifeSmart websocket connection restored")
             hass.loop.call_soon_threadsafe(
@@ -1208,11 +1214,28 @@ class LifeSmartStatesManager(threading.Thread):
         self._ws = ws
 
     def run(self):  # noqa: D102
+        retry_delay = 1
         while not self._stop_event.is_set():
             _LOGGER.debug("lifesmart: starting wss")
-            self._ws.run_forever()
-            _LOGGER.debug("lifesmart: restart wss")
-            self._stop_event.wait(10)
+            started = time.monotonic()
+            try:
+                # Detect silent network failures as well as explicit resets.
+                self._ws.run_forever(ping_interval=30, ping_timeout=10)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.warning("LifeSmart websocket failed: %s", type(err).__name__)
+                if not self._stop_event.is_set() and self._ws.on_error is not None:
+                    self._ws.on_error(self._ws, err)
+            if self._stop_event.is_set():
+                break
+            # A long-lived connection gets a fast retry; repeated failures back off.
+            if time.monotonic() - started >= 60:
+                retry_delay = 1
+            _LOGGER.debug("LifeSmart websocket reconnecting in %s seconds", retry_delay)
+            if self._stop_event.wait(retry_delay):
+                break
+            # After the initial backoff, retry every minute. Keep recovering
+            # beyond ten minutes as well, so a long outage needs no reload.
+            retry_delay = 60 if retry_delay >= 30 else min(retry_delay * 2, 30)
 
     def start_keep_alive(self):
         """Start keep alive mechanism."""
