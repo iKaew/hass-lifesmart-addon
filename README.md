@@ -5,7 +5,8 @@
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FiKaew%2Fhass-lifesmart-addon?ref=badge_shield)
 [![codecov](https://codecov.io/github/iKaew/hass-lifesmart-addon/graph/badge.svg?token=RBLBCNEPI2)](https://codecov.io/github/iKaew/hass-lifesmart-addon)
 
-# LifeSmart for Home Assistant
+# LifeSmart for Home Assistant <img src="https://github.com/user-attachments/assets/7a41b98e-08a7-4a5a-9f43-8038c4b95a4c" width="40" height="40" alt="LifeSmart" /> 
+
 
 Home Assistant integration for LifeSmart devices with a choice of direct local hub communication or the LifeSmart Open Platform cloud API.
 
