@@ -1045,15 +1045,9 @@ def _migrate_legacy_device_identifiers(
     if not replacements:
         return
 
-    for device_entry in list(getattr(dev_reg, "devices", {}).values()):
-        owner = getattr(device_entry, "config_entry_id", None)
-        if owner is not None:
-            belongs_to_entry = owner == config_entry_id
-        else:
-            belongs_to_entry = config_entry_id in device_entry.config_entries
-        if not belongs_to_entry:
-            continue
-
+    for device_entry in device_registry.async_entries_for_config_entry(
+        dev_reg, config_entry_id
+    ):
         migrated_identifiers = {
             replacements.get(identifier, identifier)
             for identifier in device_entry.identifiers
@@ -1079,11 +1073,9 @@ def _migrate_local_hub_identity(
     if hub_id in LEGACY_LOCAL_HUB_IDS:
         return
 
-    owned_devices = [
-        entry
-        for entry in getattr(dev_reg, "devices", {}).values()
-        if _registry_entry_belongs_to_config_entry(entry, config_entry_id)
-    ]
+    owned_devices = device_registry.async_entries_for_config_entry(
+        dev_reg, config_entry_id
+    )
     if any((DOMAIN, hub_id) in entry.identifiers for entry in owned_devices):
         return
 

@@ -174,9 +174,24 @@ class FakeHass:
         return target(*args)
 
 
+class FakeDeviceRegistryItems:
+    """Support indexed helper lookups without the deprecated mapping API."""
+
+    def __init__(self, entries=()):
+        self.entries = list(entries)
+
+    def get_devices_for_config_entry_id(self, config_entry_id):
+        return [
+            entry
+            for entry in self.entries
+            if config_entry_id in entry.config_entries
+        ]
+
+
 class FakeDeviceRegistry:
     def __init__(self):
         self.created = []
+        self.devices = FakeDeviceRegistryItems()
 
     def async_get_or_create(self, **kwargs):
         self.created.append(kwargs)
@@ -996,10 +1011,7 @@ def test_migrate_legacy_device_identifiers_preserves_registry_device():
     )
 
     class MigrationRegistry:
-        devices = {
-            owned_device.id: owned_device,
-            unrelated_device.id: unrelated_device,
-        }
+        devices = FakeDeviceRegistryItems((owned_device, unrelated_device))
 
         def __init__(self):
             self.updated = []
@@ -1050,9 +1062,7 @@ def test_migrate_local_hub_identity_preserves_devices_and_entity_ids():
     )
 
     class DeviceMigrationRegistry:
-        devices = {
-            entry.id: entry for entry in (hub, child, legacy_child, unrelated)
-        }
+        devices = FakeDeviceRegistryItems((hub, child, legacy_child, unrelated))
 
         def __init__(self):
             self.updated = []
