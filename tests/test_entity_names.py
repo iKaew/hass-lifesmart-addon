@@ -21,7 +21,7 @@ from custom_components.lifesmart.switch import LifeSmartSwitch
         ("{$EPN} 2", "L2", "2"),
         ("{$EPN} Desk", "L1", "Desk"),
         ("{$EPN} {unknown}", "L1", "L1"),
-        ("书房主灯", "P1", "书房主灯"),
+        ("Study ceiling light", "P1", "Study ceiling light"),
         ("Reading {custom}", "P8", "Reading {custom}"),
         ("", "O", ""),
         (None, "O", None),
@@ -64,12 +64,21 @@ def test_indicator_names_are_translated_distinct_and_keep_identities(language):
         assert entity.entity_category is EntityCategory.CONFIG
         assert entity.unique_id == f"switch.sl_ol_3c_hub1_dev1_{port}"
         assert entity.entity_id is None
-        if language == "zh-Hans" and port == "bright":
-            assert name == "开启时指示灯"
         if number:
             assert number in name
         names.append(name)
     assert len(set(names)) == 8
+    if language == "en":
+        assert names == [
+            "Indicator when on",
+            "Indicator when off",
+            "Indicator when on (channel 1)",
+            "Indicator when off (channel 1)",
+            "Indicator when on (channel 2)",
+            "Indicator when off (channel 2)",
+            "Indicator when on (channel 3)",
+            "Indicator when off (channel 3)",
+        ]
 
 
 @pytest.mark.parametrize("name", ["Desk indicator", "{$EPN} Desk indicator"])
