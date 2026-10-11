@@ -550,8 +550,8 @@ def decode_value(
         value = _decode_varint(cursor)
         return value >> 1 if value & 1 == 0 else -((value >> 1) + 1)
     if value_type == 0x05:
-        index = cursor.read_byte()
-        return {"kind": "hex", "index": index, "value": cursor.read(8).hex()}
+        raw_value = cursor.read(8)
+        return struct.unpack(">d", raw_value)[0]
     if value_type == 0x06:
         index = cursor.read_byte()
         value = _decode_varint(cursor)
