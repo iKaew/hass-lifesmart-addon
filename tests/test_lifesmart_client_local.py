@@ -476,7 +476,8 @@ def test_local_scene_activation_sends_only_discovered_scene():
     assert find_first(message, "cron_name") == "AI1"
 
 
-def test_local_switch_on_and_off_send_expected_endpoint_packets():
+@pytest.mark.parametrize("port", ["P1", "P8"])
+def test_local_switch_on_and_off_send_expected_endpoint_packets(port):
     async def scenario():
         client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
         client._agent_node = "node/HUB1"
@@ -487,8 +488,8 @@ def test_local_switch_on_and_off_send_expected_endpoint_packets():
 
         client._send = capture
 
-        assert await client.turn_on_light_swith_async("P1", "HUB1", "DEVICE1") == 0
-        assert await client.turn_off_light_swith_async("P1", "HUB1", "DEVICE1") == 0
+        assert await client.turn_on_light_swith_async(port, "HUB1", "DEVICE1") == 0
+        assert await client.turn_off_light_swith_async(port, "HUB1", "DEVICE1") == 0
         return packets
 
     packets = asyncio.run(scenario())
@@ -506,7 +507,7 @@ def test_local_switch_on_and_off_send_expected_endpoint_packets():
         "DEVICE1",
         "DEVICE1",
     ]
-    assert [find_first(message, "key") for message in messages] == ["P1", "P1"]
+    assert [find_first(message, "key") for message in messages] == [port, port]
     assert [find_first(message, "val") for message in messages] == [1, 0]
     assert [find_first(message, "type") for message in messages] == [0x80, 0x80]
 
@@ -842,3 +843,22 @@ def test_local_discovery_preserves_semantic_device_variant_suffixes():
     assert client._normalize_device_type("SL_P_V1") == "SL_P"
     assert client._normalize_device_type("SL_P_V2") == "SL_P_V2"
     assert client._normalize_device_type("SL_P_IR_V2") == "SL_P_IR_V2"
+
+
+def test_bj84_local_class_and_p8_push_preserve_panel_identity():
+    client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+    client._hub_id = "HUB1"
+    client._devices = client._normalize_devices({
+        "PANEL1": {
+            "name": "Panel", "cls": "SL_SW_BJ84_V1", "agtid": "all", "ver": "1.0",
+            "_chd": {"m": {"_chd": {"P8": {"name": "Reading", "type": 128, "val": 0}}}},
+        },
+    })
+    assert client._devices[0]["devtype"] == "SL_SW_BJ84"
+    events = client._events_from_message({"_schg": {
+        "node/HUB1/ep/PANEL1/m/P8": {"chg": {"type": 129, "val": 1}},
+    }})
+    assert events == [{
+        "devtype": "SL_SW_BJ84", "agt": "HUB1", "me": "PANEL1", "idx": "P8", "type": 129, "val": 1,
+    }]
+    assert client._devices[0]["data"]["P8"] == {"name": "Reading", "type": 129, "val": 1}

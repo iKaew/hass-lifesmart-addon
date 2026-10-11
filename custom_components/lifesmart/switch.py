@@ -10,6 +10,7 @@ from . import LifeSmartDevice, configure_entity_identity, device_identifier, dev
 from .const import (
     DOMAIN as DOMAIN,
     AIR_PURIFIER_TYPES,
+    BJ84_SWITCH_PORTS,
     DEVICE_DATA_KEY,
     DEVICE_ID_KEY,
     DEVICE_NAME_KEY,
@@ -166,8 +167,13 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                             )
                         )
             else:
+                supported_ports = (
+                    BJ84_SWITCH_PORTS
+                    if device_type == "SL_SW_BJ84"
+                    else SUPPORTED_SUB_SWITCH_TYPES
+                )
                 for sub_device_key in device[DEVICE_DATA_KEY]:
-                    if sub_device_key in SUPPORTED_SUB_SWITCH_TYPES:
+                    if sub_device_key in supported_ports:
                         switch_devices.append(  # noqa: PERF401
                             LifeSmartSwitch(
                                 ha_device,

@@ -24,6 +24,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from .const import (
     AIR_PURIFIER_TYPES,
     BINARY_SENSOR_TYPES,
+    BJ84_SWITCH_PORTS,
     CLIMATE_TYPES,
     CO2_SENSOR_TYPES,
     CONF_AI_INCLUDE_AGTS,
@@ -650,7 +651,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
 
             if (  # noqa: SIM114
                 device_type in SUPPORTED_SWTICH_TYPES
-                and sub_device_key in SUPPORTED_SUB_SWITCH_TYPES
+                and sub_device_key in (
+                    BJ84_SWITCH_PORTS
+                    if device_type == "SL_SW_BJ84"
+                    else SUPPORTED_SUB_SWITCH_TYPES
+                )
                 or device_type in AIR_PURIFIER_TYPES
                 and sub_device_key == "O"
                 or device_type in GENERIC_CONTROLLER_TYPES
