@@ -160,6 +160,20 @@
     }
   },
   "entity": {
+    "light": {
+      "indicator_on": {
+        "name": "ไฟแสดงสถานะเมื่อเปิด"
+      },
+      "indicator_off": {
+        "name": "ไฟแสดงสถานะเมื่อปิด"
+      },
+      "indicator_on_channel": {
+        "name": "ไฟแสดงสถานะเมื่อเปิด (ช่อง {channel})"
+      },
+      "indicator_off_channel": {
+        "name": "ไฟแสดงสถานะเมื่อปิด (ช่อง {channel})"
+      }
+    },
     "sensor": {
       "hub_status": {
         "name": "สถานะ",

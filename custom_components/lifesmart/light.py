@@ -19,7 +19,7 @@ from homeassistant.components.light import (
 from homeassistant.core import HomeAssistant
 from homeassistant.const import Platform
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 import homeassistant.util.color as color_util
 
 from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
@@ -38,12 +38,18 @@ from .const import (
     SPOT_TYPES,
 )
 from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
+from .entity_names import resolve_channel_name
 
 _LOGGER = logging.getLogger(__name__)
 
 LIGHT_DIMMER_TYPES = [
     "SL_LI_WW",
 ]
+
+INDICATOR_PORTS = (
+    "bright", "bright1", "bright2", "bright3",
+    "dark", "dark1", "dark2", "dark3",
+)
 
 MIN_COLOR_TEMP_KELVIN = 2700
 MAX_COLOR_TEMP_KELVIN = 6500
@@ -420,6 +426,20 @@ class LifeSmartLight(LifeSmartAvailabilityMixin, LightEntity):
 
         self._attr_has_entity_name = True
         self.light_name = device_name
+        if sub_device_key in INDICATOR_PORTS:
+            self._attr_entity_category = EntityCategory.CONFIG
+            channel_name = resolve_channel_name(
+                sub_device_data.get(DEVICE_NAME_KEY), sub_device_key
+            )
+            if channel_name and channel_name not in (sub_device_key, device_name):
+                self._attr_name = channel_name
+            else:
+                self._attr_translation_key = (
+                    "indicator_on" if sub_device_key.startswith("bright") else "indicator_off"
+                )
+                if sub_device_key[-1].isdigit():
+                    self._attr_translation_key += "_channel"
+                    self._attr_translation_placeholders = {"channel": sub_device_key[-1]}
         self.device_id = device_id
         self.hub_id = hub_id
         self.sub_device_key = sub_device_key
