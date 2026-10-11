@@ -330,8 +330,7 @@ def decode_value(
     if value_type == 0x04:
         return _zigzag_decode(_decode_varint(cursor))
     if value_type == 0x05:
-        index = cursor.read_byte()
-        return {"kind": "hex", "index": index, "value": cursor.read(8).hex()}
+        return struct.unpack(">d", cursor.read(8))[0]
     if value_type == 0x06:
         index = cursor.read_byte()
         raw_value = _decode_varint(cursor)

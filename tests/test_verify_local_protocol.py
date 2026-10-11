@@ -55,6 +55,24 @@ def test_protocol_string_preserves_alignment_when_bytes_are_not_utf8():
     assert decode_payload(payload) == [{"name": "abc\ufffdde"}]
 
 
+@pytest.mark.parametrize("value", [0.0, 1.5, -2.25, 32.125])
+def test_protocol_decoder_preserves_alignment_after_float64(value):
+    # Synthetic LS082WH-style channel data: {"rv": <double>, "icon": ""}.
+    payload = (
+        b"\x02\x11\x02rv\x05" + struct.pack(">d", value) + b"\x11\x04icon\x11\x00"
+    )
+
+    assert decode_payload(payload) == [{"rv": value, "icon": ""}]
+
+
+@pytest.mark.parametrize("size", range(8))
+def test_protocol_decoder_rejects_truncated_float64(size):
+    payload = b"\x01\x11\x02rv\x05" + struct.pack(">d", 1.5)[:size]
+
+    with pytest.raises(ProtocolError, match="truncated"):
+        decode_payload(payload)
+
+
 def test_protocol_decoder_converts_binary_uuid_to_lifesmart_identifier():
     raw_uuid = bytes.fromhex("03320000c896770100000b3e500cffff")
     payload = b"\x01\x13\x5a\x11\x10" + raw_uuid
