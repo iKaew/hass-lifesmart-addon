@@ -30,6 +30,7 @@ from .const import (
     is_nature_switch,
 )
 from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
+from .entity_names import resolve_channel_name
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -189,15 +190,14 @@ class LifeSmartSwitch(LifeSmartAvailabilityMixin, SwitchEntity):
     ) -> None:
         """Initialize the switch."""
 
-        device_name = raw_device_data[DEVICE_NAME_KEY]
         device_type = raw_device_data[DEVICE_TYPE_KEY]
         hub_id = raw_device_data[HUB_ID_KEY]
         device_id = raw_device_data[DEVICE_ID_KEY]
 
-        device_name = sub_device_data.get(DEVICE_NAME_KEY, "")
+        channel_name = sub_device_data.get(DEVICE_NAME_KEY, "")
 
         self._attr_has_entity_name = True
-        self.device_name = device_name
+        self.device_name = resolve_channel_name(channel_name, sub_device_key)
         self.switch_name = raw_device_data[DEVICE_NAME_KEY]
         self.device_id = device_id
         self.hub_id = hub_id

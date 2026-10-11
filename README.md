@@ -94,6 +94,8 @@ Your email/user ID and account country/region are available in the LifeSmart mob
 
 Support is based on the attributes returned by the LifeSmart API. Some models create more than one Home Assistant entity.
 
+Indicator settings (`bright` / `dark` and their numbered variants) appear under **Configuration**, with separate names for the on-state and off-state indicators. Numbered channels retain their number. Default switch names no longer display the gateway's `{$EPN}` device-name template prefix. Existing entity IDs and names customized in Home Assistant are preserved.
+
 | Family | Models | Entities / support | Notes |
 | ------ | ------ | ------------------ | ----- |
 | Switches and relay outputs | `OD_WE_OT1`, `SL_MC_ND1`, `SL_MC_ND2`, `SL_MC_ND3`, `SL_OL`, `SL_OL_3C`, `SL_OL_DE`, `SL_OL_UK`, `SL_OL_UL`, `SL_OL_W`, `SL_P_SW`, `SL_S`, `SL_SF_IF1`, `SL_SF_IF2`, `SL_SF_IF3`, `SL_SF_RC`, `SL_SPWM`, `SL_SW_CP1`, `SL_SW_CP2`, `SL_SW_CP3`, `SL_SW_DM1`, `SL_SW_FE1`, `SL_SW_FE2`, `SL_SW_IF1`, `SL_SW_IF2`, `SL_SW_IF3`, `SL_SW_MJ1`, `SL_SW_MJ2`, `SL_SW_MJ3`, `SL_SW_ND1`, `SL_SW_ND2`, `SL_SW_ND3`, `SL_SW_NS1`, `SL_SW_NS2`, `SL_SW_NS3`, `SL_SW_RC`, `SL_SW_RC1`, `SL_SW_RC2`, `SL_SW_RC3`, `V_IND_S` | Switch entities for supported `L1-L3` / `P1-P3` outputs | `SL_SW_MJ1` and `SL_SW_MJ2` have been tested with real devices. |

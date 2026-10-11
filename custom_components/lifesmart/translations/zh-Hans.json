@@ -160,6 +160,20 @@
     }
   },
   "entity": {
+    "light": {
+      "indicator_on": {
+        "name": "开启时指示灯"
+      },
+      "indicator_off": {
+        "name": "关闭时指示灯"
+      },
+      "indicator_on_channel": {
+        "name": "开启时指示灯（通道 {channel}）"
+      },
+      "indicator_off_channel": {
+        "name": "关闭时指示灯（通道 {channel}）"
+      }
+    },
     "sensor": {
       "hub_status": {
         "name": "状态",

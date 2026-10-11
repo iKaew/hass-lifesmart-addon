@@ -160,6 +160,20 @@
     }
   },
   "entity": {
+    "light": {
+      "indicator_on": {
+        "name": "Indicador al encender"
+      },
+      "indicator_off": {
+        "name": "Indicador al apagar"
+      },
+      "indicator_on_channel": {
+        "name": "Indicador al encender (canal {channel})"
+      },
+      "indicator_off_channel": {
+        "name": "Indicador al apagar (canal {channel})"
+      }
+    },
     "sensor": {
       "hub_status": {
         "name": "Estado",
