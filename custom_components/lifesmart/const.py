@@ -67,6 +67,8 @@ SUPPORTED_SWTICH_TYPES = [
     "V_IND_S",
 ]
 
+# Smart Switch Air (真薄开关): four lighting circuits and eight configurable keys.
+# These observed API channels are not eight physical relay outputs; see docs/bj84.md.
 BJ84_SWITCH_PORTS = ("P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8")
 
 SUPPORTED_SUB_SWITCH_TYPES = [
