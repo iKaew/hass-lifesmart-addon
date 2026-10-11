@@ -217,3 +217,61 @@ def test_switch_async_added_to_hass_registers_dispatcher(monkeypatch):
 
     assert calls[0][1] == f"{switch_module.LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity.unique_id}"
     assert removers == ["remove-token"]
+
+
+def test_bj84_creates_only_reported_panel_switches():
+    devices = []
+    for device_id in ("PANEL1", "PANEL2"):
+        data = {
+            f"P{port}": {"type": 128 + port % 2, "val": port % 2, "name": f"Key {port}"}
+            for port in range(1, 9)
+        }
+        data.update({f"P{port}": {"type": 255, "val": 14984} for port in range(9, 24)})
+        data["L1"] = {"type": 129, "val": 1}
+        devices.append(make_device("SL_SW_BJ84", data, device_id=device_id))
+    hass = FakeHass("entry-1", devices, client=FakeClient())
+    added = []
+
+    asyncio.run(switch_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
+
+    assert len(added) == 16
+    assert len({entity.unique_id for entity in added}) == 16
+    for panel, entities in zip(("panel1", "panel2"), (added[:8], added[8:]), strict=True):
+        assert [entity.unique_id for entity in entities] == [
+            f"switch.sl_sw_bj84_hub1_{panel}_p{port}" for port in range(1, 9)
+        ]
+        assert [entity.name for entity in entities] == [f"Key {port}" for port in range(1, 9)]
+        assert [entity.is_on for entity in entities] == [True, False] * 4
+        assert all(entity.device_info["model"] == "SL_SW_BJ84" for entity in entities)
+
+
+def test_bj84_respects_reported_ports_and_device_exclusions():
+    devices = [
+        make_device("SL_SW_BJ84", {"P8": {"type": 128, "val": 0}}, device_id="KEEP"),
+        make_device("SL_SW_BJ84", {"P1": {"type": 128, "val": 0}}, device_id="SKIP"),
+        make_device("SL_OL", {"P8": {"type": 128, "val": 0}}, device_id="OTHER"),
+    ]
+    hass = FakeHass("entry-1", devices, exclude_devices=["SKIP"], client=FakeClient())
+    added = []
+
+    asyncio.run(switch_module.async_setup_entry(hass, FakeConfigEntry(), lambda entities: added.extend(entities)))
+
+    assert [entity.unique_id for entity in added] == ["switch.sl_sw_bj84_hub1_keep_p8"]
+
+
+def test_bj84_p8_control_and_state_updates():
+    client = FakeClient()
+    entity, updates = make_switch_entity(
+        device_type="SL_SW_BJ84", sub_device_key="P8",
+        sub_device_data={"type": 128, "val": 0, "name": "Reading"}, client=client,
+    )
+    assert entity.is_on is False
+    asyncio.run(entity.async_turn_on())
+    assert entity.is_on is True
+    asyncio.run(entity.async_turn_off())
+    assert entity.is_on is False
+    asyncio.run(entity._update_state({"type": 129, "val": 1}))
+    assert entity.is_on is True
+    assert client.on_calls == [("P8", "HUB1", "DEV1")]
+    assert client.off_calls == [("P8", "HUB1", "DEV1")]
+    assert updates == ["async", "async", "scheduled"]

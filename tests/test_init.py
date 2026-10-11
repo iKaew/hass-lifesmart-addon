@@ -2228,3 +2228,30 @@ def test_find_device_returns_match_or_none():
         "me": "B",
     }
     assert lifesmart_init._find_device(devices, "HUB3", "C") is None
+
+
+@pytest.mark.parametrize("port", [f"P{number}" for number in range(1, 9)])
+def test_on_message_dispatches_bj84_panel_switch_updates(monkeypatch, port):
+    _hass, _entry, ws, dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch, devices=[{HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEV1", "devtype": "SL_SW_BJ84"}],
+    )
+    payload = {
+        "devtype": "SL_SW_BJ84", HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEV1",
+        SUBDEVICE_INDEX_KEY: port, "type": 129, "val": 1,
+    }
+    ws.on_message(ws, json.dumps({"type": "io", "msg": payload}))
+    entity_id = lifesmart_init.generate_entity_id("SL_SW_BJ84", "HUB1", "DEV1", port)
+    assert entity_id.startswith("switch.")
+    assert dispatch_calls == [(f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", payload)]
+
+
+@pytest.mark.parametrize("port", ["P9", "P23", "L1", "O"])
+def test_on_message_ignores_bj84_non_switch_ports(monkeypatch, port):
+    _hass, _entry, ws, dispatch_calls = setup_entry_for_ws_tests(
+        monkeypatch, devices=[{HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEV1", "devtype": "SL_SW_BJ84"}],
+    )
+    ws.on_message(ws, json.dumps({"type": "io", "msg": {
+        "devtype": "SL_SW_BJ84", HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEV1",
+        SUBDEVICE_INDEX_KEY: port, "type": 255, "val": 14984,
+    }}))
+    assert dispatch_calls == []
