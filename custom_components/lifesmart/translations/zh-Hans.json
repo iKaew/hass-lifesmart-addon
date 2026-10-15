@@ -182,11 +182,25 @@
           "initializing": "正在初始化",
           "online": "在线"
         }
+      },
+      "gas_concentration": {
+        "name": "燃气浓度"
+      },
+      "formaldehyde_concentration": {
+        "name": "甲醛浓度"
+      },
+      "alarm_threshold": {
+        "name": "报警阈值"
       }
     },
     "button": {
       "restart_hub": {
         "name": "重启"
+      }
+    },
+    "binary_sensor": {
+      "alarm_sound": {
+        "name": "报警声"
       }
     }
   },

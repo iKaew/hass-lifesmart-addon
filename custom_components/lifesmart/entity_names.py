@@ -14,3 +14,18 @@ def resolve_channel_name(name: str | None, channel: str) -> str | None:
         # Unknown template tokens must not become literal entity names.
         return channel
     return channel_name
+
+
+def resolve_sensor_channel_name(name: str | None, channel: str) -> str | None:
+    """Return a custom sensor name, or None to use its translated function.
+
+    Only the default template for this channel is treated as a function name.
+    Unknown template suffixes retain the channel ID as a safe fallback.
+    """
+    if name in (None, "", "none", channel):
+        return None
+    if isinstance(name, str) and name.startswith("{$EPN}"):
+        suffix = name.removeprefix("{$EPN}").strip()
+        if suffix in ("", channel, "{" + channel + "}"):
+            return None
+    return resolve_channel_name(name, channel)

@@ -59,6 +59,7 @@ from .const import (
     TVOC_CO2_SENSOR_TYPES,
     WATER_LEAK_SENSOR_TYPES,
 )
+from .entity_names import resolve_sensor_channel_name
 from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
 from .hub import HUB_STATE_NAMES, get_hub_coordinator
 
@@ -729,10 +730,21 @@ class LifeSmartSensor(LifeSmartAvailabilityMixin, SensorEntity):
                 self._device_class = None
             self._state = _display_value(sub_device_data, device_type, sub_device_key)
 
-    @property
-    def name(self):
-        """Name of the entity."""
-        return self.device_name
+        resolved_name = resolve_sensor_channel_name(self.device_name, sub_device_key)
+        if resolved_name is not None:
+            self._attr_name = resolved_name
+        elif device_type in GAS_SENSOR_TYPES:
+            if sub_device_key == "P1":
+                self._attr_translation_key = (
+                    "formaldehyde_concentration"
+                    if device_type == "SL_SC_CH"
+                    else "gas_concentration"
+                )
+            else:
+                self._attr_translation_key = "alarm_threshold"
+        elif self._device_class in (None, SensorDeviceClass.ENUM):
+            self._attr_name = sub_device_key
+        # Otherwise HA supplies the translated device-class name.
 
     @property
     def unit_of_measurement(self):
