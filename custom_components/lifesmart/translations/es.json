@@ -182,11 +182,25 @@
           "initializing": "Inicializando",
           "online": "Conectado"
         }
+      },
+      "gas_concentration": {
+        "name": "Concentración de gas"
+      },
+      "formaldehyde_concentration": {
+        "name": "Concentración de formaldehído"
+      },
+      "alarm_threshold": {
+        "name": "Umbral de alarma"
       }
     },
     "button": {
       "restart_hub": {
         "name": "Reiniciar"
+      }
+    },
+    "binary_sensor": {
+      "alarm_sound": {
+        "name": "Sonido de alarma"
       }
     }
   },

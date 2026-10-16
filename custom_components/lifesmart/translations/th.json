@@ -182,11 +182,25 @@
           "initializing": "กำลังเริ่มต้น",
           "online": "ออนไลน์"
         }
+      },
+      "gas_concentration": {
+        "name": "ความเข้มข้นของก๊าซ"
+      },
+      "formaldehyde_concentration": {
+        "name": "ความเข้มข้นของฟอร์มาลดีไฮด์"
+      },
+      "alarm_threshold": {
+        "name": "เกณฑ์การแจ้งเตือน"
       }
     },
     "button": {
       "restart_hub": {
         "name": "รีสตาร์ท"
+      }
+    },
+    "binary_sensor": {
+      "alarm_sound": {
+        "name": "เสียงสัญญาณเตือน"
       }
     }
   },

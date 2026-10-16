@@ -53,6 +53,7 @@ from .const import (
     SUBDEVICE_INDEX_KEY,
     WATER_LEAK_SENSOR_TYPES,
 )
+from .entity_names import resolve_sensor_channel_name
 from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
 
 _LOGGER = logging.getLogger(__name__)
@@ -454,10 +455,15 @@ class LifeSmartBinarySensor(LifeSmartAvailabilityMixin, BinarySensorEntity):
             self._device_class = BinarySensorDeviceClass.SMOKE
             self._state = sub_device_data["val"] != 0
 
-    @property
-    def name(self):
-        """Name of the entity."""
-        return self.device_name
+        resolved_name = resolve_sensor_channel_name(
+            self.device_name, sub_device_key, device_type
+        )
+        if resolved_name is not None:
+            self._attr_name = resolved_name
+        elif device_type in GAS_SENSOR_TYPES and sub_device_key == "P3":
+            # P3 reports the sounder, not whether P1 exceeds the alarm threshold.
+            self._attr_translation_key = "alarm_sound"
+        # Otherwise HA supplies the translated class name for this mapped channel.
 
     @property
     def device_info(self) -> DeviceInfo:
