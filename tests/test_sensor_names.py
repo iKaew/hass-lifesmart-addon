@@ -100,8 +100,8 @@ def test_custom_channel_names_take_precedence(domain, model, channel, name, expe
 
 
 def test_unknown_templates_keep_channel_fallback():
-    assert resolve_sensor_channel_name("{$EPN} {unknown}", "T") == "T"
-    assert resolve_sensor_channel_name("{$EPN} {H}", "T") == "T"
+    assert resolve_sensor_channel_name("{$EPN} {unknown}", "T", "SL_SC_BE") == "T"
+    assert resolve_sensor_channel_name("{$EPN} {H}", "T", "SL_SC_BE") == "T"
     entity = make_entity("sensor", "SL_SC_BE", "T", "{$EPN} {unknown}")
     assert translated_name(entity, "sensor", "en") == "T"
 
@@ -109,6 +109,65 @@ def test_unknown_templates_keep_channel_fallback():
 def test_sensor_without_device_class_keeps_distinguishable_channel():
     entity = make_entity("sensor", "SL_SC_MHW", "P3", "{$EPN} {P3}")
     assert translated_name(entity, "sensor", "en") == "P3"
+
+
+@pytest.mark.parametrize("name_format", [
+    None, "", "none", "{channel}", "{{$EPN}}", "{{$EPN}} {channel}",
+    "{{$EPN}} {{{channel}}}",
+])
+@pytest.mark.parametrize("domain,model,channels", [
+    ("binary_sensor", "SL_P", ("P5", "P6", "P7")),
+    ("binary_sensor", "SL_JEMA", ("P5", "P6", "P7")),
+    ("sensor", "V_485_P", ("EE1", "EE2")),
+    ("sensor", "V_485_P", ("CH2OPPM", "NH3PPM")),
+    ("sensor", "V_485_P", ("T", "H")),
+    ("sensor", "SL_SC_THL", ("T", "H")),
+])
+def test_unmapped_channels_keep_distinct_names(domain, model, channels, name_format):
+    entities = [
+        make_entity(
+            domain, model, channel,
+            name_format.format(channel=channel) if name_format is not None else None,
+        )
+        for channel in channels
+    ]
+    assert [translated_name(entity, domain, "en") for entity in entities] == list(channels)
+    assert len({entity.unique_id for entity in entities}) == len(channels)
+    for entity, channel in zip(entities, channels, strict=True):
+        assert entity.unique_id == f"{domain}.{model.lower()}_hub1_dev1_{channel.lower()}"
+        assert entity.translation_key is None
+
+
+@pytest.mark.parametrize("model,channel", [
+    ("UNKNOWN_MODEL", "T"),
+    ("UNKNOWN_MODEL", "P5"),
+    ("SL_SC_BE", "P1"),
+    ("SL_SC_WA", "G"),
+])
+@pytest.mark.parametrize("name_format", [
+    None, "", "none", "{channel}", "{{$EPN}}", "{{$EPN}} {channel}",
+    "{{$EPN}} {{{channel}}}",
+])
+def test_unknown_model_or_unmapped_port_keeps_channel(model, channel, name_format):
+    name = name_format.format(channel=channel) if name_format is not None else None
+    assert resolve_sensor_channel_name(name, channel, model) == channel
+
+
+@pytest.mark.parametrize("domain,model,channel", [
+    ("binary_sensor", "SL_P", "P5"),
+    ("binary_sensor", "SL_JEMA", "P6"),
+    ("sensor", "V_485_P", "EE2"),
+    ("sensor", "V_485_P", "NH3PPM"),
+])
+@pytest.mark.parametrize("name,expected", [
+    ("Utility input", "Utility input"),
+    ("{$EPN} Utility input", "Utility input"),
+    ("{$EPN} {unknown}", None),
+])
+def test_unmapped_channels_preserve_custom_names(domain, model, channel, name, expected):
+    entity = make_entity(domain, model, channel, name)
+    assert translated_name(entity, domain, "en") == (expected or channel)
+    assert entity.translation_key is None
 
 
 def test_names_do_not_change_reading_or_alarm_sound_semantics():

@@ -1,17 +1,28 @@
 # Sensor channel names
 
 Local hubs can return default channel names such as `{$EPN} {T}` rather than
-human-readable labels. Sensor and binary sensor entities now remove the device
-name template and let Home Assistant translate their existing device class.
+human-readable labels. Sensor and binary sensor entities remove the device-name
+template. Only explicitly mapped model/channel pairs use translated functions.
 For example, a device named `Utility sensor` exposes `Utility sensor Temperature`
 instead of `Utility sensor {$EPN} {T}`. Battery, humidity, illuminance and moisture
 use the same Home Assistant naming mechanism.
 
 Explicit channel names, including `{$EPN} Desk reading`, remain custom names.
-An unknown template suffix falls back to the channel ID. A channel without a
-device class or a documented functional label also retains its channel ID.
+An unknown template suffix falls back to the channel ID. For models or channels
+outside the mapping, default or missing names also retain the channel ID, even
+when a device class exists. For example, SL_P and SL_JEMA inputs retain P5/P6/P7
+instead of all becoming "Lock"; V_485_P measurements retain EE1/EE2 and
+CH2OPPM/NH3PPM instead of losing their channel or gas distinctions.
 Existing entity IDs and unique IDs remain unchanged; saved entity names in the
 Home Assistant registry continue to override integration-provided names.
+
+The mapping is deliberately limited to the documented channels below. Other
+models require an explicit mapping after their channel functions are verified.
+
+| Model | Channels using HA device-class names |
+| --- | --- |
+| SL_SC_BE | T (Temperature), H (Humidity), Z (Illuminance), V (Battery) |
+| SL_SC_WA | WA (Moisture), V (Battery) |
 
 The gas sensor family needs more specific labels than its existing device
 classes provide:

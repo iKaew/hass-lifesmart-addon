@@ -730,7 +730,9 @@ class LifeSmartSensor(LifeSmartAvailabilityMixin, SensorEntity):
                 self._device_class = None
             self._state = _display_value(sub_device_data, device_type, sub_device_key)
 
-        resolved_name = resolve_sensor_channel_name(self.device_name, sub_device_key)
+        resolved_name = resolve_sensor_channel_name(
+            self.device_name, sub_device_key, device_type
+        )
         if resolved_name is not None:
             self._attr_name = resolved_name
         elif device_type in GAS_SENSOR_TYPES:
@@ -744,7 +746,7 @@ class LifeSmartSensor(LifeSmartAvailabilityMixin, SensorEntity):
                 self._attr_translation_key = "alarm_threshold"
         elif self._device_class in (None, SensorDeviceClass.ENUM):
             self._attr_name = sub_device_key
-        # Otherwise HA supplies the translated device-class name.
+        # Otherwise HA supplies the translated class name for this mapped channel.
 
     @property
     def unit_of_measurement(self):
