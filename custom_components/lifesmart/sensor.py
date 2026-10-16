@@ -744,8 +744,6 @@ class LifeSmartSensor(LifeSmartAvailabilityMixin, SensorEntity):
                 )
             else:
                 self._attr_translation_key = "alarm_threshold"
-        elif self._device_class in (None, SensorDeviceClass.ENUM):
-            self._attr_name = sub_device_key
         # Otherwise HA supplies the translated class name for this mapped channel.
 
     @property

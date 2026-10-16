@@ -463,8 +463,6 @@ class LifeSmartBinarySensor(LifeSmartAvailabilityMixin, BinarySensorEntity):
         elif device_type in GAS_SENSOR_TYPES and sub_device_key == "P3":
             # P3 reports the sounder, not whether P1 exceeds the alarm threshold.
             self._attr_translation_key = "alarm_sound"
-        elif self._device_class is None:
-            self._attr_name = sub_device_key
         # Otherwise HA supplies the translated class name for this mapped channel.
 
     @property
