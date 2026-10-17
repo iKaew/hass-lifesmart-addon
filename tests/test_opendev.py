@@ -12,6 +12,7 @@ import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from custom_components.lifesmart import opendev
+from custom_components.lifesmart.battery import VOLTAGE_BATTERY_TYPES
 from custom_components.lifesmart.runtime_data import LifeSmartRuntimeData
 from custom_components.lifesmart.sensor import (
     LifeSmartOpenDevBatterySensor,
@@ -40,7 +41,7 @@ def packet(body, kind=2):
     "value", [None, True, False, "100", -1, 101, float("nan"), float("inf")]
 )
 def test_voltage_and_invalid_values_are_never_percentages(value):
-    for typ in ["SL_SC_WA", "SL_SC_BE"]:
+    for typ in VOLTAGE_BATTERY_TYPES:
         assert _display_value({"val": 150, "rv": 3.0}, typ, "V") is None
         assert _display_value({"v": value, "val": 150}, typ, "V") is None
     assert (
@@ -49,8 +50,11 @@ def test_voltage_and_invalid_values_are_never_percentages(value):
 
 
 @pytest.mark.parametrize("value", [0, 15.5, 100])
-def test_valid_percentages_keep_original_report_time(value):
-    result = opendev.parse_batteries([device(value)], {"DEVICE1": "SL_SC_BE"}, "HUB1")
+@pytest.mark.parametrize("device_type", sorted(VOLTAGE_BATTERY_TYPES))
+def test_valid_percentages_keep_original_report_time(value, device_type):
+    result = opendev.parse_batteries(
+        [device(value, devtype=device_type)], {"DEVICE1": device_type}, "HUB1"
+    )
     assert result == {
         "DEVICE1": {"percentage": value, "reported_at": "2023-11-14T22:13:20+00:00"}
     }
@@ -149,8 +153,9 @@ def test_udp_cancellation_releases_socket(monkeypatch):
     asyncio.run(run())
 
 
-def test_sensor_keeps_identity_ignores_tcp_and_tracks_failure_recovery():
-    raw = make_raw_device("SL_SC_BE")
+@pytest.mark.parametrize("device_type", sorted(VOLTAGE_BATTERY_TYPES))
+def test_sensor_keeps_identity_ignores_tcp_and_tracks_failure_recovery(device_type):
+    raw = make_raw_device(device_type)
     observation = {"percentage": 100, "reported_at": "2023-11-14T22:13:20+00:00"}
     coordinator = SimpleNamespace(
         data={"DEVICE1": observation}, last_update_success=True
@@ -158,7 +163,7 @@ def test_sensor_keeps_identity_ignores_tcp_and_tracks_failure_recovery():
     entity = LifeSmartOpenDevBatterySensor(
         None, raw, "V", {"val": 150, "rv": 3}, None, coordinator
     )
-    original = make_sensor("SL_SC_BE", "V", {"val": 150, "rv": 3})
+    original = make_sensor(device_type, "V", {"val": 150, "rv": 3})
     assert entity.unique_id == original.unique_id
     assert entity.device_info == original.device_info
     assert not entity.should_poll  # Only the five-minute coordinator polls.
@@ -264,3 +269,57 @@ def test_udp_timeout_closes_socket(monkeypatch):
                 reclaimed.bind(peer)
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("device_type", sorted(VOLTAGE_BATTERY_TYPES))
+@pytest.mark.parametrize("enabled", [False, True])
+def test_all_documented_battery_models_are_created_once(monkeypatch, device_type, enabled):
+    from custom_components.lifesmart import sensor as module
+    from tests.test_sensor_module import make_device
+
+    # Non-battery events are not invented as numeric sensors for new clickers.
+    raw = make_device(
+        device_type,
+        {"V": {"val": 137, "rv": 2.74}, "B": {"v": 0}, "BN": {"v": 1}},
+        device_id="DEVICE1",
+    )
+    client = SimpleNamespace(is_local=True, host="192.0.2.10", hub_id="HUB1")
+    runtime = LifeSmartRuntimeData(client=client, devices=[raw], connected=True)
+    entry = SimpleNamespace(
+        options={"opendev_enabled": enabled, "opendev_model": "OD_TEST",
+                 "opendev_token": "test-token"},
+        runtime_data=runtime,
+    )
+    coordinator = SimpleNamespace(
+        data={"DEVICE1": {"percentage": 6, "reported_at": None}},
+        last_update_success=True, async_refresh=AsyncMock(),
+    )
+    captured_targets = []
+
+    def make_coordinator(hass, entry, client, targets):
+        captured_targets.append(targets)
+        return coordinator
+
+    monkeypatch.setattr(module, "OpenDevBatteryCoordinator", make_coordinator)
+    added = []
+    asyncio.run(module.async_setup_entry(object(), entry, added.extend))
+    assert len(added) == 1
+    battery = added[0]
+    assert battery.unique_id == f"sensor.{device_type.lower()}_hub1_device1_v"
+    assert battery.device_class == "battery"
+    assert battery.unit_of_measurement == "%"
+    assert battery.state == (6 if enabled else None)
+    assert isinstance(battery, LifeSmartOpenDevBatterySensor) is enabled
+    assert captured_targets == ([{"DEVICE1": device_type}] if enabled else [])
+
+
+def test_clicker_without_battery_channel_does_not_get_a_battery_entity():
+    from custom_components.lifesmart import sensor as module
+    from tests.test_sensor_module import FakeConfigEntry, FakeHass, make_device
+
+    raw = make_device("SL_SC_BB_V2", {"BN": {"v": 1}})
+    added = []
+    asyncio.run(module.async_setup_entry(
+        FakeHass("entry-1", [raw]), FakeConfigEntry(), added.extend
+    ))
+    assert added == []

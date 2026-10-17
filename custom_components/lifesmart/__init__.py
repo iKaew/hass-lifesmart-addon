@@ -21,6 +21,7 @@ from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.exceptions import ConfigEntryAuthFailed
 
+from .battery import VOLTAGE_BATTERY_TYPES
 from .const import (
     AIR_PURIFIER_TYPES,
     BINARY_SENSOR_TYPES,
@@ -1263,6 +1264,8 @@ def get_fan_mode(_fanspeed):
 
 def get_platform_by_device(device_type, sub_device=None):
     """Convert lifesmart device subtype tp HA device type."""
+    if device_type in VOLTAGE_BATTERY_TYPES and sub_device == "V":
+        return Platform.SENSOR
     if device_type in NATURE_TYPES and sub_device == NATURE_CLIMATE_KEY:
         return Platform.CLIMATE
     elif device_type in NATURE_TYPES and sub_device == "P4":
@@ -1491,6 +1494,7 @@ def generate_entity_id(
         ).lower()
 
     if raw_device_type in [  # noqa: RET503
+        *VOLTAGE_BATTERY_TYPES,
         *SUPPORTED_SWTICH_TYPES,
         *AIR_PURIFIER_TYPES,
         *GENERIC_CONTROLLER_TYPES,
