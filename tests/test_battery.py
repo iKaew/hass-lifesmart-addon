@@ -16,6 +16,7 @@ from tests.lifesmart_entity_helpers import make_sensor
     [
         {},
         {"val": 150, "rv": 3.0},
+        {"val": 137, "rv": 2.74},
         {"v": None, "val": 153, "rv": 3.06},
         {"v": True, "val": 150},
         {"v": "100", "val": 150},
@@ -49,3 +50,9 @@ def test_tcp_battery_transitions_between_valid_and_unknown(device_type):
 def test_documented_temperature_and_humidity_tenths_remain_supported():
     assert make_sensor("SL_SC_BE", "T", {"val": 235}).state == 23.5
     assert make_sensor("SL_SC_BE", "H", {"val": 456}).state == 45.6
+
+
+def test_door_battery_preserves_low_percentage_instead_of_using_voltage():
+    entity = make_sensor("SL_SC_BG", "V", {"v": 6, "val": 137, "rv": 2.74})
+    assert entity.state == 6
+    assert entity._stringify_state(entity.available) == "6"
