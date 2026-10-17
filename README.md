@@ -98,6 +98,11 @@ channels, raw voltage counts are not interpreted as percentages. Without a valid
 unknown. This correction does not require an additional service on the Station.
 See [battery values and missing readings](./docs/battery-values.md).
 
+Optional [OpenDev battery readings](./docs/opendev-battery.md) can supply the missing
+percentage over the LAN. They require additional QR-mode configuration on the
+Station and a matching model/token in the integration options. Upgrading this
+integration does not enable OpenDev on the Station automatically.
+
 ## Supported Devices
 
 Support is based on the attributes returned by the LifeSmart API. Some models create more than one Home Assistant entity.

@@ -63,7 +63,8 @@
         "menu_options": {
           "user": "Edit connection settings",
           "ac_device": "Configure SPOT A/C remote",
-          "ac_remove": "Remove SPOT A/C remote"
+          "ac_remove": "Remove SPOT A/C remote",
+          "opendev": "OpenDev battery percentages"
         }
       },
       "user": {
@@ -124,6 +125,15 @@
           "userid": "Email/User ID",
           "region": "LifeSmart Account Country/Region"
         }
+      },
+      "opendev": {
+        "title": "OpenDev battery percentages",
+        "description": "Enable OpenDev on the hub using your provider’s activation QR code first. Reads water-leak and environmental sensor battery percentages every five minutes. Failed queries make only battery entities unavailable. The model is the OpenDev access identifier, not the hub hardware model.",
+        "data": {
+          "opendev_enabled": "Enable OpenDev battery queries",
+          "opendev_model": "OpenDev model",
+          "opendev_token": "OpenDev token"
+        }
       }
     },
     "abort": {
@@ -133,7 +143,8 @@
     "error": {
       "no_ac_remote_assigned": "The selected SPOT device has no A/C remote assigned in the LifeSmart app.",
       "no_ac_brands": "No A/C brands returned by the LifeSmart API.",
-      "no_remote_idxs": "No remote profiles found for the selected A/C brand."
+      "no_remote_idxs": "No remote profiles found for the selected A/C brand.",
+      "opendev_credentials_required": "Enter the matching OpenDev model and token."
     }
   },
   "exceptions": {

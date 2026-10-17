@@ -63,7 +63,8 @@
         "menu_options": {
           "user": "编辑连接设置",
           "ac_device": "配置 SPOT 空调遥控器",
-          "ac_remove": "移除 SPOT 空调遥控器"
+          "ac_remove": "移除 SPOT 空调遥控器",
+          "opendev": "OpenDev 电池电量"
         }
       },
       "user": {
@@ -124,6 +125,15 @@
           "userid": "邮箱/用户 ID",
           "region": "LifeSmart 账号国家/地区"
         }
+      },
+      "opendev": {
+        "title": "OpenDev 电池电量",
+        "description": "需先通过厂商或服务商提供的二维码启用网关 OpenDev。每 5 分钟读取水浸和环境传感器的电量百分比；失败时电池实体不可用，其他 TCP 功能不受影响。型号是 OpenDev 接入标识，不是网关硬件型号。",
+        "data": {
+          "opendev_enabled": "启用 OpenDev 电量读取",
+          "opendev_model": "OpenDev 型号",
+          "opendev_token": "OpenDev 令牌"
+        }
       }
     },
     "abort": {
@@ -133,7 +143,8 @@
     "error": {
       "no_ac_remote_assigned": "所选 SPOT 设备尚未在 LifeSmart 应用中分配空调遥控器。",
       "no_ac_brands": "LifeSmart API 未返回空调品牌。",
-      "no_remote_idxs": "未找到所选空调品牌的遥控器配置。"
+      "no_remote_idxs": "未找到所选空调品牌的遥控器配置。",
+      "opendev_credentials_required": "请填写配套的 OpenDev 型号和令牌。"
     }
   },
   "exceptions": {

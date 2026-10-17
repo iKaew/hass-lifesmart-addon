@@ -17,6 +17,7 @@ class LifeSmartRuntimeData:
     devices: list[dict[str, Any]]
     hubs: list[dict[str, Any]] = field(default_factory=list)
     scenes: list[dict[str, Any]] = field(default_factory=list)
+    battery_coordinator: Any | None = None
     hub_coordinator: Any | None = None
     exclude_devices: list[str] = field(default_factory=list)
     exclude_hubs: list[str] = field(default_factory=list)
