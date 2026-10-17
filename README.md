@@ -92,8 +92,8 @@ Your email/user ID and account country/region are available in the LifeSmart mob
 
 ### Battery percentages
 
-For `SL_SC_WA` water-leak and `SL_SC_BE` environmental sensors, raw voltage counts
-are not interpreted as percentages. Without a valid `V.v`, the battery state is
+For documented water-leak, environmental, door and motion battery channels, raw
+voltage counts are not interpreted as percentages. Without a valid `V.v`, the battery state is
 unknown, even when OpenDev is not configured. See [battery values and missing
 readings](./docs/battery-values.md).
 

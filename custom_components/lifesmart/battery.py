@@ -2,9 +2,17 @@
 
 import math
 
-# LifeSmart Smart Device Specification v2.32, sections 2.6.3 and 2.6.4.
-# V.val is raw voltage; V.v is the converted battery percentage.
-VOLTAGE_BATTERY_TYPES = {"SL_SC_WA", "SL_SC_BE"}
+# LifeSmart Local Interfaces (2023-09-26), sections 6.6.1–6.6.4.
+# These V channels document v as the percentage. Raw val is not a substitute.
+VOLTAGE_BATTERY_TYPES = {
+    "SL_SC_WA",
+    "SL_SC_BE",
+    "SL_SC_G",
+    "SL_SC_BG",
+    "SL_SC_MHW",
+    "SL_SC_BM",
+    "SL_SC_CM",
+}
 
 
 def battery_percentage(value):
