@@ -94,8 +94,13 @@ Your email/user ID and account country/region are available in the LifeSmart mob
 
 For `SL_SC_WA` water-leak and `SL_SC_BE` environmental sensors, raw voltage counts
 are not interpreted as percentages. Without a valid `V.v`, the battery state is
-unknown. This correction does not require an additional service on the Station.
-See [battery values and missing readings](./docs/battery-values.md).
+unknown, even when OpenDev is not configured. See [battery values and missing
+readings](./docs/battery-values.md).
+
+Optional [OpenDev battery readings](./docs/opendev-battery.md) can supply the missing
+percentage over the LAN. They require additional QR-mode configuration on the
+Station and a matching model/token in the integration options. Upgrading this
+integration does not enable OpenDev on the Station automatically.
 
 ## Supported Devices
 
