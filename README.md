@@ -90,6 +90,14 @@ Your email/user ID and account country/region are available in the LifeSmart mob
 
 <img src="https://raw.githubusercontent.com/iKaew/hass-lifesmart-addon/master/docs/userid-on-mobile.png" alt="LifeSmart mobile app email/user ID and country/region screen" width="420">
 
+### Battery percentages
+
+For documented water-leak, environmental, door and motion battery
+channels, raw voltage counts are not interpreted as percentages. Without a valid
+`V.v`, the battery state is
+unknown. This correction does not require an additional service on the Station.
+See [battery values and missing readings](./docs/battery-values.md).
+
 ## Supported Devices
 
 Support is based on the attributes returned by the LifeSmart API. Some models create more than one Home Assistant entity.
