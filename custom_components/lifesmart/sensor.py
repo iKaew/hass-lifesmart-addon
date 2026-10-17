@@ -61,6 +61,11 @@ from .const import (
 )
 from .entity_names import resolve_sensor_channel_name
 from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
+from .battery import VOLTAGE_BATTERY_TYPES, battery_percentage
+from .opendev import (
+    CONF_OPENDEV_ENABLED, CONF_OPENDEV_MODEL, CONF_OPENDEV_TOKEN,
+    OpenDevClient, OpenDevBatteryCoordinator,
+)
 from .hub import HUB_STATE_NAMES, get_hub_coordinator
 
 CONCENTRATION_MICROGRAMS_PER_CUBIC_METER = (
@@ -129,6 +134,26 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     exclude_hubs = runtime.exclude_hubs
     client = runtime.client
     sensor_devices = []
+    battery_coordinator = None
+    options = getattr(config_entry, "options", {})
+    if getattr(client, "is_local", False) and options.get(CONF_OPENDEV_ENABLED):
+        targets = {
+            device[DEVICE_ID_KEY]: device[DEVICE_TYPE_KEY]
+            for device in devices
+            if device[DEVICE_TYPE_KEY] in VOLTAGE_BATTERY_TYPES
+            and device[DEVICE_ID_KEY] not in exclude_devices
+            and device[HUB_ID_KEY] not in exclude_hubs
+        }
+        if targets:
+            battery_coordinator = OpenDevBatteryCoordinator(
+                hass, config_entry,
+                OpenDevClient(client.host, options[CONF_OPENDEV_MODEL],
+                              options[CONF_OPENDEV_TOKEN], client.hub_id),
+                targets,
+            )
+            runtime.battery_coordinator = battery_coordinator
+            # Optional battery reads must not prevent TCP controls from loading.
+            await battery_coordinator.async_refresh()
     for device in devices:
         if (
             device[DEVICE_ID_KEY] in exclude_devices
@@ -157,6 +182,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             + DLT_METER_TYPES
             + MODBUS_CONTROLLER_TYPES
             + GENERIC_CONTROLLER_TYPES
+            + list(VOLTAGE_BATTERY_TYPES)
         )
 
         if device_type not in supported_sensors:
@@ -168,7 +194,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         )
         for sub_device_key in device[DEVICE_DATA_KEY]:
             sub_device_data = device[DEVICE_DATA_KEY][sub_device_key]
-            if device_type in OT_SENSOR_TYPES and sub_device_key in [  # noqa: SIM114
+            if (battery_coordinator is not None
+                and device_type in VOLTAGE_BATTERY_TYPES and sub_device_key == "V"):
+                sensor_devices.append(LifeSmartOpenDevBatterySensor(
+                    ha_device, device, sub_device_key, sub_device_data, client,
+                    battery_coordinator,
+                ))
+            elif device_type in VOLTAGE_BATTERY_TYPES and sub_device_key == "V":  # noqa: SIM114
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device, device, sub_device_key, sub_device_data, client
+                    )
+                )
+            elif device_type in OT_SENSOR_TYPES and sub_device_key in [  # noqa: SIM114
                 "Z",
                 "V",
                 "P3",
@@ -812,6 +850,45 @@ class LifeSmartSensor(LifeSmartAvailabilityMixin, SensorEntity):
         return self._attr_unique_id
 
 
+class LifeSmartOpenDevBatterySensor(LifeSmartSensor):
+    """Preserve registry identity while sourcing battery state only from OpenDev."""
+
+    _attr_should_poll = False
+
+    def __init__(self, device, raw_device_data, key, data, client, coordinator):
+        super().__init__(device, raw_device_data, key, data, client)
+        self.coordinator = coordinator
+
+    @property
+    def available(self):
+        return (super().available and self.coordinator.last_update_success
+                and self.device_id in (self.coordinator.data or {}))
+
+    @property
+    def state(self):
+        observation = (self.coordinator.data or {}).get(self.device_id, {})
+        return observation.get("percentage") if self.available else None
+
+    @property
+    def extra_state_attributes(self):
+        observation = (self.coordinator.data or {}).get(self.device_id, {})
+        return {"state_source": "opendev",
+                "battery_last_reported": observation.get("reported_at")}
+
+    async def async_added_to_hass(self):
+        # Do not subscribe to TCP V updates: val/rv are voltage, not percent.
+        self.async_on_remove(self.coordinator.async_add_listener(
+            self.async_write_ha_state
+        ))
+
+    async def async_update(self):
+        await self.coordinator.async_request_refresh()
+
+    async def _update_value(self, data):
+        # Even direct callers cannot overwrite the percentage with TCP voltage.
+        return
+
+
 def _display_value(data, device_type=None, sub_device_key=None):
     """Return the display value, falling back to raw tenths for temperature."""
     if (
@@ -824,6 +901,8 @@ def _display_value(data, device_type=None, sub_device_key=None):
         and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
     ):
         return _doorlock_history_unlock_summary(data)
+    if device_type in VOLTAGE_BATTERY_TYPES and sub_device_key == "V":
+        return battery_percentage(data.get("v"))
     if "v" in data:
         return data["v"]
     if device_type in SMART_PLUG_TYPES and sub_device_key in ("P2", "P3"):

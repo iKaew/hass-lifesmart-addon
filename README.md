@@ -90,6 +90,18 @@ Your email/user ID and account country/region are available in the LifeSmart mob
 
 <img src="https://raw.githubusercontent.com/iKaew/hass-lifesmart-addon/master/docs/userid-on-mobile.png" alt="LifeSmart mobile app email/user ID and country/region screen" width="420">
 
+### Battery percentages
+
+For documented water-leak, environmental, door, motion and CUBE Clicker battery channels, raw
+voltage counts are not interpreted as percentages. Without a valid `V.v`, the battery state is
+unknown, even when OpenDev is not configured. See [battery values and missing
+readings](./docs/battery-values.md).
+
+Optional [OpenDev battery readings](./docs/opendev-battery.md) can supply the missing
+percentage over the LAN. They require additional QR-mode configuration on the
+Station and a matching model/token in the integration options. Upgrading this
+integration does not enable OpenDev on the Station automatically.
+
 ## Supported Devices
 
 Support is based on the attributes returned by the LifeSmart API. Some models create more than one Home Assistant entity.
@@ -110,6 +122,7 @@ Indicator settings (`bright` / `dark` and their numbered variants) appear under 
 | Safety sensors | `SL_P_A`, `SL_SC_WA`, `SL_SC_CH`, `SL_SC_CP`, `SL_DF_SR`, `SL_ALM` | Smoke, water leak, gas, siren/alarm binary sensors; battery/sensor values where reported | Gas/noise/alarm devices expose both measurement and alarm attributes when available. |
 | Smart cameras | `LSI_CAM_GOS1`, `LSI_CAM_EZ1`, `LSI_CAM_EZ2`, `SL_CAM` | Motion binary sensor, battery sensor, and camera status bit binary sensors where reported | `CFST` is exposed as external power, rotary PTZ, and rotating binary sensors. The LifeSmart docs list camera attributes only; no cloud stream/snapshot endpoint is documented for a Home Assistant camera entity. |
 | Environmental sensors | `SL_SC_THL`, `SL_SC_BE`, `SL_SC_CQ`, `SL_SC_CA`, `SL_SC_CN` | Temperature, humidity, illuminance, battery, CO2, TVOC, noise, USB/voltage where reported | Attribute coverage follows the LifeSmart device attribute list. |
+| CUBE Clicker / free button | `SL_SC_BB`, `SL_SC_BB_V2` | Battery sensor when `V` is reported; optional OpenDev percentage | Button events and automation triggers are not included. |
 | Electricity meters | `ELIQ_EM`, `V_DLT_645_P`, `V_DLT645_P` | Power and/or energy sensors | DLT values are decoded from LifeSmart float values when needed. |
 | 485 controller | `V_485_P` | Relay outputs plus Modbus-style sensors for power, energy, voltage, current, frequency, temperature, humidity, PM, gas, CO2, TVOC, sound, and smoke keys | Supports documented base keys and numbered variants such as `EE1`, `EP2`, `PM10`. |
 | Air purifier | `OD_MFRESH_M8088` | Switch plus mode, temperature, humidity, PM2.5, filter life, and UV sensors | Mode sensor is an enum. |
