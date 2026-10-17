@@ -2,7 +2,7 @@
 
 import math
 
-# LifeSmart Local Interfaces (2023-09-26), sections 6.6.1–6.6.4.
+# LifeSmart Local Interfaces (2023-09-26), sections 6.3.6–6.3.7 and 6.6.1–6.6.4.
 # These V channels document v as the percentage. Raw val is not a substitute.
 VOLTAGE_BATTERY_TYPES = {
     "SL_SC_WA",
@@ -12,6 +12,8 @@ VOLTAGE_BATTERY_TYPES = {
     "SL_SC_MHW",
     "SL_SC_BM",
     "SL_SC_CM",
+    "SL_SC_BB",
+    "SL_SC_BB_V2",
 }
 
 

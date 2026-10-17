@@ -1,7 +1,7 @@
 # Optional OpenDev battery readings
 
-This option supplies battery percentages for locally connected `SL_SC_WA`
-water-leak and `SL_SC_BE` environmental sensors when TCP does not include `V.v`.
+This option supplies battery percentages for the documented local battery channels
+listed below when TCP does not include `V.v`.
 It reads the Smart Station's converted percentage over UDP; it does not estimate
 capacity from voltage. The existing battery entities keep their IDs, while other
 channels and controls continue to use the TCP connection.
@@ -9,6 +9,23 @@ channels and controls continue to use the TCP connection.
 OpenDev is optional and disabled by default. The [missing-value fix](battery-values.md)
 works without OpenDev. Installing or upgrading the integration does not enable
 any service on the Station.
+
+| Device family | Supported model IDs | Verification |
+| --- | --- | --- |
+| Water leak / environment | `SL_SC_WA`, `SL_SC_BE` | Hardware reads and synthetic tests |
+| Door contacts | `SL_SC_G`, `SL_SC_BG` | `SL_SC_BG` hardware reads; both models tested synthetically |
+| Motion sensors | `SL_SC_MHW`, `SL_SC_BM`, `SL_SC_CM` | Protocol documentation and synthetic tests only |
+| CUBE Clicker / free button | `SL_SC_BB`, `SL_SC_BB_V2` | `SL_SC_BB` hardware reads; both models tested synthetically |
+
+Only a reported `V` channel gets a battery entity. Clickers now receive a battery
+entity even with OpenDev disabled (valid TCP `v`, otherwise unknown); this does
+not add button-event or automation-trigger support. Other battery-powered models
+are not automatically included: their channel semantics must first be checked.
+If battery percentages are not needed, leave the option disabled. To obtain a
+missing percentage on a compatible Station, follow the setup below and restart
+the Station after activation. No extra activation is needed per sensor once
+the Station service is running. After adding devices, reload the LifeSmart entry
+to refresh its device list; OpenDev polling alone does not discover HA entities.
 
 ## Configure the Station first
 
@@ -79,9 +96,15 @@ Diagnostics separately expose `last_successful_query` and `last_update_success`.
 Polling does not wake a battery device or measure its remaining capacity directly.
 
 Hardware validation used one Station with discovery firmware `1.0.93p71` and
-`MGAFWVER=3366`, plus one sensor of each supported type. Both returned 100%, matching
-the app, while TCP alone had produced incorrect readings near 15%. This is not a
-compatibility guarantee for other firmware, template mode or encrypted variants.
+`MGAFWVER=3366`. The water-leak/environment sensors returned 100%, matching the app,
+while TCP alone had produced incorrect readings near 15%. Subsequent read-only
+queries found a door contact (`SL_SC_BG`) with TCP `val: 137`, `rv: 2.74`, no `v`,
+and OpenDev `v: 6`; a clicker (`SL_SC_BB`) had TCP `val: 150`, `rv: 3.0`, no `v`,
+and OpenDev `v: 100`. These are Station-reported percentages, not independent
+capacity measurements. The door/clicker extension has not been deployed to HA
+for hardware validation. Motion sensors and other variants have not been queried
+on hardware. This is not a compatibility guarantee for other firmware, template
+mode or encrypted variants.
 
 For HACS installations, a branch or PR alone does not change the release being
 downloaded. Use a release containing this change when available; updating to a
@@ -90,5 +113,5 @@ release without it can overwrite a local patch.
 ## Protocol reference
 
 LifeSmart, *Local Interfaces of LifeSmart Smart Station*, 2023-09-26: sections
-1.1–1.2 (activation), 3 (signed request/response protocol) and 6.6.3–6.6.4 (battery
+1.1–1.2 (activation), 3 (signed request/response protocol), 6.3.6–6.3.7 and 6.6.1–6.6.4 (battery
 fields). See the [vendor PDF hosted by ALITECH](https://github.com/ALITECHLAB/lifesmart_local_addon/blob/c0d4b38121d35bc274f2d800f925f8004b69bcd3/Docs/Local%20Interfaces%20of%20LifeSmart%20Smart%20Station_20230926.pdf).

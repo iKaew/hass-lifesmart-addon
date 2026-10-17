@@ -182,6 +182,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             + DLT_METER_TYPES
             + MODBUS_CONTROLLER_TYPES
             + GENERIC_CONTROLLER_TYPES
+            + list(VOLTAGE_BATTERY_TYPES)
         )
 
         if device_type not in supported_sensors:
@@ -199,6 +200,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     ha_device, device, sub_device_key, sub_device_data, client,
                     battery_coordinator,
                 ))
+            elif device_type in VOLTAGE_BATTERY_TYPES and sub_device_key == "V":  # noqa: SIM114
+                sensor_devices.append(
+                    LifeSmartSensor(
+                        ha_device, device, sub_device_key, sub_device_data, client
+                    )
+                )
             elif device_type in OT_SENSOR_TYPES and sub_device_key in [  # noqa: SIM114
                 "Z",
                 "V",
