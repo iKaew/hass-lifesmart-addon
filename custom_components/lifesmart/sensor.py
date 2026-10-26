@@ -61,6 +61,7 @@ from .const import (
 )
 from .entity_names import resolve_sensor_channel_name
 from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
+from .battery import VOLTAGE_BATTERY_TYPES, battery_percentage
 from .hub import HUB_STATE_NAMES, get_hub_coordinator
 
 CONCENTRATION_MICROGRAMS_PER_CUBIC_METER = (
@@ -824,6 +825,8 @@ def _display_value(data, device_type=None, sub_device_key=None):
         and sub_device_key == DIGITAL_DOORLOCK_HISTORY_LOCK_EVENT_KEY
     ):
         return _doorlock_history_unlock_summary(data)
+    if device_type in VOLTAGE_BATTERY_TYPES and sub_device_key == "V":
+        return battery_percentage(data.get("v"))
     if "v" in data:
         return data["v"]
     if device_type in SMART_PLUG_TYPES and sub_device_key in ("P2", "P3"):
