@@ -88,6 +88,7 @@ MISSING = object()
 # These suffixes identify distinct device families in the cloud API and must
 # not be mistaken for the local protocol/firmware suffix appended to classes.
 VERSIONED_DEVICE_TYPES = {
+    "SL_SC_BB_V2",
     "SL_DOOYA_V2",
     "SL_DOOYA_V3",
     "SL_DOOYA_V4",

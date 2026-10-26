@@ -612,7 +612,7 @@ def test_options_flow_init_and_ac_device_steps(monkeypatch):
             }
         )
     )
-    assert asyncio.run(local_flow.async_step_init())["menu_options"] == ["user"]
+    assert asyncio.run(local_flow.async_step_init())["menu_options"] == ["user", "opendev"]
 
     no_spot_flow = make_options_flow()
     assert asyncio.run(no_spot_flow.async_step_ac_device()) == {"type": "abort", "reason": "no_spot_devices"}
@@ -718,3 +718,69 @@ def test_options_flow_handles_brand_and_remote_errors():
     assert brand_form["errors"]["base"] == "brand-fail"
     assert remote_form["type"] == "form"
     assert remote_form["errors"]["base"] == "idx-fail"
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_opendev_options_preserve_other_settings_and_validate_only_when_enabled(monkeypatch, enabled):
+    original = {"host": "192.0.2.10", "local_password": "tcp-secret", "exclude": ["DEV2"]}
+    entry = FakeConfigEntry(data={"connection_type": "local"}, options=original)
+    flow = make_options_flow(entry)
+    client = Mock(async_get_devices=AsyncMock(return_value=[]))
+    monkeypatch.setattr(config_flow_module, "OpenDevClient", Mock(return_value=client))
+    monkeypatch.setattr(config_flow_module, "get_runtime_data", lambda *args: Mock(client=Mock(hub_id="HUB1")))
+    values = {"opendev_enabled": enabled, "opendev_model": "OD_TEST", "opendev_token": "test-token"}
+    result = asyncio.run(flow.async_step_opendev(values))
+    assert result["data"] == {**original, **values}
+    assert client.async_get_devices.await_count == int(enabled)
+
+
+@pytest.mark.parametrize("existing", [{}, {
+    "opendev_enabled": True, "opendev_model": "OD_TEST", "opendev_token": "test-token",
+}])
+def test_opening_opendev_options_only_displays_saved_defaults(monkeypatch, existing):
+    entry = FakeConfigEntry(data={"connection_type": "local"}, options=existing.copy())
+    flow = make_options_flow(entry)
+    factory = Mock()
+    monkeypatch.setattr(config_flow_module, "OpenDevClient", factory)
+    result = asyncio.run(flow.async_step_opendev())
+    assert result["type"] == "form"
+    assert result["step_id"] == "opendev"
+    assert result["errors"] == {}
+    assert result["data_schema"]({}) == {
+        "opendev_enabled": False, "opendev_model": "", "opendev_token": "",
+        **existing,
+    }
+    assert entry.options == existing
+    factory.assert_not_called()
+
+
+def test_opendev_bad_credentials_are_not_saved(monkeypatch):
+    flow = make_options_flow(FakeConfigEntry(data={"connection_type": "local"}))
+    result = asyncio.run(flow.async_step_opendev({"opendev_enabled": True}))
+    assert result["errors"] == {"base": "opendev_credentials_required"}
+    client = Mock(async_get_devices=AsyncMock(side_effect=TimeoutError()))
+    monkeypatch.setattr(config_flow_module, "OpenDevClient", Mock(return_value=client))
+    monkeypatch.setattr(config_flow_module, "get_runtime_data", lambda *args: Mock(client=Mock(hub_id="HUB1")))
+    result = asyncio.run(flow.async_step_opendev({"opendev_enabled": True, "opendev_model": "OD_TEST", "opendev_token": "test-token"}))
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
+def test_editing_tcp_settings_preserves_opendev(monkeypatch):
+    old = {"opendev_enabled": True, "opendev_model": "OD_TEST", "opendev_token": "test-token"}
+    flow = make_options_flow(FakeConfigEntry(data={"connection_type": "local"}, options=old))
+    monkeypatch.setattr(config_flow_module, "validate_local_input", AsyncMock(return_value={"title": "Local Hub"}))
+    result = asyncio.run(flow.async_step_local(local_input()))
+    assert all(result["data"][key] == value for key, value in old.items())
+
+
+def test_opendev_setup_with_unloaded_tcp_entry_returns_form_error(monkeypatch):
+    flow = make_options_flow(FakeConfigEntry(data={"connection_type": "local"}))
+    monkeypatch.setattr(
+        config_flow_module, "get_runtime_data", Mock(side_effect=KeyError("unloaded"))
+    )
+    result = asyncio.run(flow.async_step_opendev({
+        "opendev_enabled": True, "opendev_model": "OD_TEST",
+        "opendev_token": "test-token",
+    }))
+    assert result["type"] == "form"
+    assert result["errors"] == {"base": "cannot_connect"}
