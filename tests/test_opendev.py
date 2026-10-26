@@ -5,8 +5,9 @@ import copy
 import json
 import socket
 import struct
+from datetime import timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -101,6 +102,32 @@ def test_response_must_match_request_hub_framing_and_message_type():
     for changes in [{"code": 102}, {"msg": {}}]:
         with pytest.raises(UpdateFailed):
             opendev.decode_response(packet({**body, **changes}), 7, "HUB1")
+
+
+@pytest.mark.parametrize("body", [b'{"id":', b'\xff'])
+def test_malformed_json_or_utf8_response_is_ignored(body):
+    framed = struct.pack(">2sHHI", b"JL", 0, 2, len(body)) + body
+    assert opendev.decode_response(framed, 7, "HUB1") is None
+
+
+@pytest.mark.parametrize("unrelated", [None, [], "device", device(me=None),
+                                       device(me=[]), device(me="OTHER")])
+def test_invalid_or_unrequested_devices_do_not_hide_valid_batteries(unrelated):
+    result = opendev.parse_batteries(
+        [unrelated, device(75)], {"DEVICE1": "SL_SC_BE"}, "HUB1"
+    )
+    assert set(result) == {"DEVICE1"}
+    assert result["DEVICE1"]["percentage"] == 75
+
+
+@pytest.mark.parametrize("timestamp", [None, True, "1700000000000", 0, -1,
+                                       float("nan"), float("inf"), 1e100])
+def test_invalid_report_time_keeps_percentage_without_inventing_freshness(timestamp):
+    result = opendev.parse_batteries(
+        [device(data={"V": {"v": 75, "valts": timestamp}})],
+        {"DEVICE1": "SL_SC_BE"}, "HUB1",
+    )
+    assert result == {"DEVICE1": {"percentage": 75, "reported_at": None}}
 
 
 def test_real_udp_transport_is_read_only_filters_peer_and_closes(monkeypatch):
@@ -323,3 +350,83 @@ def test_clicker_without_battery_channel_does_not_get_a_battery_entity():
         FakeHass("entry-1", [raw]), FakeConfigEntry(), added.extend
     ))
     assert added == []
+
+
+@pytest.mark.parametrize("exclusion", ["device", "hub", "unsupported"])
+def test_no_eligible_batteries_does_not_start_opendev(monkeypatch, exclusion):
+    from custom_components.lifesmart import sensor as module
+    from tests.test_sensor_module import make_device
+
+    raw = make_device("SL_SC_BE", {"V": {"v": 80}}, device_id="DEVICE1")
+    if exclusion == "unsupported":
+        raw = make_device("SL_SC_CA", {"P1": {"val": 215}})
+    runtime = LifeSmartRuntimeData(
+        client=SimpleNamespace(is_local=True), devices=[raw], connected=True,
+        exclude_devices=["DEVICE1"] if exclusion == "device" else [],
+        exclude_hubs=["HUB1"] if exclusion == "hub" else [],
+    )
+    entry = SimpleNamespace(options={"opendev_enabled": True}, runtime_data=runtime)
+    factory = Mock()
+    monkeypatch.setattr(module, "OpenDevClient", factory)
+    added = []
+    asyncio.run(module.async_setup_entry(object(), entry, added.extend))
+    factory.assert_not_called()
+    assert runtime.battery_coordinator is None
+    if exclusion == "unsupported":
+        assert len(added) == 1
+        assert added[0].state == 21.5
+    else:
+        assert added == []
+
+
+def test_initial_opendev_failure_keeps_tcp_sensors_and_recovers(monkeypatch):
+    from custom_components.lifesmart import sensor as module
+    from tests.test_sensor_module import make_device
+
+    raw = make_device("SL_SC_MHW", {"V": {"val": 150}, "Z": {"v": 42}},
+                      device_id="DEVICE1")
+    runtime = LifeSmartRuntimeData(
+        client=SimpleNamespace(is_local=True, host="192.0.2.10", hub_id="HUB1"),
+        devices=[raw], connected=True,
+    )
+    entry = SimpleNamespace(
+        options={"opendev_enabled": True, "opendev_model": "OD_TEST",
+                 "opendev_token": "test-token"},
+        runtime_data=runtime, async_on_unload=Mock(),
+    )
+    client = SimpleNamespace(hub_id="HUB1", async_get_devices=AsyncMock(
+        side_effect=UpdateFailed("unavailable")))
+    monkeypatch.setattr(module, "OpenDevClient", lambda *args: client)
+
+    async def run():
+        added = []
+        await module.async_setup_entry(SimpleNamespace(), entry, added.extend)
+        battery = next(entity for entity in added if entity.sub_device_key == "V")
+        illuminance = next(entity for entity in added if entity.sub_device_key == "Z")
+        coordinator = runtime.battery_coordinator
+        assert len(added) == 2
+        assert coordinator.update_interval == timedelta(minutes=5)
+        assert not coordinator.always_update
+        entry.async_on_unload.assert_called_once_with(coordinator.async_shutdown)
+        assert coordinator.last_successful_query is None
+        assert not battery.available and battery.state is None
+        assert battery.extra_state_attributes["battery_last_reported"] is None
+        assert illuminance.available and illuminance.state == 42
+
+        client.async_get_devices.side_effect = None
+        client.async_get_devices.return_value = [device(75, devtype="SL_SC_MHW")]
+        await coordinator.async_refresh()
+        assert battery.available and battery.state == 75
+        assert battery.extra_state_attributes["battery_last_reported"] == (
+            "2023-11-14T22:13:20+00:00")
+        query_time = coordinator.last_successful_query
+        assert query_time is not None
+
+        client.async_get_devices.side_effect = UpdateFailed("unavailable")
+        await coordinator.async_refresh()
+        assert not battery.available and battery.state is None
+        assert coordinator.last_successful_query == query_time
+        assert illuminance.available and illuminance.state == 42
+        await coordinator.async_shutdown()
+
+    asyncio.run(run())

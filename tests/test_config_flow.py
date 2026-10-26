@@ -734,6 +734,26 @@ def test_opendev_options_preserve_other_settings_and_validate_only_when_enabled(
     assert client.async_get_devices.await_count == int(enabled)
 
 
+@pytest.mark.parametrize("existing", [{}, {
+    "opendev_enabled": True, "opendev_model": "OD_TEST", "opendev_token": "test-token",
+}])
+def test_opening_opendev_options_only_displays_saved_defaults(monkeypatch, existing):
+    entry = FakeConfigEntry(data={"connection_type": "local"}, options=existing.copy())
+    flow = make_options_flow(entry)
+    factory = Mock()
+    monkeypatch.setattr(config_flow_module, "OpenDevClient", factory)
+    result = asyncio.run(flow.async_step_opendev())
+    assert result["type"] == "form"
+    assert result["step_id"] == "opendev"
+    assert result["errors"] == {}
+    assert result["data_schema"]({}) == {
+        "opendev_enabled": False, "opendev_model": "", "opendev_token": "",
+        **existing,
+    }
+    assert entry.options == existing
+    factory.assert_not_called()
+
+
 def test_opendev_bad_credentials_are_not_saved(monkeypatch):
     flow = make_options_flow(FakeConfigEntry(data={"connection_type": "local"}))
     result = asyncio.run(flow.async_step_opendev({"opendev_enabled": True}))
