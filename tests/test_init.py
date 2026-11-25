@@ -637,7 +637,11 @@ def test_async_setup_entry_initializes_client_services_and_websocket(monkeypatch
     assert runtime.last_error == "RuntimeError"
 
 
-def test_async_setup_entry_uses_local_client_without_cloud_websocket(monkeypatch):
+@pytest.mark.parametrize("old_unique_id", ["local-me", "local-all", "local-HUB2", "local-HUB1", None])
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_async_setup_entry_uses_local_client_without_cloud_websocket(
+    monkeypatch, old_unique_id, duplicate
+):
     class FakeLocalClient:
         is_local = True
         hub_id = "HUB1"
@@ -683,10 +687,25 @@ def test_async_setup_entry_uses_local_client_without_cloud_websocket(monkeypatch
             CONF_LOCAL_PASSWORD: "admin",
         }
     )
-    entry.unique_id = "local-me"
+    entry.unique_id = old_unique_id
+    hass.config_entries.entries = [entry]
+    if duplicate:
+        other_entry = FakeConfigEntry(data=entry.data, entry_id="entry-2")
+        other_entry.unique_id = "local-HUB1"
+        hass.config_entries.entries.append(other_entry)
     device_reg = FakeDeviceRegistry()
     patch_setup_dependencies(monkeypatch, device_reg)
     monkeypatch.setattr(lifesmart_init, "LocalLifeSmartClient", FakeLocalClient)
+
+    if duplicate and old_unique_id != "local-HUB1":
+        with pytest.raises(lifesmart_init.ConfigEntryNotReady, match="already configured"):
+            asyncio.run(lifesmart_init.async_setup_entry(hass, entry))
+        assert FakeLocalClient.instances[0].closed is True
+        assert FakeLocalClient.instances[0].listener_started is False
+        assert entry.unique_id == old_unique_id
+        assert hass.config_entries.update_entry_calls == []
+        assert hass.config_entries.forward_calls == []
+        return
 
     assert asyncio.run(lifesmart_init.async_setup_entry(hass, entry)) is True
 
@@ -696,9 +715,10 @@ def test_async_setup_entry_uses_local_client_without_cloud_websocket(monkeypatch
     assert entry.runtime_data.connected is True
     assert entry.runtime_data.state_manager is None
     assert entry.unique_id == "local-HUB1"
-    assert hass.config_entries.update_entry_calls == [
-        (entry, {"unique_id": "local-HUB1"})
-    ]
+    assert hass.config_entries.update_entry_calls == (
+        [(entry, {"unique_id": "local-HUB1"})]
+        if old_unique_id != "local-HUB1" else []
+    )
     assert FakeWebSocketApp.instances == []
     assert len(hass.config_entries.forward_calls) == 1
     local_platforms = hass.config_entries.forward_calls[0][1]

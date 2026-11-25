@@ -863,6 +863,68 @@ def test_local_discovery_preserves_semantic_device_variant_suffixes():
     assert client._normalize_device_type("SL_P_IR_V2") == "SL_P_IR_V2"
 
 
+@pytest.mark.parametrize("fallback_agent", [None, "", "all", "ALL", 7])
+def test_local_discovery_preserves_authenticated_hub_and_endpoint_agents(fallback_agent):
+    client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+    client._hub_id = "HUB1"
+    endpoints = {
+        "REMOTE": {"cls": "SL_SPOT", "agtid": "HUB2"},
+        "LOCAL": {"cls": "SL_SW_IF1", "agtid": fallback_agent},
+    }
+
+    for eps in (endpoints, dict(reversed(endpoints.items()))):
+        devices = client._normalize_devices(eps)
+        assert client.hub_id == "HUB1"
+        assert {device["me"]: device["agt"] for device in devices} == {
+            "REMOTE": "HUB2", "LOCAL": "HUB1",
+        }
+        assert asyncio.run(client.get_all_hubs_async())[0]["agt"] == "HUB1"
+
+
+def test_local_scene_discovery_only_reads_connected_hub_after_device_discovery():
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+        client._hub_id = "HUB1"
+        client._agent_node = "node/HUB1/me"
+        client._normalize_devices({"REMOTE": {"cls": "SL_SPOT", "agtid": "HUB2"}})
+        client._send = AsyncMock()
+        client._read_until = AsyncMock(return_value=[{
+            "ai": {"AI1": {"cls": "scene", "name": "Coffee"}},
+        }])
+
+        scenes = await asyncio.gather(
+            client.get_all_scene_async("HUB1"),
+            client.get_all_scene_async("HUB2"),
+            client.get_all_scene_async("HUB3"),
+        )
+        assert scenes == [[{"id": "AI1", "name": "Coffee"}], [], []]
+        client._read_until.assert_awaited_once()
+        client._send.assert_awaited_once()
+        assert await client.set_scene_async("HUB1", "AI1") == 0
+        assert (await client.set_scene_async("HUB2", "AI1"))["code"] == "failure"
+
+    asyncio.run(scenario())
+
+
+def test_local_ir_send_matches_discovered_endpoint_agent():
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+        client._hub_id = "HUB1"
+        client._agent_node = "node/HUB1/me"
+        client._devices = client._normalize_devices({
+            "SPOT1": {"cls": "SL_SPOT", "agtid": "HUB2"},
+        })
+        client._send = AsyncMock()
+
+        assert await client.send_ir_code_async("HUB2", "SPOT1", "CODE") == 0
+        for wrong_agent in ("HUB1", "HUB3"):
+            with pytest.raises(ValueError, match="unknown local IR device"):
+                await client.send_ir_code_async(wrong_agent, "SPOT1", "CODE")
+        client._send.assert_awaited_once()
+
+    asyncio.run(scenario())
+
+
 def test_bj84_local_class_and_p8_push_preserve_panel_identity():
     client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
     client._hub_id = "HUB1"

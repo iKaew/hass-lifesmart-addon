@@ -464,12 +464,20 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         if is_local:
             await lifesmart_client.async_close()
         raise ConfigEntryAuthFailed("LifeSmart rejected the configured credentials")
-    if is_local and getattr(config_entry, "unique_id", None) in {
-        f"local-{hub_id}" for hub_id in LEGACY_LOCAL_HUB_IDS
-    }:
-        hass.config_entries.async_update_entry(
-            config_entry, unique_id=f"local-{lifesmart_client.hub_id}"
-        )
+    if is_local:
+        # Older versions could save an endpoint's agent ID as the entry ID.
+        # Repair it using the authenticated hub, keeping the existing entry.
+        unique_id = f"local-{lifesmart_client.hub_id}"
+        if config_entry.unique_id != unique_id:
+            if any(
+                entry.entry_id != config_entry.entry_id and entry.unique_id == unique_id
+                for entry in hass.config_entries.async_entries(DOMAIN)
+            ):
+                await lifesmart_client.async_close()
+                raise ConfigEntryNotReady(
+                    "LifeSmart local hub is already configured in another entry"
+                )
+            hass.config_entries.async_update_entry(config_entry, unique_id=unique_id)
 
     try:
         devices = await lifesmart_client.get_all_device_async()
