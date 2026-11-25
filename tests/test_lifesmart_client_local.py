@@ -131,6 +131,54 @@ def test_local_listener_recovers_after_rejected_reconnect(monkeypatch):
     asyncio.run(scenario())
 
 
+def test_local_reconnect_applies_snapshot_before_reporting_connected(monkeypatch):
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+        client._writer = Mock()
+        client._read_frame = AsyncMock(side_effect=[ConnectionError(), asyncio.CancelledError()])
+        snapshot = [{"agt": "HUB1", "me": "DEV1", "data": {"P1": {"type": 129, "val": 1}}}]
+        client.get_all_device_async = AsyncMock(return_value=snapshot)
+        order = []
+        async def login():
+            client._writer = Mock()
+            return {"code": "success"}
+        async def apply_snapshot(devices):
+            assert devices == snapshot
+            await asyncio.sleep(0)
+            order.append("snapshot applied")
+        client.login_async = login
+        monkeypatch.setattr(local_module, "RECONNECT_DELAY", 0)
+        with pytest.raises(asyncio.CancelledError):
+            await client._listen(Mock(), lambda connected, error: order.append(connected), apply_snapshot)
+        assert order == [False, "snapshot applied", True]
+
+    asyncio.run(scenario())
+
+
+def test_local_retries_when_snapshot_application_fails(monkeypatch):
+    async def scenario():
+        client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
+        client._writer = Mock()
+        client._read_frame = AsyncMock(side_effect=[ConnectionError(), asyncio.CancelledError()])
+        client.get_all_device_async = AsyncMock(return_value=[])
+        writers = []
+        async def login():
+            client._writer = Mock()
+            writers.append(client._writer)
+            return {"code": "success"}
+        client.login_async = login
+        on_snapshot = AsyncMock(side_effect=[ValueError("invalid snapshot"), None])
+        on_connection = Mock()
+        monkeypatch.setattr(local_module, "RECONNECT_DELAY", 0)
+        with pytest.raises(asyncio.CancelledError):
+            await client._listen(Mock(), on_connection, on_snapshot)
+        assert on_snapshot.await_count == 2
+        writers[0].close.assert_called_once()
+        assert [call.args[0] for call in on_connection.call_args_list] == [False, True]
+
+    asyncio.run(scenario())
+
+
 def test_local_listener_starts_once_and_close_cleans_up():
     async def scenario():
         client = LocalLifeSmartClient("192.0.2.10", 8888, "admin")
