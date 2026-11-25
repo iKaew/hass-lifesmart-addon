@@ -921,10 +921,11 @@ class LocalLifeSmartClient:
             if not isinstance(device_type, str) or not device_type:
                 continue
             device_type = self._normalize_device_type(device_type)
+            # Endpoints can belong to other agents. Their IDs must not replace
+            # the connected hub's identity established by login_async().
             hub_id = raw.get("agtid")
             if not isinstance(hub_id, str) or not hub_id or hub_id.lower() == "all":
                 hub_id = self._hub_id
-            self._hub_id = hub_id
             children = raw.get("_chd", {})
             main = children.get("m", {}) if isinstance(children, Mapping) else {}
             channels = main.get("_chd", {}) if isinstance(main, Mapping) else {}
@@ -993,10 +994,15 @@ class LocalLifeSmartClient:
     async def get_hub_timezone_async(self, _hub_id: str) -> dict[str, Any]:
         return {}
 
-    async def get_all_scene_async(self, _hub_id: str) -> list[dict[str, str]]:
+    async def get_all_scene_async(self, hub_id: str) -> list[dict[str, str]]:
         """Discover scenes stored on the locally connected hub."""
         if self._agent_node is None:
             raise ConnectionError("local hub is not authenticated")
+        # Setup also requests scenes for agents found in endpoint metadata.
+        # This connection exposes only its own AI tree; querying it for every
+        # agent would mislabel scenes and race reads on the same TCP stream.
+        if hub_id != self._hub_id:
+            return []
         await self._send(build_scene_query_packet(self._agent_node))
         message = await self._read_until(
             lambda msg: (
@@ -1076,8 +1082,7 @@ class LocalLifeSmartClient:
         """Send one or more raw/Pronto IR codes through a local SPOT endpoint."""
         if self._agent_node is None:
             raise ConnectionError("local hub is not authenticated")
-        if agt != self._hub_id:
-            raise ValueError(f"unknown local hub {agt!r}")
+        # Match the endpoint's own agent, which can differ from this hub's ID.
         device = next(
             (
                 item

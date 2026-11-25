@@ -11,6 +11,38 @@ def local_input():
     return {"host": "192.0.2.10", "port": 8888, "local_password": "secret"}
 
 
+def test_local_validation_distinguishes_hubs_with_shared_endpoints(monkeypatch):
+    clients = []
+    client_class = config_flow_module.LocalLifeSmartClient
+
+    def make_client(host, port, password):
+        client = client_class(host, port, password)
+        client._writer = Mock(close=Mock(), wait_closed=AsyncMock())
+        client._send = AsyncMock()
+        client._read_until = AsyncMock(side_effect=[
+            [{"ret": {"base": {1: "node/base"}, "agt": {1: f"node/{host}/me"}}}],
+            [{"eps": {"SHARED": {"cls": "SL_SPOT", "agtid": "SHARED_AGENT"}}}],
+        ])
+        clients.append(client)
+        return client
+
+    # Use the real login and normalization paths with simulated wire responses.
+    monkeypatch.setattr(config_flow_module, "LocalLifeSmartClient", make_client)
+
+    async def scenario():
+        ids = []
+        for host in ("192.0.2.10", "192.0.2.11", "192.0.2.12", "192.0.2.10"):
+            result = await config_flow_module.validate_local_input(
+                object(), local_input() | {"host": host}
+            )
+            ids.append(result["unique_id"])
+        assert ids == ["local-192.0.2.10", "local-192.0.2.11",
+                       "local-192.0.2.12", "local-192.0.2.10"]
+        assert all(client._writer is None for client in clients)
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("failure", ["login", "auth", "devices", "invalid_devices", "cancel"])
 def test_local_validation_closes_client_on_every_failure(monkeypatch, failure):
     client = Mock(
