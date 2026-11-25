@@ -1,7 +1,12 @@
 import asyncio
 import importlib
+from types import SimpleNamespace
+
+import pytest
 
 from homeassistant.components.climate.const import HVACMode
+from homeassistant.const import UnitOfTemperature
+from homeassistant.util.unit_system import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
 
 spotac_module = importlib.import_module("custom_components.lifesmart.spotac_climate")
 
@@ -72,10 +77,13 @@ def test_spotac_entity_controls_and_send_command_paths():
     entity = spotac_module.LifeSmartSPOTACClimate(None, make_raw_device(), client, {"category": "ac", "brand": "aux", "idx": "33.irxs"})
     writes = []
     entity.async_write_ha_state = lambda: writes.append("write")
+    assert entity.native_temperature_unit == UnitOfTemperature.CELSIUS
+    assert entity.native_target_temperature == 25
 
     asyncio.run(entity.async_turn_on())
     asyncio.run(entity.async_set_hvac_mode(HVACMode.HEAT))
     asyncio.run(entity.async_set_temperature(temperature=26))
+    assert entity.native_target_temperature == 26
     asyncio.run(entity.async_set_target_temperature(temperature=24))
     asyncio.run(entity.async_set_fan_mode("Speed 2"))
     asyncio.run(entity.async_set_swing_mode("Direction 3"))
@@ -85,12 +93,14 @@ def test_spotac_entity_controls_and_send_command_paths():
     assert entity.device_info["model"] == "SL_SPOT"
     assert client.send_calls
     assert len(writes) == 7
+    assert [call["temp"] for call in client.get_calls] == [25, 25, 26, 24, 24, 24, 24]
 
 
 def test_spotac_restore_and_send_command_variants(monkeypatch):
     client = FakeClient(ac_codes=[{"data": "LIST_IR"}])
     entity = spotac_module.LifeSmartSPOTACClimate(None, make_raw_device(), client, {"category": "ac", "brand": "aux", "idx": "33.irxs"})
     entity.async_write_ha_state = lambda: None
+    entity.hass = SimpleNamespace(config=SimpleNamespace(units=METRIC_SYSTEM))
 
     class FakeLastState:
         state = HVACMode.HEAT
@@ -102,7 +112,7 @@ def test_spotac_restore_and_send_command_variants(monkeypatch):
     entity.async_get_last_state = fake_get_last_state
     asyncio.run(entity.async_added_to_hass())
     assert entity._attr_hvac_mode == HVACMode.HEAT
-    assert entity._attr_target_temperature == 27
+    assert entity.native_target_temperature == 27
 
     asyncio.run(entity._send_ac_command("power", 0, 1, 25, 0, 0))
     client.ac_codes = "STR_IR"
@@ -120,3 +130,33 @@ def test_spotac_restore_and_send_command_variants(monkeypatch):
     asyncio.run(missing_entity._send_ac_command("power", 0, 1, 25, 0, 0))
 
     assert [call[2] for call in client.send_calls] == ["LIST_IR", "STR_IR", "NESTED_IR", "KEY_IR", "UPPER_IR"]
+
+
+@pytest.mark.parametrize("stored_temperature,stored_unit,system", [
+    (27, UnitOfTemperature.CELSIUS, US_CUSTOMARY_SYSTEM),
+    (80.6, UnitOfTemperature.FAHRENHEIT, METRIC_SYSTEM),
+    (80.6, None, US_CUSTOMARY_SYSTEM),
+    (27, None, METRIC_SYSTEM),
+])
+def test_spotac_restores_native_temperature_before_sending_commands(
+    stored_temperature, stored_unit, system
+):
+    client = FakeClient(ac_codes={"data": "IR"})
+    entity = spotac_module.LifeSmartSPOTACClimate(
+        None, make_raw_device(), client,
+        {"category": "ac", "brand": "aux", "idx": "33.irxs"},
+    )
+    entity.hass = SimpleNamespace(config=SimpleNamespace(units=system))
+    entity.async_write_ha_state = lambda: None
+    attributes = {"temperature": stored_temperature}
+    if stored_unit is not None:
+        attributes["temperature_unit"] = stored_unit
+
+    async def last_state():
+        return SimpleNamespace(state=HVACMode.COOL, attributes=attributes)
+
+    entity.async_get_last_state = last_state
+    asyncio.run(entity.async_added_to_hass())
+    assert entity.native_target_temperature == 27
+    asyncio.run(entity.async_turn_on())
+    assert client.get_calls[0]["temp"] == 27

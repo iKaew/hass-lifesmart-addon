@@ -192,6 +192,7 @@ class FakeDeviceRegistry:
     def __init__(self):
         self.created = []
         self.devices = FakeDeviceRegistryItems()
+        self._devices = self.devices  # Registry helpers use this on HA 2026.11+.
 
     def async_get_or_create(self, **kwargs):
         self.created.append(kwargs)
@@ -1012,6 +1013,7 @@ def test_migrate_legacy_device_identifiers_preserves_registry_device():
 
     class MigrationRegistry:
         devices = FakeDeviceRegistryItems((owned_device, unrelated_device))
+        _devices = devices
 
         def __init__(self):
             self.updated = []
@@ -1063,6 +1065,7 @@ def test_migrate_local_hub_identity_preserves_devices_and_entity_ids():
 
     class DeviceMigrationRegistry:
         devices = FakeDeviceRegistryItems((hub, child, legacy_child, unrelated))
+        _devices = devices
 
         def __init__(self):
             self.updated = []

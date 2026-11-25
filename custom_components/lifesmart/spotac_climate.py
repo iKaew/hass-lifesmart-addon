@@ -3,7 +3,6 @@
 import logging
 
 from homeassistant.components.climate import (
-    ClimateEntity,
     ClimateEntityFeature,
     HVACMode,
 )
@@ -11,7 +10,9 @@ from homeassistant.const import PRECISION_WHOLE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util.unit_conversion import TemperatureConverter
 
+from .climate_compat import LifeSmartClimateEntity
 from . import LifeSmartDevice, configure_entity_identity, device_identifier, device_via_info, generate_entity_id
 from .const import (
     DOMAIN as DOMAIN,
@@ -111,7 +112,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
 
 
 class LifeSmartSPOTACClimate(
-    LifeSmartAvailabilityMixin, ClimateEntity, RestoreEntity
+    LifeSmartAvailabilityMixin, LifeSmartClimateEntity, RestoreEntity
 ):
     """Representation of a LifeSmart SPOT AC remote control as climate entity."""
 
@@ -146,14 +147,14 @@ class LifeSmartSPOTACClimate(
         )
 
         # Climate entity attributes
-        self._attr_temperature_unit = UnitOfTemperature.CELSIUS
+        self._attr_native_temperature_unit = UnitOfTemperature.CELSIUS
         self._attr_precision = PRECISION_WHOLE
         self._attr_target_temperature_step = 1
         self._attr_min_temp = 16
         self._attr_max_temp = 30
 
         # Default state
-        self._attr_target_temperature = 25
+        self._attr_native_target_temperature = 25
         self._attr_hvac_mode = HVACMode.COOL
         self._attr_hvac_modes = [
             HVACMode.OFF,
@@ -207,7 +208,16 @@ class LifeSmartSPOTACClimate(
 
         target_temp = last_state.attributes.get("temperature")
         if target_temp is not None:
-            self._attr_target_temperature = int(target_temp)
+            # State attributes use the installation's display unit. Older
+            # states omit the unit, so use the configured unit as a fallback.
+            stored_unit = last_state.attributes.get(
+                "temperature_unit", self.hass.config.units.temperature_unit
+            )
+            self._attr_native_target_temperature = round(
+                TemperatureConverter.convert(
+                    float(target_temp), stored_unit, self.native_temperature_unit
+                )
+            )
 
         fan_mode = last_state.attributes.get("fan_mode")
         if fan_mode in self._attr_fan_modes:
@@ -224,7 +234,7 @@ class LifeSmartSPOTACClimate(
             key="power",
             power=0,
             mode=1,  # Cool
-            temp=int(self._attr_target_temperature),
+            temp=int(self._attr_native_target_temperature),
             wind=0,
             swing=0,
         )
@@ -236,7 +246,7 @@ class LifeSmartSPOTACClimate(
             key="power",
             power=0,
             mode=0,
-            temp=int(self._attr_target_temperature),
+            temp=int(self._attr_native_target_temperature),
             wind=0,
             swing=0,
         )
@@ -253,7 +263,7 @@ class LifeSmartSPOTACClimate(
                 key="mode",
                 power=0,
                 mode=int(ac_mode),
-                temp=int(self._attr_target_temperature),
+                temp=int(self._attr_native_target_temperature),
                 wind=int(FAN_MODE_TO_AC_SPEED.get(self._attr_fan_mode, "0")),
                 swing=int(SWING_MODE_TO_AC_SWING.get(self._attr_swing_mode, "0")),
             )
@@ -264,7 +274,7 @@ class LifeSmartSPOTACClimate(
         """Set target temperature."""
         temperature = kwargs.get("temperature")
         if temperature is not None:
-            self._attr_target_temperature = int(temperature)
+            self._attr_native_target_temperature = int(temperature)
             await self._send_ac_command(
                 key="temp",
                 power=1 if self._attr_hvac_mode == HVACMode.OFF else 0,
@@ -286,7 +296,7 @@ class LifeSmartSPOTACClimate(
             key="wind",
             power=1 if self._attr_hvac_mode == HVACMode.OFF else 0,
             mode=int(HVAC_MODE_TO_AC_MODE.get(self._attr_hvac_mode, "1")),
-            temp=int(self._attr_target_temperature),
+            temp=int(self._attr_native_target_temperature),
             wind=int(FAN_MODE_TO_AC_SPEED.get(fan_mode, "0")),
             swing=int(SWING_MODE_TO_AC_SWING.get(self._attr_swing_mode, "0")),
         )
@@ -299,7 +309,7 @@ class LifeSmartSPOTACClimate(
             key="swing",
             power=1 if self._attr_hvac_mode == HVACMode.OFF else 0,
             mode=int(HVAC_MODE_TO_AC_MODE.get(self._attr_hvac_mode, "1")),
-            temp=int(self._attr_target_temperature),
+            temp=int(self._attr_native_target_temperature),
             wind=int(FAN_MODE_TO_AC_SPEED.get(self._attr_fan_mode, "0")),
             swing=int(SWING_MODE_TO_AC_SWING.get(swing_mode, "0")),
         )
