@@ -15,7 +15,7 @@ import socket
 import struct
 import uuid
 import zlib
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from ipaddress import IPv4Address
@@ -1112,11 +1112,12 @@ class LocalLifeSmartClient:
         self,
         on_event: Callable[[dict[str, Any]], None],
         on_connection: Callable[[bool, str | None], None],
+        on_snapshot: Callable[[list[dict[str, Any]]], Awaitable[None]] | None = None,
     ) -> None:
         """Start processing local push messages."""
         if self._listener_task is None:
             self._listener_task = asyncio.create_task(
-                self._listen(on_event, on_connection),
+                self._listen(on_event, on_connection, on_snapshot),
                 name="LifeSmart local push listener",
             )
             on_connection(True, None)
@@ -1125,6 +1126,7 @@ class LocalLifeSmartClient:
         self,
         on_event: Callable[[dict[str, Any]], None],
         on_connection: Callable[[bool, str | None], None],
+        on_snapshot: Callable[[list[dict[str, Any]]], Awaitable[None]] | None = None,
     ) -> None:
         while True:
             try:
@@ -1147,7 +1149,9 @@ class LocalLifeSmartClient:
                         response = await self.login_async()
                         if response.get("code") != "success":
                             raise PermissionError("hub rejected local credentials")
-                        await self.get_all_device_async()
+                        devices = await self.get_all_device_async()
+                        if on_snapshot is not None:
+                            await on_snapshot(devices)
                     except asyncio.CancelledError:
                         raise
                     except Exception as reconnect_err:  # noqa: BLE001

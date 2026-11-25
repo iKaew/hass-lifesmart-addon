@@ -23,6 +23,7 @@ class LifeSmartRuntimeData:
     ai_include_hubs: list[str] = field(default_factory=list)
     ai_include_items: list[str] = field(default_factory=list)
     state_manager: Any | None = None
+    state_recovery: Any | None = None
     update_listener: Callable[[], None] | None = None
     connected: bool = False
     last_error: str | None = None

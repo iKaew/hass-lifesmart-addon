@@ -21,6 +21,8 @@ from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.exceptions import ConfigEntryAuthFailed
 
+from .recovery import CloudStateRecovery, async_apply_device_snapshot
+
 from .const import (
     AIR_PURIFIER_TYPES,
     BINARY_SENSOR_TYPES,
@@ -258,10 +260,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 
 def _dispatch_doorlock_update(
-    hass, device_type, hub_id, device_id, sub_device_key, entity_id, data
+    hass, device_type, hub_id, device_id, sub_device_key, entity_id, data, *, mirror=True
 ):
     """Dispatch digital door lock updates to all entities affected by the event."""
     dispatcher_send(hass, f"{LIFESMART_SIGNAL_UPDATE_ENTITY}_{entity_id}", data)
+
+    if not mirror:
+        return
 
     related_sub_device = None
     if sub_device_key == DIGITAL_DOORLOCK_LOCK_EVENT_KEY:
@@ -288,31 +293,6 @@ def _is_on_type(value) -> bool:
         return int(str(value), 0) % 2 == 1
     except (TypeError, ValueError):
         return False
-
-
-async def _async_refresh_device_availability(
-    runtime_data: LifeSmartRuntimeData,
-) -> None:
-    """Refresh device availability after the websocket reconnects."""
-    try:
-        devices = await runtime_data.client.get_all_device_async()
-    except Exception as err:  # noqa: BLE001
-        _LOGGER.warning(
-            "Unable to refresh LifeSmart device availability: %s", type(err).__name__
-        )
-        return
-
-    if not isinstance(devices, list):
-        _LOGGER.warning("Unable to refresh LifeSmart device availability")
-        return
-
-    for device in devices:
-        hub_id = device.get(HUB_ID_KEY)
-        device_id = device.get(DEVICE_ID_KEY)
-        status = device.get("stat")
-        if hub_id is None or device_id is None or status is None:
-            continue
-        runtime_data.set_device_available(hub_id, device_id, status == 1)
 
 
 async def _async_discover_scenes(
@@ -894,6 +874,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
                         sub_device_key,
                         entity_id,
                         data,
+                        mirror=not msg.get("_snapshot", False),
                     )
             elif device_type in OT_SENSOR_TYPES and sub_device_key in [
                 "Z",
@@ -944,15 +925,19 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
             return
         if msg["type"] != "io":
             return
-        data_update_handler(msg)
+        hass.loop.call_soon_threadsafe(runtime_data.state_recovery.event, msg)
 
     def on_error(ws, error):
         if runtime_data.connected:
             _LOGGER.warning("LifeSmart websocket connection lost: %s", error)
-        runtime_data.set_connected(False, type(error).__name__)
+        hass.loop.call_soon_threadsafe(
+            runtime_data.state_recovery.disconnected, type(error).__name__
+        )
 
     def on_close(ws, close_status_code, close_msg):
-        runtime_data.set_connected(False, f"closed:{close_status_code}")
+        hass.loop.call_soon_threadsafe(
+            runtime_data.state_recovery.disconnected, f"closed:{close_status_code}"
+        )
         _LOGGER.debug(
             "lifesmart websocket closed...: %s %s",
             str(close_status_code),
@@ -960,7 +945,6 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
         )
 
     def on_open(ws):
-        was_unavailable = runtime_data.last_error is not None
         client = runtime_data.client
         try:
             send_data = client.generate_wss_auth()
@@ -969,21 +953,17 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
             on_error(ws, err)
             ws.close()
             return
-        runtime_data.set_connected(True)
-        if was_unavailable:
-            _LOGGER.info("LifeSmart websocket connection restored")
-            hass.loop.call_soon_threadsafe(
-                lambda: hass.async_create_task(
-                    _async_refresh_device_availability(runtime_data),
-                    "Refresh LifeSmart device availability",
-                )
-            )
+        hass.loop.call_soon_threadsafe(runtime_data.state_recovery.connected)
         _LOGGER.debug("LifeSmart websocket sending_data")
 
     if is_local:
+        async def apply_local_snapshot(snapshot):
+            await async_apply_device_snapshot(runtime_data, snapshot, data_update_handler)
+
         lifesmart_client.start_listener(
             data_update_handler,
             lambda connected, error: runtime_data.set_connected(connected, error),
+            apply_local_snapshot,
         )
     else:
         ws = websocket.WebSocketApp(
@@ -992,6 +972,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):  # 
             on_message=on_message,
             on_error=on_error,
             on_close=on_close,
+        )
+        runtime_data.state_recovery = CloudStateRecovery(
+            hass, runtime_data, data_update_handler, ws.close
         )
         state_manager = LifeSmartStatesManager(ws=ws)
         runtime_data.state_manager = state_manager
@@ -1013,6 +996,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
 
     runtime_data = entry.runtime_data
+    if runtime_data.state_recovery is not None:
+        await runtime_data.state_recovery.async_close()
     state_manager = runtime_data.state_manager
     if state_manager is not None:
         await hass.async_add_executor_job(state_manager.stop_keep_alive)

@@ -54,7 +54,7 @@ def test_lifesmart_type_helper_handles_invalid_values():
     assert lifesmart_init._is_on_type("not-a-number") is False
 
 
-def test_refresh_device_availability_uses_cloud_status():
+def test_snapshot_refresh_uses_cloud_status():
     client = FakeLifeSmartClient("us", "key", "token", "user", "password")
     client.devices_response = [
         {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "ONLINE", "stat": 1},
@@ -67,11 +67,14 @@ def test_refresh_device_availability_uses_cloud_status():
         connected=True,
     )
 
-    asyncio.run(lifesmart_init._async_refresh_device_availability(runtime))
+    asyncio.run(lifesmart_init.async_apply_device_snapshot(
+        runtime, client.devices_response, lambda message: None
+    ))
 
     assert runtime.device_availability == {
         ("HUB1", "ONLINE"): True,
         ("HUB1", "OFFLINE"): False,
+        ("HUB1", "UNKNOWN"): True,
     }
 
 
@@ -169,6 +172,10 @@ class FakeHass:
         self.config_entries = FakeConfigEntriesManager()
         self.services = FakeServices()
         self.states = FakeStates()
+        self.loop = SimpleNamespace(call_soon_threadsafe=lambda fn, *args: fn(*args))
+
+    def async_create_task(self, coro, name):
+        return asyncio.create_task(coro, name=name)
 
     async def async_add_executor_job(self, target, *args):
         return target(*args)
@@ -230,6 +237,9 @@ class FakeWebSocketApp:
 
     def send(self, payload):
         self.sent.append(payload)
+
+    def close(self):
+        self.on_close(self, None, None)
 
 
 class FakeStatesManager:
@@ -361,9 +371,6 @@ def send_ws_device_update(ws, payload):
 
 def test_websocket_reset_recovers_availability_and_refreshes_devices(monkeypatch):
     hass, entry, ws, _ = setup_entry_for_ws_tests(monkeypatch, devices=[])
-    tasks = []
-    hass.loop = SimpleNamespace(call_soon_threadsafe=lambda callback: callback())
-    hass.async_create_task = lambda coro, name: tasks.append(coro)
     ws.on_open(ws)
     ws.on_error(ws, ConnectionResetError(104, "Connection reset by peer"))
     ws.on_close(ws, None, None)
@@ -372,12 +379,15 @@ def test_websocket_reset_recovers_availability_and_refreshes_devices(monkeypatch
     entry.runtime_data.client.devices_response = [
         {HUB_ID_KEY: "HUB1", DEVICE_ID_KEY: "DEV1", "stat": 1}
     ]
-    ws.on_open(ws)
-    assert entry.runtime_data.connected is True
-    assert entry.runtime_data.last_error is None
+    async def recover():
+        ws.on_open(ws)
+        assert entry.runtime_data.connected is False
+        await entry.runtime_data.state_recovery._task
+        assert entry.runtime_data.connected is True
+        assert entry.runtime_data.last_error is None
+
+    asyncio.run(recover())
     assert len(ws.sent) == 2
-    assert len(tasks) == 1
-    asyncio.run(tasks[0])
     assert entry.runtime_data.device_availability[("HUB1", "DEV1")] is True
 
 
@@ -394,6 +404,53 @@ def test_websocket_auth_send_failure_closes_socket_for_retry(monkeypatch):
     assert entry.runtime_data.connected is False
     assert entry.runtime_data.last_error == "ConnectionResetError"
     assert closed == [True]
+
+
+def test_websocket_recovery_dispatches_snapshot_and_respects_exclusions(monkeypatch):
+    devices = [
+        {"agt": "HUB1", "me": device_id, "devtype": "SL_SW_IF1",
+         "data": {"P1": {"type": 128, "val": 0}}, "stat": 1}
+        for device_id in ("SWITCH", "EXCLUDED", "MISSING")
+    ]
+    _, entry, ws, dispatched = setup_entry_for_ws_tests(
+        monkeypatch, devices, options={CONF_EXCLUDE_ITEMS: ["EXCLUDED"]}
+    )
+    ws.on_open(ws)
+    ws.on_error(ws, ConnectionError())
+    entry.runtime_data.client.devices_response = [
+        {**device, "data": {"P1": {"type": 129, "val": 1}}}
+        for device in devices[:2]
+    ]
+
+    async def scenario():
+        ws.on_open(ws)
+        assert entry.runtime_data.connected is False
+        await entry.runtime_data.state_recovery._task
+
+    asyncio.run(scenario())
+    assert len(dispatched) == 1
+    assert dispatched[0][1]["me"] == "SWITCH"
+    assert dispatched[0][1]["val"] == 1
+    assert entry.runtime_data.connected is True
+    assert entry.runtime_data.device_availability[("HUB1", "MISSING")] is False
+
+
+def test_snapshot_doorlock_history_does_not_overwrite_current_state(monkeypatch):
+    _, entry, ws, dispatched = setup_entry_for_ws_tests(monkeypatch, [{
+        "agt": "HUB1", "me": "LOCK", "devtype": "SL_LK_LS", "stat": 1,
+        "data": {"EVTLO": {"type": 0, "val": 0x1001}, "HISLK": {"type": 1, "val": 0x1002}},
+    }])
+    ws.on_open(ws)
+    ws.on_error(ws, ConnectionError())
+
+    async def scenario():
+        ws.on_open(ws)
+        await entry.runtime_data.state_recovery._task
+
+    asyncio.run(scenario())
+    assert [(data["idx"], data["val"]) for _, data in dispatched] == [
+        ("EVTLO", 0x1001), ("HISLK", 0x1002),
+    ]
 
 
 def test_setup_initializes_device_availability_from_cloud_status(monkeypatch):
@@ -672,7 +729,7 @@ def test_async_setup_entry_uses_local_client_without_cloud_websocket(
         async def get_all_scene_async(self, hub_id):
             return []
 
-        def start_listener(self, on_event, on_connection):
+        def start_listener(self, on_event, on_connection, on_snapshot):
             self.listener_started = True
             on_connection(True, None)
 
