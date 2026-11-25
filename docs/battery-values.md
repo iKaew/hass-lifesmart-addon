@@ -12,15 +12,15 @@ or a discharge curve.
 | Water leak / environment | `SL_SC_WA`, `SL_SC_BE` |
 | Door contacts | `SL_SC_G`, `SL_SC_BG` |
 | Motion sensors | `SL_SC_MHW`, `SL_SC_BM`, `SL_SC_CM` |
+| CUBE Clicker / free button | `SL_SC_BB`, `SL_SC_BB_V2` |
 
 The door contact observed over TCP reported `val: 137`, `rv: 2.74` with no `v`.
 It must remain unknown rather than display `13.7%`; the Station's separate local
 percentage interface reported `6%`. No voltage-to-capacity formula is inferred.
 The clicker reported `val: 150`, `rv: 3.0`, while that interface returned `100%`.
 Motion sensors and the other variants are covered by the protocol documentation
-and synthetic tests, not hardware verification. The clicker is evidence for a
-follow-up extension; this fallback fix does not create its battery entity or
-button events.
+and synthetic tests, not hardware verification. Clicker battery entities are
+created only when a `V` channel exists; button events are outside this extension.
 
 The integration accepts a finite numeric `v` between 0 and 100 for these channels.
 Missing, null, boolean, nonnumeric, non-finite and out-of-range values become
@@ -51,6 +51,6 @@ the same raw battery representation.
 ## References
 
 - LifeSmart, *Local Interfaces of LifeSmart Smart Station*, 2023-09-26,
-  sections 6.6.1–6.6.4, printed pages 41–43
+  sections 6.3.6–6.3.7 and 6.6.1–6.6.4, printed pages 29–30 and 41–43
   ([vendor document hosted in a community repository](https://github.com/ALITECHLAB/lifesmart_local_addon/blob/c0d4b38121d35bc274f2d800f925f8004b69bcd3/Docs/Local%20Interfaces%20of%20LifeSmart%20Smart%20Station_20230926.pdf)).
 - [Home Assistant sensor value requirements](https://contributors.home-assistant.io/core/entities/sensor/#properties).

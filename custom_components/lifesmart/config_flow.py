@@ -41,6 +41,10 @@ from .lifesmart_client_local import (
 from .runtime_data import get_runtime_data
 from .exceptions import LifeSmartCannotConnect, LifeSmartInvalidAuth
 
+from .opendev import (
+    CONF_OPENDEV_ENABLED, CONF_OPENDEV_MODEL, CONF_OPENDEV_TOKEN, OpenDevClient,
+)
+
 _LOGGER = logging.getLogger(__name__)
 
 DATA_SCHEMA = {
@@ -576,7 +580,7 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
                 user_input[CONF_NAME] = validated["title"]
                 user_input[CONF_CONNECTION_TYPE] = CONNECTION_TYPE_LOCAL
                 return self.async_create_entry(
-                    title=validated["title"], data=user_input
+                    title=validated["title"], data={**self._config_entry.options, **user_input}
                 )
 
         defaults = {
@@ -600,6 +604,8 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
             CONF_CONNECTION_TYPE, CONNECTION_TYPE_CLOUD
         ) == CONNECTION_TYPE_LOCAL
         menu_options = ["user"]
+        if is_local:
+            menu_options.append("opendev")
         if not is_local:
             menu_options.append("ac_device")
         if not is_local and self._get_entry_value(CONF_AC_CONFIG, {}):
@@ -609,6 +615,42 @@ class LifeSmartOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init",
             menu_options=menu_options,
         )
+
+    async def async_step_opendev(self, user_input=None):
+        """Configure optional QR-enabled local battery queries without replacing TCP."""
+        errors = {}
+        if user_input is not None:
+            values = dict(user_input)
+            if values.get(CONF_OPENDEV_ENABLED):
+                model = values.get(CONF_OPENDEV_MODEL, "").strip()
+                token = values.get(CONF_OPENDEV_TOKEN, "").strip()
+                if not model or not token:
+                    errors["base"] = "opendev_credentials_required"
+                else:
+                    try:
+                        runtime = get_runtime_data(self.hass, self._config_entry)
+                        client = OpenDevClient(
+                            self._get_entry_value(CONF_HOST), model, token,
+                            runtime.client.hub_id,
+                        )
+                        await client.async_get_devices()
+                    except Exception:  # Credential errors must never be logged verbatim.
+                        errors["base"] = "cannot_connect"
+                    values[CONF_OPENDEV_MODEL] = model
+                    values[CONF_OPENDEV_TOKEN] = token
+            if not errors:
+                return self.async_create_entry(
+                    title="", data={**self._config_entry.options, **values}
+                )
+        schema = vol.Schema({
+            vol.Required(CONF_OPENDEV_ENABLED, default=self._get_entry_value(
+                CONF_OPENDEV_ENABLED, False)): bool,
+            vol.Optional(CONF_OPENDEV_MODEL, default=self._get_entry_value(
+                CONF_OPENDEV_MODEL, "")): str,
+            vol.Optional(CONF_OPENDEV_TOKEN, default=self._get_entry_value(
+                CONF_OPENDEV_TOKEN, "")): selector({"text": {"type": "password"}}),
+        })
+        return self.async_show_form(step_id="opendev", data_schema=schema, errors=errors)
 
     async def async_step_ac_device(self, user_input=None):
         """Choose the SPOT device to configure."""

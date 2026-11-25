@@ -63,7 +63,8 @@
         "menu_options": {
           "user": "Editar ajustes de conexión",
           "ac_device": "Configurar mando de A/C SPOT",
-          "ac_remove": "Eliminar mando de A/C SPOT"
+          "ac_remove": "Eliminar mando de A/C SPOT",
+          "opendev": "Porcentajes de batería mediante OpenDev"
         }
       },
       "user": {
@@ -124,6 +125,15 @@
           "userid": "Correo electrónico/ID de usuario",
           "region": "País/región de la cuenta LifeSmart"
         }
+      },
+      "opendev": {
+        "title": "Porcentajes de batería mediante OpenDev",
+        "description": "Activa primero OpenDev en la central mediante el código QR de tu proveedor. Consulta la batería de sensores de fugas de agua y ambientales cada cinco minutos. Los fallos solo afectan a estas entidades de batería. El modelo identifica el acceso OpenDev, no el hardware de la central.",
+        "data": {
+          "opendev_enabled": "Activar consultas de batería mediante OpenDev",
+          "opendev_model": "Modelo OpenDev",
+          "opendev_token": "Token OpenDev"
+        }
       }
     },
     "abort": {
@@ -133,7 +143,8 @@
     "error": {
       "no_ac_remote_assigned": "El dispositivo SPOT seleccionado no tiene ningún mando de A/C asignado en la app LifeSmart.",
       "no_ac_brands": "La API de LifeSmart no devolvió marcas de A/C.",
-      "no_remote_idxs": "No se encontraron perfiles de mando para la marca de A/C seleccionada."
+      "no_remote_idxs": "No se encontraron perfiles de mando para la marca de A/C seleccionada.",
+      "opendev_credentials_required": "Introduce el modelo y el token OpenDev correspondientes al perfil activado en la central."
     }
   },
   "exceptions": {

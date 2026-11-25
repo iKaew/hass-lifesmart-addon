@@ -17,8 +17,10 @@ from .const import (
     DEVICE_TYPE_KEY,
 )
 from .runtime_data import LifeSmartRuntimeData
+from .opendev import CONF_OPENDEV_TOKEN
 
 TO_REDACT = {
+    CONF_OPENDEV_TOKEN,
     CONF_LIFESMART_APPKEY,
     CONF_LIFESMART_APPTOKEN,
     CONF_LIFESMART_USERID,
@@ -49,4 +51,14 @@ async def async_get_config_entry_diagnostics(
             "excluded_hub_count": len(runtime.exclude_hubs),
         },
         "scenes": {"count": len(runtime.scenes)},
+        "opendev_battery": {
+            "configured": runtime.battery_coordinator is not None,
+            "last_successful_query": getattr(
+                runtime.battery_coordinator, "last_successful_query", None
+            ),
+            "last_update_success": (
+                runtime.battery_coordinator.last_update_success
+                if runtime.battery_coordinator is not None else None
+            ),
+        },
     }

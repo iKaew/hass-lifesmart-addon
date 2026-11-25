@@ -54,6 +54,11 @@ def load_generate_entity_id():
         }:
             code += ast.get_source_segment(src, node) + "\n"
     namespace = const_mod.__dict__.copy()
+    battery_path = ROOT / "custom_components" / "lifesmart" / "battery.py"
+    battery_spec = importlib.util.spec_from_file_location("lifesmart_battery", battery_path)
+    battery_mod = importlib.util.module_from_spec(battery_spec)
+    battery_spec.loader.exec_module(battery_mod)
+    namespace["VOLTAGE_BATTERY_TYPES"] = battery_mod.VOLTAGE_BATTERY_TYPES
     namespace["Platform"] = Platform
     namespace["re"] = re
     exec(code, namespace)

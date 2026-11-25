@@ -22,7 +22,7 @@ def test_diagnostics_redacts_credentials_and_summarizes_devices():
             CONF_LIFESMART_USERPASSWORD: "secret-password",
             "region": "us",
         },
-        options={},
+        options={"opendev_token": "secret-opendev-token"},
         runtime_data=LifeSmartRuntimeData(
             client=None,
             devices=[{"devtype": "SL_SPOT"}, {"devtype": "SL_SPOT"}],

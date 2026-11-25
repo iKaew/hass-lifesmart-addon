@@ -861,6 +861,8 @@ def test_local_discovery_preserves_semantic_device_variant_suffixes():
     assert client._normalize_device_type("SL_P_V1") == "SL_P"
     assert client._normalize_device_type("SL_P_V2") == "SL_P_V2"
     assert client._normalize_device_type("SL_P_IR_V2") == "SL_P_IR_V2"
+    assert client._normalize_device_type("SL_SC_BB_V1") == "SL_SC_BB"
+    assert client._normalize_device_type("SL_SC_BB_V2") == "SL_SC_BB_V2"
 
 
 @pytest.mark.parametrize("fallback_agent", [None, "", "all", "ALL", 7])
