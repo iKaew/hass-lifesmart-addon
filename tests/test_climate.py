@@ -195,8 +195,8 @@ def test_air_climate_initialization_and_properties():
     assert entity.name == "Air"
     assert entity.hvac_mode == HVACMode.COOL
     assert entity.hvac_modes == climate_module.LIFESMART_STATE_LIST
-    assert entity.current_temperature == 22
-    assert entity.target_temperature == 24
+    assert entity.native_current_temperature == 22
+    assert entity.native_target_temperature == 24
     assert entity.min_temp == 10
     assert entity.max_temp == 35
     assert entity.fan_mode == FAN_MEDIUM
@@ -216,8 +216,8 @@ def test_thermostat_initialization_and_properties():
 
     assert entity.hvac_mode == HVACMode.HEAT
     assert entity.hvac_modes == climate_module.LIFESMART_STATE_LIST2
-    assert entity.current_temperature == 19.8
-    assert entity.target_temperature == 21.5
+    assert entity.native_current_temperature == 19.8
+    assert entity.native_target_temperature == 21.5
     assert entity.min_temp == 5
     assert entity.max_temp == 35
     assert entity.fan_mode is None
@@ -241,8 +241,8 @@ def test_async_set_temperature_and_fan_mode_update_state_when_successful():
 
     assert air_device.epset_calls == [("0x88", 250, "tT"), ("0xCE", 75, "F")]
     assert therm_device.epset_calls == [("0x88", 230, "P3")]
-    assert air_entity.target_temperature == 25
-    assert therm_entity.target_temperature == 23
+    assert air_entity.native_target_temperature == 25
+    assert therm_entity.native_target_temperature == 23
     assert air_entity.fan_mode == FAN_HIGH
     assert air_updates == ["scheduled", "scheduled"]
     assert therm_updates == ["scheduled"]
@@ -382,14 +382,14 @@ def test_update_state_handles_air_and_thermostat_events():
     assert air_entity.hvac_mode == HVACMode.DRY
     assert air_entity._last_mode == HVACMode.DRY
     assert air_entity.fan_mode == FAN_HIGH
-    assert air_entity.target_temperature == 26.5
-    assert air_entity.current_temperature == 23
+    assert air_entity.native_target_temperature == 26.5
+    assert air_entity.native_current_temperature == 23
     assert len(air_updates) == 5
 
     assert therm_entity.hvac_mode == HVACMode.OFF
     assert therm_entity._attributes["Heating"] == "true"
-    assert therm_entity.target_temperature == 23
-    assert therm_entity.current_temperature == 21.5
+    assert therm_entity.native_target_temperature == 23
+    assert therm_entity.native_current_temperature == 21.5
     assert len(therm_updates) == 4
 
 

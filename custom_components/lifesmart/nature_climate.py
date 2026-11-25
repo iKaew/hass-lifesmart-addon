@@ -2,7 +2,6 @@
 
 import asyncio
 
-from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
     FAN_HIGH,
     FAN_LOW,
@@ -29,6 +28,7 @@ from .const import (
     NATURE_CLIMATE_KEY,
     is_nature_thermostat,
 )
+from .climate_compat import LifeSmartClimateEntity
 from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
 
 
@@ -57,7 +57,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
     async_add_entities(climate_devices)
 
 
-class LifeSmartNatureClimate(LifeSmartAvailabilityMixin, ClimateEntity):
+class LifeSmartNatureClimate(LifeSmartAvailabilityMixin, LifeSmartClimateEntity):
     """LifeSmart NATURE thermostat climate entity."""
 
     def __init__(self, ha_device, raw_device_data, client):
@@ -143,12 +143,12 @@ class LifeSmartNatureClimate(LifeSmartAvailabilityMixin, ClimateEntity):
         ]
 
     @property
-    def current_temperature(self):
+    def native_current_temperature(self):
         """Return current temperature."""
         return self._current_temperature
 
     @property
-    def target_temperature(self):
+    def native_target_temperature(self):
         """Return target temperature."""
         return self._target_temperature
 
@@ -168,7 +168,7 @@ class LifeSmartNatureClimate(LifeSmartAvailabilityMixin, ClimateEntity):
         return PRECISION_WHOLE
 
     @property
-    def temperature_unit(self):
+    def native_temperature_unit(self):
         """Return the unit of measurement used by the platform."""
         return UnitOfTemperature.CELSIUS
 

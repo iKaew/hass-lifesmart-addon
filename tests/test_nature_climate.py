@@ -86,8 +86,8 @@ def test_nature_properties_and_setters(monkeypatch):
 
     assert entity.hvac_mode == HVACMode.HEAT
     assert entity.hvac_modes == [HVACMode.OFF, HVACMode.AUTO, HVACMode.FAN_ONLY, HVACMode.COOL, HVACMode.HEAT]
-    assert entity.current_temperature == 21.5
-    assert entity.target_temperature == 23
+    assert entity.native_current_temperature == 21.5
+    assert entity.native_target_temperature == 23
     assert entity.fan_mode == "auto"
     assert entity.fan_modes == [FAN_LOW, FAN_MEDIUM, FAN_HIGH, "auto", "off"]
     assert entity.supported_features == (ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.FAN_MODE)
@@ -126,8 +126,8 @@ def test_nature_hvac_from_off_update_state_and_helpers(monkeypatch):
     assert device.calls == [("0x81", 1, "P1"), ("0xCF", 1, "P7")]
     assert sleep_calls == [1]
     assert entity.hvac_mode == HVACMode.FAN_ONLY
-    assert entity.current_temperature == 21
-    assert entity.target_temperature == 22.5
+    assert entity.native_current_temperature == 21
+    assert entity.native_target_temperature == 22.5
     assert entity.fan_mode == "off"
     assert len(updates) == 7
     assert nature_module._get_fan_mode(None) is None

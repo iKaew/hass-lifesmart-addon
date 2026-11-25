@@ -3,7 +3,6 @@
 import asyncio
 import logging
 
-from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
     FAN_HIGH,
     FAN_LOW,
@@ -36,6 +35,7 @@ from .const import (
     MANUFACTURER,
     THERMOSTAT_TYPES,
 )
+from .climate_compat import LifeSmartClimateEntity
 from .runtime_data import get_runtime_data
 from .nature_climate import async_setup_entry as async_setup_nature_entry
 from .spotac_climate import async_setup_entry as async_setup_spotac_entry
@@ -119,7 +119,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     async_add_entities(devices)
 
 
-class LifeSmartClimateDevice(LifeSmartDevice, ClimateEntity):
+class LifeSmartClimateDevice(LifeSmartDevice, LifeSmartClimateEntity):
     """LifeSmart climate devices,include air conditioner,heater."""
 
     def __init__(self, ha_device, raw_device_data, client):
@@ -215,12 +215,12 @@ class LifeSmartClimateDevice(LifeSmartDevice, ClimateEntity):
         return self._modes
 
     @property
-    def current_temperature(self):
+    def native_current_temperature(self):
         """Return current temperature."""
         return self._current_temperature
 
     @property
-    def target_temperature(self):
+    def native_target_temperature(self):
         """Return target temperature."""
         return self._target_temperature
 
@@ -240,7 +240,7 @@ class LifeSmartClimateDevice(LifeSmartDevice, ClimateEntity):
         return PRECISION_WHOLE
 
     @property
-    def temperature_unit(self):
+    def native_temperature_unit(self):
         """Return the unit of measurement used by the platform."""
         return UnitOfTemperature.CELSIUS
 
