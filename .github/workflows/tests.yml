@@ -14,6 +14,10 @@ permissions:
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        home-assistant: [minimum, pinned]
 
     steps:
       - uses: actions/checkout@v4
@@ -22,10 +26,34 @@ jobs:
         with:
           python-version-file: .python-version
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: |
+            requirements.txt
+            hacs.json
 
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
+        env:
+          HA_TEST_VERSION: ${{ matrix.home-assistant }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import re
+
+          requirements = Path("requirements.txt").read_text()
+          if os.environ["HA_TEST_VERSION"] == "minimum":
+              minimum = json.loads(Path("hacs.json").read_text())["homeassistant"]
+              requirements, count = re.subn(
+                  r"^homeassistant==[^\n]+$",
+                  f"homeassistant=={minimum}",
+                  requirements,
+                  flags=re.MULTILINE,
+              )
+              if count != 1:
+                  raise SystemExit("Expected exactly one Home Assistant version pin")
+          Path(os.environ["RUNNER_TEMP"], "requirements-test.txt").write_text(requirements)
+          PY
+          python -m pip install -r "$RUNNER_TEMP/requirements-test.txt"
 
       - name: Run Ruff
         run: python -m ruff check . --config .ruff.toml
@@ -37,3 +65,4 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: ha-${{ matrix.home-assistant }}

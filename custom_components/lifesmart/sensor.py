@@ -3,6 +3,7 @@
 import logging
 import struct
 
+from homeassistant import const as ha_const
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import (
     LIGHT_LUX,
@@ -11,8 +12,6 @@ from homeassistant.const import (
     UnitOfEnergy,
     UnitOfFrequency,
     UnitOfPower,
-    UnitOfDensity,
-    UnitOfRatio,
     UnitOfSoundPressure,
     UnitOfTemperature,
     UnitOfTime,
@@ -64,14 +63,29 @@ from .runtime_data import LifeSmartAvailabilityMixin, get_runtime_data
 from .battery import VOLTAGE_BATTERY_TYPES, battery_percentage
 from .hub import HUB_STATE_NAMES, get_hub_coordinator
 
-CONCENTRATION_MICROGRAMS_PER_CUBIC_METER = (
-    UnitOfDensity.MICROGRAMS_PER_CUBIC_METER
-)
-CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER = (
-    UnitOfDensity.MILLIGRAMS_PER_CUBIC_METER
-)
-CONCENTRATION_PARTS_PER_MILLION = UnitOfRatio.PARTS_PER_MILLION
-PERCENTAGE = UnitOfRatio.PERCENTAGE
+# HA 2026.6 uses constants instead of these unit enums. Only access the old
+# names on older cores so newer installations do not emit deprecation warnings.
+if hasattr(ha_const, "UnitOfDensity"):
+    CONCENTRATION_MICROGRAMS_PER_CUBIC_METER = (
+        ha_const.UnitOfDensity.MICROGRAMS_PER_CUBIC_METER
+    )
+    CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER = (
+        ha_const.UnitOfDensity.MILLIGRAMS_PER_CUBIC_METER
+    )
+else:
+    CONCENTRATION_MICROGRAMS_PER_CUBIC_METER = (
+        ha_const.CONCENTRATION_MICROGRAMS_PER_CUBIC_METER
+    )
+    CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER = (
+        ha_const.CONCENTRATION_MILLIGRAMS_PER_CUBIC_METER
+    )
+
+if hasattr(ha_const, "UnitOfRatio"):
+    CONCENTRATION_PARTS_PER_MILLION = ha_const.UnitOfRatio.PARTS_PER_MILLION
+    PERCENTAGE = ha_const.UnitOfRatio.PERCENTAGE
+else:
+    CONCENTRATION_PARTS_PER_MILLION = ha_const.CONCENTRATION_PARTS_PER_MILLION
+    PERCENTAGE = ha_const.PERCENTAGE
 
 _LOGGER = logging.getLogger(__name__)
 

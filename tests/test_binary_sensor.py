@@ -218,7 +218,10 @@ def test_binary_sensor_name_device_info_unique_id_and_attrs():
     assert sensor.device_info["manufacturer"] == binary_sensor_module.MANUFACTURER
     assert sensor.device_info["model"] == "SL_SC_G"
     assert sensor.device_info["sw_version"] == "1.0"
-    assert sensor.device_info["via_device_id"] == "hub-device-registry-id"
+    if "via_device_id" in binary_sensor_module.DeviceInfo.__annotations__:
+        assert sensor.device_info["via_device_id"] == "hub-device-registry-id"
+    else:
+        assert sensor.device_info["via_device"] == (binary_sensor_module.DOMAIN, "HUB1")
 
 
 def test_update_state_handles_none_regular_updates_and_lock_events():
